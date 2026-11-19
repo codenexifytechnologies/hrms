@@ -1,0 +1,34 @@
+@model Codenexify.HRMS.Application.Payroll.StructureInput
+@using Codenexify.HRMS.Domain.Payroll
+@{
+    var id = ViewBag.Id as int?;
+    ViewData["Title"] = id is null ? "Add salary structure" : $"Edit {Model.Name}";
+    var components = ((IReadOnlyList<SalaryComponent>)ViewBag.Components).ToDictionary(c => c.Id);
+}
+<div class="page-head"><div><h1>@ViewData["Title"]</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/payroll/structures">Salary structures</a></li><li class="breadcrumb-item active">Structure</li></ol></nav></div></div>
+<div class="card" style="max-width: 900px"><div class="card-body">
+    <form method="post" action="/org/payroll/structure/@id" asp-antiforgery="true" novalidate>
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-6"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name"></span></div>
+            <div class="col-md-6 d-flex align-items-end"><div class="form-check form-switch"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div></div>
+            <div class="col-12"><label asp-for="Description" class="form-label"></label><input asp-for="Description" class="form-control" /></div>
+        </div>
+        <table class="table align-middle">
+            <thead><tr><th>Include</th><th>Component</th><th>Calculation</th><th style="width:160px">Value</th></tr></thead>
+            <tbody>@for (var i = 0; i < Model.Lines.Count; i++)
+            {
+                var c = components.GetValueOrDefault(Model.Lines[i].ComponentId);
+                <tr>
+                    <td><input type="hidden" asp-for="Lines[i].ComponentId" /><input asp-for="Lines[i].Included" class="form-check-input" aria-label="Include" /></td>
+                    <td>@c?.Name <span class="small text-muted">@c?.Type@(c?.IsBasic == true ? " · basic" : "")</span></td>
+                    <td><select asp-for="Lines[i].Calculation" asp-items="Html.GetEnumSelectList<ComponentCalculation>()" class="form-select form-select-sm"></select></td>
+                    <td><input asp-for="Lines[i].Value" class="form-control form-control-sm" step="0.01" /></td>
+                </tr>
+            }</tbody>
+        </table>
+        <p class="small text-muted">Fixed amounts are monthly. Percentages apply to the monthly gross or to basic. Exactly one earning should be the balancing amount so the structure always adds up to the gross.</p>
+        <div class="d-flex justify-content-end gap-2"><a href="/org/payroll/structures" class="btn btn-light border">Cancel</a><button class="btn btn-accent" type="submit">Save structure</button></div>
+    </form>
+</div></div>

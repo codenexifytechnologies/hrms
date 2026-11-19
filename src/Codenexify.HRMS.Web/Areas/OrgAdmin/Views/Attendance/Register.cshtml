@@ -1,0 +1,41 @@
+@model AttendanceRegister
+@{
+    ViewData["Title"] = "Attendance register";
+    var first = new DateOnly(Model.Year, Model.Month, 1);
+    var prev = first.AddMonths(-1);
+    var next = first.AddMonths(1);
+    var today = (DateOnly)ViewBag.Today;
+    var departments = (IReadOnlyList<LookupItem>)ViewBag.Departments;
+    var dept = ViewBag.DepartmentId as int?;
+    string Cell(AttendanceStatus s) => s switch { AttendanceStatus.Present => "bg-success-subtle", AttendanceStatus.Absent => "bg-danger-subtle", AttendanceStatus.HalfDay => "bg-warning-subtle", AttendanceStatus.Leave or AttendanceStatus.HalfDayLeave => "bg-info-subtle", _ => "text-muted" };
+}
+<div class="page-head">
+    <div><h1>Attendance register</h1><div class="text-muted small">@first.ToString("MMMM yyyy") · P present, HD half day, A absent, L leave, HL half-day leave, H holiday, WO weekly off</div></div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-light border" href="/org/attendance/register?year=@prev.Year&month=@prev.Month&departmentId=@dept" aria-label="Previous month"><i class="bi bi-chevron-left"></i></a>
+        <a class="btn btn-light border @(next > today ? "disabled" : "")" href="/org/attendance/register?year=@next.Year&month=@next.Month&departmentId=@dept" aria-label="Next month"><i class="bi bi-chevron-right"></i></a>
+        <form method="get" class="d-flex gap-2"><input type="hidden" name="year" value="@Model.Year" /><input type="hidden" name="month" value="@Model.Month" />
+            <select name="departmentId" class="form-select" data-autosubmit aria-label="Department"><option value="">All departments</option>@foreach (var d in departments) { <option value="@d.Id" selected="@(dept == d.Id)">@d.Name</option> }</select></form>
+        <a class="btn btn-accent" href="/org/attendance/export?year=@Model.Year&month=@Model.Month&departmentId=@dept"><i class="bi bi-file-earmark-excel me-1"></i>Export</a>
+    </div>
+</div>
+<div class="card">
+    @if (Model.Rows.Count == 0) { <div class="empty-state"><i class="bi bi-calendar3"></i>No attendance for this month.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-sm table-bordered small mb-0 text-center align-middle">
+            <thead><tr><th class="text-start" style="min-width:180px">Employee</th>
+                @foreach (var d in Model.Dates) { <th class="@(d.DayOfWeek == DayOfWeek.Sunday ? "text-danger" : "")" title="@d.ToString("ddd dd MMM")">@d.Day<div class="fw-normal">@d.ToString("ddd")[..1]</div></th> }
+                <th>P</th><th>A</th><th>L</th><th>Late</th><th>OT h</th></tr></thead>
+            <tbody>@foreach (var r in Model.Rows)
+            {
+                <tr><td class="text-start text-nowrap"><a href="/org/employees/details/@r.EmployeeId">@r.Name</a><div class="text-muted">@r.Code</div></td>
+                    @foreach (var d in Model.Dates)
+                    {
+                        if (r.Days.TryGetValue(d, out var st)) { <td class="@Cell(st)">@AttendanceService.Code(st)</td> } else { <td></td> }
+                    }
+                    <td class="fw-semibold">@r.Present.ToString("0.#")</td><td>@r.Absent.ToString("0.#")</td><td>@r.Leave.ToString("0.#")</td><td>@r.LateDays</td><td>@((r.OvertimeMinutes / 60.0).ToString("0.#"))</td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>

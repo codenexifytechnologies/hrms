@@ -1,0 +1,44 @@
+@model Codenexify.HRMS.Application.Performance.PipInput
+@using Codenexify.HRMS.Application.CoreHr
+@using Codenexify.HRMS.Application.Performance
+@{
+    var id = ViewBag.Id as int?;
+    ViewData["Title"] = id is null ? "New improvement plan" : "Edit draft plan";
+    var people = ViewBag.People as IReadOnlyList<LookupItem>;
+}
+<div class="page-head"><div><h1>@ViewData["Title"]</h1><div class="text-muted small"><a href="/me/pips">Improvement plans</a>@(ViewBag.EmployeeName is string n ? $" / {n}" : "")</div></div></div>
+
+<form method="post" action="@(id is null ? "/me/pips/new" : $"/me/pips/{id}/edit")" asp-antiforgery="true" novalidate style="max-width: 900px">
+    <div asp-validation-summary="All" class="alert alert-danger py-2 small"></div>
+    <div class="alert alert-info small"><i class="bi bi-info-circle me-1"></i>Describe concerns factually, with examples. A plan is a draft until HR starts it; only then does the employee see it.
+        It should run @IPipService.MinDays–@IPipService.MaxDays days with clear, measurable objectives.</div>
+    <div class="card mb-3"><div class="card-body row g-3">
+        @if (id is null)
+        {
+            <div class="col-md-6"><label class="form-label" for="pl-emp">Employee</label>
+                <select class="form-select" id="pl-emp" name="plan.EmployeeId" required><option value="">Choose…</option>
+                    @foreach (var p in people ?? []) { <option value="@p.Id" selected="@(Model.EmployeeId == p.Id)">@p.Name</option> }</select></div>
+        }
+        else { <input type="hidden" name="plan.EmployeeId" value="@Model.EmployeeId" /> }
+        <div class="col-6 col-md-3"><label class="form-label" for="pl-start">Starts</label><input class="form-control" id="pl-start" type="date" name="plan.StartsOn" value="@Model.StartsOn.ToString("yyyy-MM-dd")" required /></div>
+        <div class="col-6 col-md-3"><label class="form-label" for="pl-end">Ends</label><input class="form-control" id="pl-end" type="date" name="plan.EndsOn" value="@Model.EndsOn.ToString("yyyy-MM-dd")" required /></div>
+        <div class="col-12"><label class="form-label" for="pl-concerns">Performance concerns (facts and examples)</label>
+            <textarea class="form-control" id="pl-concerns" name="plan.Concerns" rows="5" minlength="30" maxlength="4000" required>@Model.Concerns</textarea></div>
+        <div class="col-12"><label class="form-label" for="pl-support">Support the company will give</label>
+            <textarea class="form-control" id="pl-support" name="plan.Support" rows="2" maxlength="2000" placeholder="Coaching, training, regular check-ins, tools">@Model.Support</textarea></div>
+    </div></div>
+    <div class="card mb-3"><div class="card-header">Objectives</div><div class="card-body">
+        @for (var i = 0; i < Model.Objectives.Count; i++)
+        {
+            <div class="row g-2 mb-2">
+                <div class="col-md-6"><input class="form-control" name="plan.Objectives[@i].Description" value="@Model.Objectives[i].Description" maxlength="1000" placeholder="Objective @(i + 1)" aria-label="Objective @(i + 1)" /></div>
+                <div class="col-md-6"><input class="form-control" name="plan.Objectives[@i].Measure" value="@Model.Objectives[i].Measure" maxlength="1000" placeholder="How success is measured" aria-label="Measure for objective @(i + 1)" /></div>
+            </div>
+        }
+        <div class="form-text">Leave a row empty to skip it. Up to 10 objectives (save the draft to get more rows).</div>
+    </div></div>
+    <div class="d-flex justify-content-end gap-2">
+        <a class="btn btn-light border" href="@(id is null ? "/me/pips" : $"/me/pips/{id}")">Cancel</a>
+        <button class="btn btn-accent" type="submit">Save draft</button>
+    </div>
+</form>

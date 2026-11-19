@@ -1,0 +1,49 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Performance.ReviewRow>
+@using Codenexify.HRMS.Application.Performance
+@using Codenexify.HRMS.Domain.Performance
+@using Codenexify.HRMS.Web
+@{
+    ViewData["Title"] = "Reviews";
+    var toWrite = (IReadOnlyList<ReviewRow>)ViewBag.ToWrite;
+    var pending = toWrite.Count(r => r.Status is ReviewStatus.SelfReview or ReviewStatus.ManagerReview);
+}
+<div class="page-head"><div><h1>Reviews</h1><div class="text-muted small">Your performance reviews@(toWrite.Count > 0 ? " and the reviews you write for your team" : "")</div></div></div>
+
+@if (toWrite.Count > 0)
+{
+    <div class="card mb-3">
+        <div class="card-header">Team reviews to write @if (pending > 0) { <span class="badge rounded-pill text-bg-danger ms-1">@pending</span> }</div>
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+            <thead><tr><th>Employee</th><th>Cycle</th><th>Due</th><th>Status</th></tr></thead>
+            <tbody>@foreach (var r in toWrite)
+            {
+                <tr><td><a class="fw-semibold" href="/me/reviews/@r.Id">@r.EmployeeName</a></td><td class="small">@r.CycleName</td>
+                    <td class="small">@r.ManagerDue.ToString("dd MMM yyyy")</td><td><span class="badge @GoalUi.Css(r.Status)">@GoalUi.Label(r.Status)</span></td></tr>
+            }</tbody>
+        </table></div>
+    </div>
+}
+
+<div class="card">
+    <div class="card-header">My reviews</div>
+    @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-clipboard-data"></i>You have no reviews yet. HR will open one when a review cycle starts.</div> }
+    else
+    {
+        <div class="list-group list-group-flush">
+            @foreach (var r in Model)
+            {
+                var action = r.Status switch
+                {
+                    ReviewStatus.SelfReview => $"Complete your self-review by {r.SelfDue:dd MMM yyyy}",
+                    ReviewStatus.Released => "Results are ready: read and acknowledge",
+                    ReviewStatus.Acknowledged => "Completed",
+                    _ => "With your manager"
+                };
+                <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="/me/reviews/@r.Id">
+                    <div><div class="fw-semibold">@r.CycleName</div><div class="small text-muted">@action</div></div>
+                    <span class="badge @GoalUi.Css(r.Status)">@GoalUi.Label(r.Status)</span>
+                </a>
+            }
+        </div>
+    }
+</div>

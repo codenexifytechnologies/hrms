@@ -1,0 +1,50 @@
+@model Codenexify.HRMS.Application.Payroll.ExpenseClaimView
+@using Codenexify.HRMS.Domain.Payroll
+@{
+    var c = Model.Claim;
+    ViewData["Title"] = c.Title;
+    ViewData["ReceiptBase"] = "/org/expenses/receipt";
+    var awaiting = c.Status is ExpenseStatus.Submitted or ExpenseStatus.ManagerApproved;
+}
+<div class="page-head"><div><h1 class="h3">@c.Title</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/expenses">Expense claims</a></li><li class="breadcrumb-item active">Claim #@c.Id</li></ol></nav></div></div>
+@if (c.Status == ExpenseStatus.Submitted && Model.ManagerUserId is not null)
+{
+    <div class="alert alert-info small"><i class="bi bi-info-circle me-1"></i>The reporting manager hasn't reviewed this yet. You can still decide it.</div>
+}
+<partial name="_ExpenseClaim" model="Model" view-data="ViewData" />
+@if (awaiting)
+{
+    <div class="row g-3" style="max-width: 980px">
+        <div class="col-md-7"><div class="card h-100"><div class="card-header">Approve</div><div class="card-body">
+            <form method="post" action="/org/expenses/@c.Id/approve" asp-antiforgery="true" class="row g-2">
+                <div class="col-12">
+                    <div class="form-check"><input class="form-check-input" type="radio" name="payout" id="pp" value="@ExpensePayout.Payroll" checked /><label class="form-check-label" for="pp">Reimburse with the next payroll <span class="text-muted small">(non-taxable, on the payslip)</span></label></div>
+                    <div class="form-check"><input class="form-check-input" type="radio" name="payout" id="pd" value="@ExpensePayout.Direct" /><label class="form-check-label" for="pd">Pay directly <span class="text-muted small">(mark paid after the transfer)</span></label></div>
+                </div>
+                <div class="col-12"><label class="form-label small" for="an">Note (optional)</label><input id="an" name="notes" maxlength="500" class="form-control" /></div>
+                <div class="col-12 text-end"><button class="btn btn-accent" type="submit"><i class="bi bi-check2 me-1"></i>Approve ₹@c.Total.ToString("N0")</button></div>
+            </form>
+        </div></div></div>
+        <div class="col-md-5"><div class="card h-100"><div class="card-header">Reject</div><div class="card-body">
+            <form method="post" action="/org/expenses/@c.Id/reject" asp-antiforgery="true" class="row g-2">
+                <div class="col-12"><label class="form-label small" for="rn">Reason</label><input id="rn" name="notes" maxlength="500" class="form-control" required /></div>
+                <div class="col-12 text-end"><button class="btn btn-outline-danger" type="submit">Reject</button></div>
+            </form>
+        </div></div></div>
+    </div>
+}
+else if (c.Status == ExpenseStatus.Approved && c.Payout == ExpensePayout.Direct)
+{
+    <div class="card" style="max-width: 760px"><div class="card-header">Record payment</div><div class="card-body">
+        <form method="post" action="/org/expenses/@c.Id/paid" asp-antiforgery="true" class="row g-2 align-items-end">
+            <div class="col-md-4"><label class="form-label small" for="po">Paid on</label><input id="po" name="paidOn" type="date" value="@DateTime.Today.ToString("yyyy-MM-dd")" max="@DateTime.Today.ToString("yyyy-MM-dd")" class="form-control" required /></div>
+            <div class="col-md-5"><label class="form-label small" for="pr">Reference (UTR)</label><input id="pr" name="reference" maxlength="100" class="form-control" required /></div>
+            <div class="col-md-3"><button class="btn btn-accent w-100" type="submit">Mark paid</button></div>
+        </form>
+    </div></div>
+}
+else if (c.Status == ExpenseStatus.Approved)
+{
+    <div class="alert alert-info small"><i class="bi bi-cash-coin me-1"></i>Waiting for the next payroll. It becomes <strong>Paid</strong> when that payroll is finalized (see Payroll → One-time items).</div>
+}

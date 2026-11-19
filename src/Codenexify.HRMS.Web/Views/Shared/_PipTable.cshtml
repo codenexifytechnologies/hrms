@@ -1,0 +1,22 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Performance.PipRow>
+@using Codenexify.HRMS.Web
+@if (Model.Count == 0)
+{
+    <div class="empty-state"><i class="bi bi-clipboard2-pulse"></i>No improvement plans here.</div>
+}
+else
+{
+    <div class="table-responsive"><table class="table table-hover align-middle mb-0">
+        <thead><tr><th>Employee</th><th>Manager</th><th>Period</th><th>Objectives met</th><th>Status</th></tr></thead>
+        <tbody>@foreach (var p in Model)
+        {
+            <tr>
+                <td><a class="fw-semibold" href="/me/pips/@p.Id">@p.EmployeeName</a> <span class="small text-muted">@p.EmployeeCode</span></td>
+                <td class="small">@(p.ManagerName ?? "—")</td>
+                <td class="small">@p.StartsOn.ToString("dd MMM") – @p.EndsOn.ToString("dd MMM yyyy")</td>
+                <td class="small">@p.Met of @p.Objectives</td>
+                <td><span class="badge @GoalUi.Css(p.Status)">@GoalUi.Label(p.Status)</span></td>
+            </tr>
+        }</tbody>
+    </table></div>
+}

@@ -1,0 +1,41 @@
+@model Codenexify.HRMS.Application.Strength.OnboardingTemplateInput
+@using Codenexify.HRMS.Application.Strength
+@using Codenexify.HRMS.Domain.Strength
+@{
+    var id = ViewBag.Id as int?;
+    ViewData["Title"] = id is null ? "New onboarding template" : Model.Name;
+    var tasks = Model.Tasks.ToList();
+    var slots = Math.Min(40, Math.Max(10, tasks.Count + 4));
+    while (tasks.Count < slots) tasks.Add(new OnboardingTaskInput());
+}
+<div class="page-head"><div><h1>@ViewData["Title"]</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/onboarding">Onboarding</a></li><li class="breadcrumb-item"><a href="/org/onboarding/templates">Templates</a></li><li class="breadcrumb-item active">@(id is null ? "New" : "Edit")</li></ol></nav></div></div>
+<form method="post" action="/org/onboarding/templates/edit/@id" asp-antiforgery="true" novalidate>
+    <div asp-validation-summary="All" class="alert alert-danger py-2 small"></div>
+    <div class="row g-3">
+        <div class="col-lg-4"><div class="card"><div class="card-body">
+            <div class="mb-2"><label asp-for="Name" class="form-label small"></label><input asp-for="Name" class="form-control" placeholder="e.g. Engineering joiner" /></div>
+            <div class="mb-2"><label asp-for="Description" class="form-label small"></label><textarea asp-for="Description" rows="2" class="form-control"></textarea></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="tia" name="IsActive" value="true" checked="@Model.IsActive" /><input type="hidden" name="IsActive" value="false" /><label class="form-check-label" for="tia">Active</label></div>
+            <p class="small text-muted mt-3 mb-0">“Days” are counted from the joining date: −2 means two days before day one, 30 means a month after. Editing a template doesn't change onboarding already started.</p>
+        </div></div></div>
+        <div class="col-lg-8"><div class="card"><div class="card-header">Tasks</div><div class="card-body">
+            <div class="row g-2 small text-muted d-none d-md-flex mb-1"><div class="col-md-5">Task</div><div class="col-md-3">For</div><div class="col-md-2">Days</div></div>
+            @for (var i = 0; i < tasks.Count; i++)
+            {
+                var t = tasks[i];
+                <div class="row g-2 mb-2">
+                    <div class="col-md-5"><label class="visually-hidden" for="tt@(i)">Task @(i + 1)</label><input id="tt@(i)" name="Tasks[@(i)].Title" value="@t.Title" maxlength="200" class="form-control form-control-sm" /></div>
+                    <div class="col-md-3"><label class="visually-hidden" for="ta@(i)">For @(i + 1)</label>
+                        <select id="ta@(i)" name="Tasks[@(i)].Assignee" class="form-select form-select-sm">
+                            @foreach (var (v, label) in new[] { (OnboardingAssignee.Hr, "HR"), (OnboardingAssignee.Manager, "Manager"), (OnboardingAssignee.Buddy, "Buddy"), (OnboardingAssignee.Employee, "New joiner") })
+                            { <option value="@v" selected="@(t.Assignee == v)">@label</option> }
+                        </select></div>
+                    <div class="col-md-2"><label class="visually-hidden" for="td@(i)">Days @(i + 1)</label><input id="td@(i)" name="Tasks[@(i)].DueOffsetDays" type="number" min="-60" max="180" value="@t.DueOffsetDays" class="form-control form-control-sm" /></div>
+                    <div class="col-md-2"><label class="visually-hidden" for="tn@(i)">Details @(i + 1)</label><input id="tn@(i)" name="Tasks[@(i)].Description" value="@t.Description" maxlength="1000" class="form-control form-control-sm" placeholder="Details" /></div>
+                </div>
+            }
+            <div class="text-end"><button class="btn btn-accent" type="submit">Save template</button></div>
+        </div></div></div>
+    </div>
+</form>

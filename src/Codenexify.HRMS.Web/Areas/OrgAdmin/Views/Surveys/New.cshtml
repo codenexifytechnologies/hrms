@@ -1,0 +1,69 @@
+@model Codenexify.HRMS.Application.Strength.SurveyInput
+@using Codenexify.HRMS.Application.Strength
+@using Codenexify.HRMS.Domain.Strength
+@{
+    ViewData["Title"] = "New survey";
+    var departments = (IReadOnlyList<Codenexify.HRMS.Application.CoreHr.LookupItem>)ViewBag.Departments;
+    var exit = (bool)ViewBag.Exit;
+    var questions = Model.Questions.ToList();
+    if (questions.Count == 0)
+    {
+        questions.Add(new SurveyQuestionInput { Text = "How happy are you at work this week?", Type = QuestionType.Rating });
+        questions.Add(new SurveyQuestionInput { Text = "How likely are you to recommend us as a place to work?", Type = QuestionType.Enps });
+        questions.Add(new SurveyQuestionInput { Text = "What one thing would make your work better?", Type = QuestionType.Text, Required = false });
+    }
+    var slots = Math.Min(20, Math.Max(8, questions.Count + 3));
+    while (questions.Count < slots) questions.Add(new SurveyQuestionInput { Required = false });
+}
+<div class="page-head"><div><h1>New survey</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/surveys">Surveys</a></li><li class="breadcrumb-item active">New</li></ol></nav></div></div>
+<form method="post" action="/org/surveys/new" asp-antiforgery="true" novalidate>
+    <div asp-validation-summary="All" class="alert alert-danger py-2 small"></div>
+    <div class="row g-3">
+        <div class="col-lg-4">
+            <div class="card"><div class="card-header">Settings</div><div class="card-body">
+                <div class="mb-2"><label asp-for="Title" class="form-label small"></label><input asp-for="Title" name="Title" class="form-control" placeholder="e.g. November pulse" /></div>
+                <div class="mb-2"><label asp-for="Description" class="form-label small"></label><textarea asp-for="Description" name="Description" rows="2" class="form-control" placeholder="Why you're asking, shown to employees"></textarea></div>
+                <div class="mb-2"><label class="form-label small" for="sk">Kind</label>
+                    <select id="sk" name="Kind" class="form-select">
+                        <option value="Pulse" selected="@(Model.Kind == SurveyKind.Pulse)">Pulse (short, frequent)</option>
+                        <option value="Survey" selected="@(Model.Kind == SurveyKind.Survey)">Engagement survey</option>
+                        @if (exit) { <option value="Exit" selected="@(Model.Kind == SurveyKind.Exit)">Exit survey (employees leaving)</option> }
+                    </select></div>
+                <div class="mb-2"><label class="form-label small" for="sd">Department (blank = everyone)</label>
+                    <select id="sd" name="DepartmentId" class="form-select"><option value="">Everyone</option>@foreach (var d in departments) { <option value="@d.Id" selected="@(Model.DepartmentId == d.Id)">@d.Name</option> }</select>
+                    <div class="form-text">Ignored for exit surveys.</div></div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6"><label class="form-label small" for="sdays">Open for (days)</label><input id="sdays" name="Days" type="number" min="1" max="60" value="@Model.Days" class="form-control" /></div>
+                    <div class="col-6"><label class="form-label small" for="smin">Min. responses</label><input id="smin" name="MinResponses" type="number" min="3" max="50" value="@Model.MinResponses" class="form-control" /></div>
+                </div>
+                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="sa" name="IsAnonymous" value="true" checked="@Model.IsAnonymous" /><input type="hidden" name="IsAnonymous" value="false" />
+                    <label class="form-check-label" for="sa">Anonymous</label></div>
+                <p class="small text-muted mt-2 mb-0">Anonymous answers are stored with no link to who answered, only the date. Results stay hidden until the minimum number of responses is reached.</p>
+            </div></div>
+        </div>
+        <div class="col-lg-8">
+            <div class="card"><div class="card-header">Questions</div><div class="card-body">
+                <p class="small text-muted">Fill the rows you need (up to 20). Rating is 1–5; eNPS is 0–10. For multiple choice, put one option per line.</p>
+                @for (var i = 0; i < questions.Count; i++)
+                {
+                    var q = questions[i];
+                    <div class="row g-2 align-items-start border-bottom pb-2 mb-2">
+                        <div class="col-md-6"><label class="visually-hidden" for="qt@(i)">Question @(i + 1)</label><input id="qt@(i)" name="Questions[@(i)].Text" value="@q.Text" maxlength="300" class="form-control form-control-sm" placeholder="Question @(i + 1)" /></div>
+                        <div class="col-md-3"><label class="visually-hidden" for="qy@(i)">Type @(i + 1)</label>
+                            <select id="qy@(i)" name="Questions[@(i)].Type" class="form-select form-select-sm">
+                                <option value="Rating" selected="@(q.Type == QuestionType.Rating)">Rating 1–5</option>
+                                <option value="Enps" selected="@(q.Type == QuestionType.Enps)">eNPS 0–10</option>
+                                <option value="Choice" selected="@(q.Type == QuestionType.Choice)">Multiple choice</option>
+                                <option value="Text" selected="@(q.Type == QuestionType.Text)">Free text</option>
+                            </select></div>
+                        <div class="col-md-3"><div class="form-check mt-1"><input class="form-check-input" type="checkbox" id="qr@(i)" name="Questions[@(i)].Required" value="true" checked="@q.Required" /><input type="hidden" name="Questions[@(i)].Required" value="false" />
+                            <label class="form-check-label small" for="qr@(i)">Required</label></div></div>
+                        <div class="col-12"><label class="visually-hidden" for="qo@(i)">Choices for question @(i + 1)</label><textarea id="qo@(i)" name="Questions[@(i)].Options" rows="1" maxlength="1000" class="form-control form-control-sm" placeholder="Choices (multiple choice only), one per line">@q.Options</textarea></div>
+                    </div>
+                }
+                <div class="text-end"><button class="btn btn-accent" type="submit">Save draft</button></div>
+            </div></div>
+        </div>
+    </div>
+</form>

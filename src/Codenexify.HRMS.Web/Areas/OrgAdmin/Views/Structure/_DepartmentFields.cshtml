@@ -1,0 +1,17 @@
+@model DepartmentInput
+@{
+    var departments = (IEnumerable<DepartmentRow>)ViewBag.Departments;
+    var managers = (IEnumerable<LookupItem>)ViewBag.Managers;
+}
+<div class="row g-3">
+    <div class="col-md-8"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name"></span></div>
+    <div class="col-md-4"><label asp-for="Code" class="form-label"></label><input asp-for="Code" class="form-control" /></div>
+    <div class="col-12"><label asp-for="ParentDepartmentId" class="form-label"></label>
+        <select asp-for="ParentDepartmentId" class="form-select"><option value="">None (top level)</option>
+            @foreach (var d in departments) { <option value="@d.Id" selected="@(d.Id == Model.ParentDepartmentId)">@d.Name</option> }</select></div>
+    <div class="col-12"><label asp-for="HeadEmployeeId" class="form-label"></label>
+        <select asp-for="HeadEmployeeId" class="form-select"><option value="">Not assigned</option>
+            @foreach (var m in managers) { <option value="@m.Id" selected="@(m.Id == Model.HeadEmployeeId)">@m.Name</option> }</select></div>
+    <div class="col-12"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="2"></textarea></div>
+    <div class="col-12"><div class="form-check form-switch"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div></div>
+</div>

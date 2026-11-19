@@ -1,0 +1,10 @@
+@{
+    var path = Context.Request.Path.Value ?? "";
+    string Active(string p) => path.Equals(p, StringComparison.OrdinalIgnoreCase) || (p != "/org/letters" && path.StartsWith(p, StringComparison.OrdinalIgnoreCase)) ? "btn-accent" : "btn-light border";
+}
+<div class="d-flex flex-wrap gap-2 mb-3" role="navigation" aria-label="Letters">
+    <a class="btn btn-sm @Active("/org/letters")" href="/org/letters"><i class="bi bi-journal-text me-1"></i>Issued letters</a>
+    <a class="btn btn-sm @Active("/org/letters/templates")" href="/org/letters/templates"><i class="bi bi-file-earmark-text me-1"></i>Templates</a>
+    <a class="btn btn-sm @Active("/org/letters/issue")" href="/org/letters/issue"><i class="bi bi-envelope-paper me-1"></i>Issue a letter</a>
+    @if (ViewBag.ESign is true) { <a class="btn btn-sm @Active("/org/letters/signatures")" href="/org/letters/signatures"><i class="bi bi-pen me-1"></i>E-signatures</a> }
+</div>

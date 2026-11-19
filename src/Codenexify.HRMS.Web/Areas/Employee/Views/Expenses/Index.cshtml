@@ -1,0 +1,84 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Payroll.ExpenseClaimRow>
+@using Codenexify.HRMS.Application.Payroll
+@using Codenexify.HRMS.Domain.Payroll
+@{
+    ViewData["Title"] = "Expenses";
+    var categories = (IReadOnlyList<ExpenseCategoryRow>)ViewBag.Categories;
+    var toReview = (IReadOnlyList<ExpenseClaimRow>)ViewBag.ToReview;
+    var rows = (int)ViewBag.Rows;
+    var hasEmployee = (bool)ViewBag.HasEmployee;
+    var today = DateTime.Today.ToString("yyyy-MM-dd");
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    string Money(decimal v) => "₹" + v.ToString("N0", inr);
+    string Css(ExpenseStatus s) => s switch { ExpenseStatus.Submitted => "PendingVerification", ExpenseStatus.ManagerApproved => "Issued", ExpenseStatus.Approved => "Trial", ExpenseStatus.Paid => "Paid", ExpenseStatus.Rejected => "Expired", _ => "Inactive" };
+    string Text(ExpenseStatus s) => s switch { ExpenseStatus.Submitted => "Awaiting approval", ExpenseStatus.ManagerApproved => "Approved by manager", _ => s.ToString() };
+}
+<div class="page-head"><div><h1>Expenses</h1><div class="text-muted small">Claim business expenses with receipts; approved claims are reimbursed with your salary or paid directly</div></div></div>
+
+@if (toReview.Count > 0)
+{
+    <div class="card mb-3 tone-amber"><div class="card-header">Your team's claims to review</div>
+        <ul class="list-group list-group-flush">
+            @foreach (var c in toReview)
+            {
+                <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center">
+                    <span><a class="fw-semibold" href="/me/expenses/review/@c.Id">@c.Title</a> <span class="small text-muted">· @c.EmployeeName · @c.ItemCount item(s)</span></span>
+                    <span class="fw-semibold">@Money(c.Total)</span></li>
+            }
+        </ul>
+    </div>
+}
+
+@if (hasEmployee)
+{
+    <div class="row g-3">
+        <div class="col-xl-7">
+            <div class="card"><div class="card-header">New claim</div><div class="card-body">
+                @if (categories.Count == 0) { <p class="text-muted small mb-0">No expense categories are set up yet. Ask your finance team.</p> }
+                else
+                {
+                    <form method="post" action="/me/expenses" asp-antiforgery="true" enctype="multipart/form-data">
+                        <div class="mb-3"><label class="form-label" for="ct">What is this claim for?</label><input id="ct" name="claim.Title" maxlength="150" class="form-control" required placeholder="e.g. Client visit to Mumbai, 3–4 Nov" /></div>
+                        <div class="table-responsive"><table class="table table-sm align-middle small mb-2">
+                            <thead><tr><th style="min-width:150px">Category</th><th style="width:140px">Date</th><th>Description</th><th style="width:120px">Amount (₹)</th><th>Receipt</th></tr></thead>
+                            <tbody>@for (var i = 0; i < rows; i++)
+                            {
+                                <tr>
+                                    <td><label class="visually-hidden" for="cc@(i)">Category @(i + 1)</label>
+                                        <select id="cc@(i)" name="claim.Items[@(i)].CategoryId" class="form-select form-select-sm">@foreach (var c in categories) { <option value="@c.Id">@c.Name@(c.MaxPerItem is { } m ? $" (≤ ₹{m:N0})" : "")</option> }</select></td>
+                                    <td><label class="visually-hidden" for="cdt@(i)">Date @(i + 1)</label><input id="cdt@(i)" name="claim.Items[@(i)].Date" type="date" max="@today" class="form-control form-control-sm" /></td>
+                                    <td><label class="visually-hidden" for="cds@(i)">Description @(i + 1)</label><input id="cds@(i)" name="claim.Items[@(i)].Description" maxlength="200" class="form-control form-control-sm" placeholder="@(i == 0 ? "e.g. Cab to client office" : "")" /></td>
+                                    <td><label class="visually-hidden" for="cam@(i)">Amount @(i + 1)</label><input id="cam@(i)" name="claim.Items[@(i)].Amount" type="number" min="1" step="0.01" class="form-control form-control-sm" /></td>
+                                    <td><label class="visually-hidden" for="crc@(i)">Receipt @(i + 1)</label><input id="crc@(i)" name="receipt_@(i)" type="file" accept=".pdf,.png,.jpg,.jpeg" class="form-control form-control-sm" /></td>
+                                </tr>
+                            }</tbody>
+                        </table></div>
+                        <div class="d-flex justify-content-between align-items-center"><span class="small text-muted">Fill only the rows you need. Receipts: PDF, PNG or JPG up to 5 MB. Expenses must be from the last 180 days.</span>
+                            <button class="btn btn-accent" type="submit">Submit claim</button></div>
+                    </form>
+                }
+            </div></div>
+        </div>
+        <div class="col-xl-5">
+            <div class="card"><div class="card-header">My claims</div>
+                @if (Model.Count == 0) { <div class="empty-state py-4"><i class="bi bi-receipt"></i>No claims yet.</div> }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var c in Model)
+                        {
+                            <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center">
+                                <span><a class="fw-semibold" href="/me/expenses/@c.Id">@c.Title</a><div class="small text-muted">@c.SubmittedAtUtc.ToLocalTime().ToString("dd MMM yyyy") · @c.ItemCount item(s)</div></span>
+                                <span class="text-end"><span class="fw-semibold">@Money(c.Total)</span><br /><span class="badge-status st-@Css(c.Status)">@Text(c.Status)</span></span>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+    </div>
+}
+else if (toReview.Count == 0)
+{
+    <div class="card"><div class="card-body small text-muted"><i class="bi bi-info-circle me-1"></i>Your login is not linked to an employee record, so you can't claim expenses.</div></div>
+}

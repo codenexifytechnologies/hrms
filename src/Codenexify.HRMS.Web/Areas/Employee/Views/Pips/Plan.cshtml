@@ -1,0 +1,130 @@
+@model Codenexify.HRMS.Application.Performance.PipView
+@using Codenexify.HRMS.Application.Performance
+@using Codenexify.HRMS.Domain.Performance
+@using Codenexify.HRMS.Web
+@{
+    var p = Model.Plan;
+    ViewData["Title"] = $"Improvement plan: {Model.EmployeeName}";
+    var objectives = p.Objectives.Where(o => !o.IsDeleted).OrderBy(o => o.SortOrder).ToList();
+    var checkIns = p.CheckIns.Where(c => !c.IsDeleted).OrderByDescending(c => c.AtUtc).ToList();
+    var today = DateOnly.FromDateTime(DateTime.Today);
+}
+<div class="page-head">
+    <div><h1>@Model.EmployeeName</h1>
+        <div class="text-muted small"><a href="/me/pips">Improvement plans</a> · @p.StartsOn.ToString("dd MMM yyyy") – @p.EndsOn.ToString("dd MMM yyyy")@(p.Extensions > 0 ? $" (extended {p.Extensions}×)" : "")
+            · manager @(Model.ManagerName ?? "—") · created by @p.CreatedByName</div></div>
+    <div class="d-flex gap-2 align-items-start">
+        <span class="badge @GoalUi.Css(p.Status) fs-6">@GoalUi.Label(p.Status)</span>
+        @if (Model.CanEditDraft) { <a class="btn btn-sm btn-light border" href="/me/pips/@p.Id/edit">Edit draft</a> }
+    </div>
+</div>
+
+@if (p.Status == PipStatus.Draft)
+{
+    <div class="alert alert-secondary small d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span><i class="bi bi-eye-slash me-1"></i>Draft: the employee can't see this plan until HR starts it.</span>
+        <div class="d-flex gap-2">
+            @if (Model.IsHr) { <form method="post" action="/me/pips/@p.Id/start" asp-antiforgery="true" data-confirm="Start the plan and share it with @Model.EmployeeName?"><button class="btn btn-sm btn-accent" type="submit">Start plan</button></form> }
+            <form method="post" action="/me/pips/@p.Id/close" asp-antiforgery="true" data-confirm="Cancel this draft?" data-confirm-danger>
+                <input type="hidden" name="outcome" value="Cancelled" /><input type="hidden" name="note" value="Draft cancelled" />
+                <button class="btn btn-sm btn-outline-danger" type="submit">Cancel draft</button></form>
+        </div>
+    </div>
+}
+@if (Model.CanAcknowledge)
+{
+    <div class="card mb-3 border-primary"><div class="card-body">
+        <p class="mb-2">This plan sets out the concerns, what's expected, and the support you'll get. Please read it and acknowledge it. Acknowledging means you've read it, not that you agree; add your comments below.</p>
+        <form method="post" action="/me/pips/@p.Id/acknowledge" asp-antiforgery="true">
+            <textarea class="form-control mb-2" name="comment" rows="3" maxlength="2000" placeholder="Your comments (optional)" aria-label="Your comments"></textarea>
+            <button class="btn btn-accent" type="submit">I have read this plan</button>
+        </form>
+    </div></div>
+}
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card mb-3"><div class="card-header">Concerns</div><div class="card-body" style="white-space: pre-line">@p.Concerns</div></div>
+        @if (p.Support is not null) { <div class="card mb-3"><div class="card-header">Support</div><div class="card-body" style="white-space: pre-line">@p.Support</div></div> }
+        <div class="card mb-3"><div class="card-header">Objectives</div>
+            <ul class="list-group list-group-flush">
+                @foreach (var o in objectives)
+                {
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between gap-2">
+                            <div><div class="fw-semibold">@o.Description</div><div class="small text-muted">Measured by: @o.Measure</div></div>
+                            @if (Model.CanManage && p.Status == PipStatus.Active)
+                            {
+                                <form method="post" action="/me/pips/objectives/@o.Id" asp-antiforgery="true"><input type="hidden" name="planId" value="@p.Id" />
+                                    <select class="form-select form-select-sm" name="status" data-autosubmit aria-label="Status of @o.Description">
+                                        <option value="Open" selected="@(o.Status == PipObjectiveStatus.Open)">Open</option>
+                                        <option value="Met" selected="@(o.Status == PipObjectiveStatus.Met)">Met</option>
+                                        <option value="NotMet" selected="@(o.Status == PipObjectiveStatus.NotMet)">Not met</option>
+                                    </select></form>
+                            }
+                            else
+                            {
+                                <span class="badge @(o.Status == PipObjectiveStatus.Met ? "text-bg-success" : o.Status == PipObjectiveStatus.NotMet ? "text-bg-danger" : "text-bg-light border") align-self-start">@(o.Status == PipObjectiveStatus.NotMet ? "Not met" : o.Status.ToString())</span>
+                            }
+                        </div>
+                    </li>
+                }
+            </ul></div>
+        @if (p.AcknowledgedAtUtc is { } ack)
+        {
+            <div class="card mb-3"><div class="card-body small"><i class="bi bi-check2-circle text-success me-1"></i>Acknowledged by @Model.EmployeeName on @ack.ToLocalTime().ToString("dd MMM yyyy")
+                @if (p.EmployeeComment is not null) { <div class="mt-1" style="white-space: pre-line">“@p.EmployeeComment”</div> }</div></div>
+        }
+        @if (p.ClosedAtUtc is { } closed)
+        {
+            <div class="card mb-3"><div class="card-body small"><strong>@GoalUi.Label(p.Status)</strong> · recorded by @p.ClosedByName on @closed.ToLocalTime().ToString("dd MMM yyyy")
+                <div class="mt-1" style="white-space: pre-line">@p.OutcomeNote</div></div></div>
+        }
+    </div>
+    <div class="col-lg-5">
+        @if (Model.CanManage && p.Status == PipStatus.Active)
+        {
+            <div class="card mb-3"><div class="card-header">Add a check-in</div><div class="card-body">
+                <form method="post" action="/me/pips/@p.Id/check-in" asp-antiforgery="true">
+                    <select class="form-select form-select-sm mb-2" name="progress" aria-label="Progress">
+                        @foreach (var g in Enum.GetValues<PipProgress>()) { <option value="@g">@GoalUi.Label(g)</option> }</select>
+                    <textarea class="form-control form-control-sm mb-2" name="note" rows="3" minlength="10" maxlength="2000" required placeholder="What was discussed, evidence, agreed next steps" aria-label="Check-in note"></textarea>
+                    <button class="btn btn-sm btn-accent w-100" type="submit">Save check-in</button>
+                </form>
+            </div></div>
+        }
+        @if (Model.IsHr && p.Status == PipStatus.Active)
+        {
+            <div class="card mb-3"><div class="card-header">HR</div><div class="card-body">
+                @if (p.Extensions < IPipService.MaxExtensions)
+                {
+                    <form method="post" action="/me/pips/@p.Id/extend" asp-antiforgery="true" class="row g-2 mb-3">
+                        <div class="col-5"><input class="form-control form-control-sm" type="date" name="newEnd" value="@p.EndsOn.AddDays(30).ToString("yyyy-MM-dd")" required aria-label="New end date" /></div>
+                        <div class="col-7"><input class="form-control form-control-sm" name="reason" maxlength="500" required placeholder="Reason" aria-label="Reason for extension" /></div>
+                        <div class="col-12"><button class="btn btn-sm btn-light border w-100" type="submit">Extend</button></div>
+                    </form>
+                }
+                <form method="post" action="/me/pips/@p.Id/close" asp-antiforgery="true">
+                    <select class="form-select form-select-sm mb-2" name="outcome" aria-label="Outcome"><option value="Passed">Passed: performance is back on track</option><option value="NotPassed">Not passed</option><option value="Cancelled">Cancel the plan</option></select>
+                    <textarea class="form-control form-control-sm mb-2" name="note" rows="3" maxlength="2000" required placeholder="Summary of the outcome" aria-label="Outcome summary"></textarea>
+                    <button class="btn btn-sm btn-accent w-100" type="submit">Record outcome</button>
+                </form>
+                @if (p.EndsOn < today) { <div class="small text-danger mt-2">The plan's end date has passed.</div> }
+            </div></div>
+        }
+        <div class="card"><div class="card-header">Check-ins</div>
+            @if (checkIns.Count == 0) { <div class="card-body small text-muted">None yet.</div> }
+            else
+            {
+                <ul class="list-group list-group-flush small">
+                    @foreach (var c in checkIns)
+                    {
+                        <li class="list-group-item"><div class="d-flex justify-content-between"><span class="badge @(c.Progress == PipProgress.OnTrack ? "text-bg-success" : c.Progress == PipProgress.OffTrack ? "text-bg-danger" : "text-bg-warning")">@GoalUi.Label(c.Progress)</span>
+                            <span class="text-muted">@c.OnDate.ToString("dd MMM yyyy") · @c.ByName</span></div>
+                            <div class="mt-1" style="white-space: pre-line">@c.Note</div></li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+</div>

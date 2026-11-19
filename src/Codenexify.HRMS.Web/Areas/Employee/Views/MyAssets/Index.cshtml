@@ -1,0 +1,25 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Strength.MyAssetRow>
+@{ ViewData["Title"] = "My assets"; }
+<div class="page-head"><div><h1>My assets</h1><div class="text-muted small">Company equipment issued to you</div></div></div>
+<div class="card">
+    @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-laptop"></i>No company assets are issued to you.</div> }
+    else
+    {
+        <ul class="list-group list-group-flush">
+            @foreach (var a in Model)
+            {
+                <li class="list-group-item bg-transparent d-flex flex-wrap gap-2 justify-content-between align-items-center">
+                    <span><span class="fw-semibold">@a.Name</span> <code class="ms-1">@a.AssetTag</code>
+                        <div class="small text-muted">@a.Category@(a.SerialNumber is null ? "" : $" · S/N {a.SerialNumber}") · issued @a.AssignedOn.ToString("dd MMM yyyy") in @a.Condition condition</div></span>
+                    @if (a.Acknowledged) { <span class="badge-status st-Active">Received</span> }
+                    else
+                    {
+                        <form method="post" action="/me/assets/@a.AssignmentId/acknowledge" asp-antiforgery="true">
+                            <button class="btn btn-sm btn-accent" type="submit" data-confirm="Confirm you have received @a.Name (@a.AssetTag) in the condition described?">Confirm receipt</button></form>
+                    }
+                </li>
+            }
+        </ul>
+    }
+</div>
+<p class="small text-muted mt-2">If something here isn't with you, or is damaged, tell HR.</p>

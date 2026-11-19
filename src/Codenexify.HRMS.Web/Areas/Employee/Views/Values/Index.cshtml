@@ -1,0 +1,102 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Performance.ShoutoutRow>
+@using Codenexify.HRMS.Application.CoreHr
+@using Codenexify.HRMS.Application.Performance
+@{
+    ViewData["Title"] = "Our values";
+    var me = ViewBag.Me as int?;
+    var isHr = (bool)ViewBag.IsHr;
+    var values = (IReadOnlyList<CoreValueRow>)ViewBag.Values;
+    var top = (IReadOnlyList<PersonCount>)ViewBag.Top;
+    var filter = ViewBag.Filter as int?;
+    var colleagues = (IReadOnlyList<LookupItem>)ViewBag.Colleagues;
+}
+<div class="page-head">
+    <div><h1>Our values</h1><div class="text-muted small">What we stand for, and the people who show it every day</div></div>
+    @if (isHr) { <a class="btn btn-light border" href="/org/values"><i class="bi bi-gear me-1"></i>Manage values</a> }
+</div>
+
+@if (values.Count == 0)
+{
+    <div class="card"><div class="empty-state"><i class="bi bi-gem"></i>The company hasn't defined its values yet.
+        @if (isHr) { <div class="mt-2"><a class="btn btn-sm btn-accent" href="/org/values">Define values</a></div> }</div></div>
+}
+else
+{
+    <div class="row g-3 mb-3">
+        @foreach (var v in values)
+        {
+            <div class="col-sm-6 col-xl-4">
+                <a class="card h-100 text-reset text-decoration-none @(filter == v.Id ? "border-primary" : "")" href="/me/values@(filter == v.Id ? "" : $"?value={v.Id}")">
+                    <div class="card-body d-flex gap-3">
+                        <span class="fs-3" style="color: var(--cnx-accent)"><i class="bi bi-@v.Icon"></i></span>
+                        <div><div class="fw-semibold">@v.Name</div>
+                            @if (v.Description is not null) { <div class="small text-muted">@v.Description</div> }
+                            <div class="small mt-1">@v.RecentShoutouts shout-out@(v.RecentShoutouts == 1 ? "" : "s") in 90 days</div></div>
+                    </div>
+                </a>
+            </div>
+        }
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-8">
+            @if (me is not null)
+            {
+                <div class="card mb-3"><div class="card-header">Recognise a colleague</div><div class="card-body">
+                    <form method="post" action="/me/values" asp-antiforgery="true" class="row g-2">
+                        <div class="col-md-6"><label class="form-label small" for="sh-to">Who</label>
+                            <select class="form-select" id="sh-to" name="shout.ToEmployeeId" required><option value="">Choose…</option>
+                                @foreach (var c in colleagues) { <option value="@c.Id">@c.Name</option> }</select></div>
+                        <div class="col-md-6"><label class="form-label small" for="sh-val">For which value</label>
+                            <select class="form-select" id="sh-val" name="shout.CoreValueId" required>
+                                @foreach (var v in values) { <option value="@v.Id" selected="@(filter == v.Id)">@v.Name</option> }</select></div>
+                        <div class="col-12"><label class="form-label small" for="sh-msg">What they did</label>
+                            <textarea class="form-control" id="sh-msg" name="shout.Message" rows="2" minlength="5" maxlength="1000" required placeholder="Be specific so others can learn from it."></textarea></div>
+                        <div class="col-12 d-flex justify-content-between align-items-center"><span class="small text-muted"><i class="bi bi-globe2 me-1"></i>Everyone in the company can see shout-outs. Their manager is told too.</span>
+                            <button class="btn btn-accent" type="submit">Post shout-out</button></div>
+                    </form>
+                </div></div>
+            }
+
+            <div class="card">
+                <div class="card-header d-flex justify-content-between"><span>@(filter is int f ? values.FirstOrDefault(v => v.Id == f)?.Name ?? "Shout-outs" : "Recent shout-outs")</span>
+                    @if (filter is not null) { <a class="small" href="/me/values">Show all</a> }</div>
+                @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-megaphone"></i>No shout-outs yet. Be the first!</div> }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var s in Model)
+                        {
+                            <li class="list-group-item py-3">
+                                <div class="d-flex justify-content-between gap-2">
+                                    <div><strong>@s.FromName</strong> recognised <strong>@s.ToName</strong>
+                                        <span class="badge text-bg-light border ms-1"><i class="bi bi-@s.ValueIcon me-1"></i>@s.ValueName</span></div>
+                                    <div class="d-flex gap-2 align-items-start">
+                                        <span class="small text-muted text-nowrap">@s.AtUtc.ToLocalTime().ToString("dd MMM")</span>
+                                        @if (isHr || s.FromId == me)
+                                        {
+                                            <form method="post" action="/me/values/@s.Id/remove" asp-antiforgery="true" data-confirm="Remove this shout-out?" data-confirm-danger>
+                                                <button class="btn btn-link btn-sm p-0 text-muted" type="submit" aria-label="Remove"><i class="bi bi-x-lg"></i></button></form>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="mt-1" style="white-space: pre-line">@s.Message</div>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card"><div class="card-header">Most recognised (90 days)</div>
+                @if (top.Count == 0) { <div class="card-body small text-muted">Nobody yet.</div> }
+                else
+                {
+                    <ol class="list-group list-group-flush list-group-numbered">
+                        @foreach (var p in top) { <li class="list-group-item d-flex justify-content-between"><span class="ms-1 me-auto">@p.Name</span><span class="badge rounded-pill text-bg-primary">@p.Count</span></li> }
+                    </ol>
+                }
+            </div>
+        </div>
+    </div>
+}

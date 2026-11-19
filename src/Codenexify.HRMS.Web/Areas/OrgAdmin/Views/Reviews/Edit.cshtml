@@ -1,0 +1,38 @@
+@model Codenexify.HRMS.Application.Performance.ReviewCycleInput
+@using Codenexify.HRMS.Application.CoreHr
+@{
+    var id = ViewBag.Id as int?;
+    ViewData["Title"] = id is null ? "New review cycle" : "Edit " + Model.Name;
+    var departments = (IReadOnlyList<LookupItem>)ViewBag.Departments;
+}
+<div class="page-head"><div><h1>@ViewData["Title"]</h1><div class="text-muted small"><a href="/org/reviews">Performance reviews</a></div></div></div>
+
+<form method="post" action="@(id is null ? "/org/reviews/new" : $"/org/reviews/{id}/edit")" asp-antiforgery="true" novalidate style="max-width: 860px">
+    <div asp-validation-summary="All" class="alert alert-danger py-2 small"></div>
+    <div class="card mb-3"><div class="card-body row g-3">
+        <div class="col-12"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" placeholder="e.g. Annual review FY 2025-26" /></div>
+        <div class="col-md-3"><label asp-for="PeriodStart" class="form-label"></label><input asp-for="PeriodStart" type="date" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="PeriodEnd" class="form-label"></label><input asp-for="PeriodEnd" type="date" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="SelfReviewDue" class="form-label"></label><input asp-for="SelfReviewDue" type="date" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="ManagerReviewDue" class="form-label"></label><input asp-for="ManagerReviewDue" type="date" class="form-control" /></div>
+        <div class="col-md-6"><div class="form-check"><input asp-for="IncludeGoals" class="form-check-input" /><label asp-for="IncludeGoals" class="form-check-label"></label></div>
+            <div class="form-text">Shows each person's goals and progress for the period beside the form (needs Goals &amp; OKRs).</div></div>
+        <div class="col-md-6"><div class="form-check"><input asp-for="SkipSelfReview" class="form-check-input" /><label asp-for="SkipSelfReview" class="form-check-label"></label></div>
+            <div class="form-text">For example probation or quick check-in reviews.</div></div>
+    </div></div>
+    <div class="card mb-3"><div class="card-header">Who is reviewed</div><div class="card-body row g-3">
+        <div class="col-md-6"><label asp-for="JoinedOnOrBefore" class="form-label"></label><input asp-for="JoinedOnOrBefore" type="date" class="form-control" />
+            <div class="form-text">Leave out recent joiners. Blank = every current employee.</div></div>
+        <div class="col-md-6"><label asp-for="DepartmentId" class="form-label"></label>
+            <select asp-for="DepartmentId" class="form-select"><option value="">All departments</option>
+                @foreach (var d in departments) { <option value="@d.Id" selected="@(Model.DepartmentId == d.Id)">@d.Name</option> }</select></div>
+        <div class="col-12 form-text mt-0">Each person is reviewed by their reporting manager at launch; people without a manager are reviewed by HR.</div>
+    </div></div>
+    <div class="card mb-3"><div class="card-header">Rating scale</div><div class="card-body">
+        <label asp-for="RatingLabels" class="form-label"></label><input asp-for="RatingLabels" class="form-control" />
+    </div></div>
+    <div class="d-flex justify-content-end gap-2">
+        <a class="btn btn-light border" href="@(id is null ? "/org/reviews" : $"/org/reviews/{id}")">Cancel</a>
+        <button class="btn btn-accent" type="submit">Save</button>
+    </div>
+</form>

@@ -1,0 +1,111 @@
+@model Codenexify.HRMS.Application.Performance.CompensationCycleView
+@using Codenexify.HRMS.Domain.Performance
+@using Codenexify.HRMS.Web
+@{
+    var c = Model.Cycle;
+    ViewData["Title"] = c.Name;
+    var lineAction = (string)ViewData["LineAction"]!;
+    var isHr = lineAction.StartsWith("/org/");
+    var editable = isHr ? c.Status is CompensationCycleStatus.Planning or CompensationCycleStatus.Review : c.Status == CompensationCycleStatus.Planning;
+    var guidelines = c.Guidelines.Where(g => !g.IsDeleted).ToDictionary(g => g.Rating);
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    string Range(int? rating) => guidelines.TryGetValue(rating ?? 0, out var g) ? $"{g.MinPercent:0.##}–{g.MaxPercent:0.##}%" : "—";
+    var failed = Model.Lines.Count(l => l.ApplyError is not null);
+}
+<div class="page-head">
+    <div><h1>@c.Name</h1><div class="text-muted small"><a href="@(isHr ? "/org/compensation" : "/me/compensation")">Salary revisions</a> · effective @c.EffectiveOn.ToString("dd MMM yyyy")
+        @(c.PlanningDueOn is { } due ? $" · managers finish by {due:dd MMM yyyy}" : "")@(Model.ReviewCycleName is null ? "" : $" · ratings from {Model.ReviewCycleName}")</div></div>
+    <div class="d-flex flex-wrap gap-2 align-items-start">
+        <span class="badge @CompUi.Css(c.Status) fs-6">@c.Status</span>
+        @if (isHr)
+        {
+            @if (c.Status is CompensationCycleStatus.Draft or CompensationCycleStatus.Planning or CompensationCycleStatus.Review) { <a class="btn btn-sm btn-light border" href="/org/compensation/@c.Id/edit">Edit</a> }
+            @if (c.Status != CompensationCycleStatus.Draft) { <a class="btn btn-sm btn-light border" href="/org/compensation/@c.Id/export"><i class="bi bi-file-earmark-excel me-1"></i>Export</a> }
+        }
+    </div>
+</div>
+
+@if (isHr)
+{
+    <div class="card mb-3"><div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div class="small">
+            @(c.Status switch
+            {
+                CompensationCycleStatus.Draft => "Check the budget and guidelines, then launch to let managers plan their team.",
+                CompensationCycleStatus.Planning => "Managers are entering raises. Close planning when they're done.",
+                CompensationCycleStatus.Review => "Adjust any raise, then approve. Raises apply on the effective date (now, if it has passed).",
+                CompensationCycleStatus.Approved => failed > 0 ? $"{failed} revision(s) couldn't be applied; fix the cause (e.g. a finalized payroll month) and retry." : "Approved. Raises are applied on the effective date.",
+                _ => "Closed."
+            })</div>
+        <div class="d-flex gap-2">
+            @if (c.Status == CompensationCycleStatus.Draft)
+            {
+                <form method="post" action="/org/compensation/@c.Id/delete" asp-antiforgery="true" data-confirm="Delete this draft?" data-confirm-danger><button class="btn btn-sm btn-outline-danger" type="submit">Delete</button></form>
+                <form method="post" action="/org/compensation/@c.Id/launch" asp-antiforgery="true" data-confirm="Launch and ask managers to plan raises?"><button class="btn btn-sm btn-accent" type="submit">Launch</button></form>
+            }
+            @if (c.Status == CompensationCycleStatus.Planning) { <form method="post" action="/org/compensation/@c.Id/review" asp-antiforgery="true" data-confirm="Close planning for managers?"><button class="btn btn-sm btn-accent" type="submit">Close planning</button></form> }
+            @if (c.Status == CompensationCycleStatus.Review)
+            {
+                <form method="post" action="/org/compensation/@c.Id/reopen" asp-antiforgery="true"><button class="btn btn-sm btn-light border" type="submit">Reopen for managers</button></form>
+                <form method="post" action="/org/compensation/@c.Id/approve" asp-antiforgery="true" data-confirm="Approve all raises? They become salary revisions on @c.EffectiveOn.ToString("dd MMM yyyy")."><button class="btn btn-sm btn-accent" type="submit">Approve</button></form>
+            }
+            @if (c.Status == CompensationCycleStatus.Approved)
+            {
+                @if (failed > 0) { <form method="post" action="/org/compensation/@c.Id/retry" asp-antiforgery="true"><button class="btn btn-sm btn-accent" type="submit">Retry applying</button></form> }
+                <form method="post" action="/org/compensation/@c.Id/close" asp-antiforgery="true"><button class="btn btn-sm btn-light border" type="submit">Close cycle</button></form>
+            }
+        </div>
+    </div></div>
+}
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="card"><div class="card-body py-2"><div class="small text-muted">Budget (@c.BudgetPercent.ToString("0.##")%)</div><div class="fs-5 fw-semibold">₹@Model.Budget.ToString("N0")</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card"><div class="card-body py-2"><div class="small text-muted">Planned increase</div><div class="fs-5 fw-semibold @(Model.Planned > Model.Budget ? "text-danger" : "")">₹@Model.Planned.ToString("N0")</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card"><div class="card-body py-2"><div class="small text-muted">@(Model.Remaining >= 0 ? "Left" : "Over budget")</div><div class="fs-5 fw-semibold">₹@Math.Abs(Model.Remaining).ToString("N0")</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card"><div class="card-body py-2"><div class="small text-muted">Still to decide · outside guideline</div><div class="fs-5 fw-semibold">@Model.Pending · @Model.OutsideGuidelines</div></div></div></div>
+</div>
+
+@if (isHr && Model.ByPlanner.Count > 1)
+{
+    <div class="card mb-3"><div class="card-header">By manager</div>
+        <div class="table-responsive"><table class="table table-sm mb-0 align-middle">
+            <thead><tr><th>Planned by</th><th class="text-end">People</th><th class="text-end">Budget</th><th class="text-end">Planned</th><th class="text-end">Still to decide</th></tr></thead>
+            <tbody>@foreach (var p in Model.ByPlanner)
+            {
+                <tr><td>@p.PlannerName</td><td class="text-end">@p.People</td><td class="text-end">₹@p.Budget.ToString("N0")</td>
+                    <td class="text-end @(p.Planned > p.Budget ? "text-danger" : "")">₹@p.Planned.ToString("N0")</td><td class="text-end">@p.Pending</td></tr>
+            }</tbody>
+        </table></div></div>
+}
+
+<div class="card">
+    <div class="table-responsive"><table class="table align-middle mb-0">
+        <thead><tr><th>Employee</th><th>Rating · guideline</th><th class="text-end">Current gross</th><th style="min-width: 22rem">Raise</th><th class="text-end">New gross</th></tr></thead>
+        <tbody>@foreach (var l in Model.Lines)
+        {
+            <tr id="line-@l.Id" class="@(l.OutsideGuideline ? "table-warning" : "")">
+                <td><div class="fw-semibold">@l.EmployeeName</div><div class="small text-muted">@l.EmployeeCode@(l.Department is null ? "" : $" · {l.Department}")@(isHr ? $" · {l.PlannerName ?? "HR"}" : "")</div></td>
+                <td class="small">@(l.Rating is int r ? $"{r}" : "—") · @Range(l.Rating)</td>
+                <td class="text-end">₹@l.CurrentGross.ToString("N0")</td>
+                <td>
+                    @if (editable)
+                    {
+                        <form method="post" action="@lineAction/@l.Id" asp-antiforgery="true" class="d-flex gap-1">
+                            <input type="hidden" name="cycleId" value="@c.Id" />
+                            <div class="input-group input-group-sm" style="max-width: 7rem"><input class="form-control" name="percent" value="@(l.Percent?.ToString("0.##", inv))" inputmode="decimal" aria-label="Raise % for @l.EmployeeName" /><span class="input-group-text">%</span></div>
+                            <input class="form-control form-control-sm" name="note" value="@l.Note" maxlength="500" placeholder="Note" aria-label="Note for @l.EmployeeName" />
+                            <button class="btn btn-sm btn-light border" type="submit">Save</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <span>@(l.Percent is decimal p ? $"{p:0.##}%" : "—")</span>@if (l.Note is not null) { <span class="small text-muted ms-1">· @l.Note</span> }
+                        @if (l.Applied) { <i class="bi bi-check2-circle text-success ms-1" title="Applied"></i> }
+                        @if (l.ApplyError is not null) { <div class="small text-danger">@l.ApplyError</div> }
+                    }
+                </td>
+                <td class="text-end">@(l.NewGross is decimal n ? $"₹{n:N0}" : "—")@if (l.Increase > 0) { <div class="small text-success">+₹@l.Increase.ToString("N0")</div> }</td>
+            </tr>
+        }</tbody>
+    </table></div>
+</div>

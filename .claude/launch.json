@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hrms-web",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/Codenexify.HRMS.Web", "--launch-profile", "http", "--urls", "http://localhost:5080"],
+      "port": 5080
+    },
+    {
+      "name": "hrms-web-release",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "-c", "Release", "--project", "src/Codenexify.HRMS.Web", "--launch-profile", "http", "--urls", "http://localhost:5080"],
+      "port": 5080
+    }
+  ]
+}

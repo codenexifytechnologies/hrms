@@ -1,0 +1,301 @@
+@model EmployeeProfile
+@inject Codenexify.HRMS.Application.Subscriptions.IFeatureAccessService FeatureAccess
+@{
+    var e = Model.Employee;
+    ViewData["Title"] = e.FullName;
+    var features = await FeatureAccess.GetEnabledFeaturesAsync(e.OrganizationId);
+    var canManage = User.HasPermission(TenantPermissions.EmployeesManage);
+    var canSensitive = (bool)ViewBag.CanSensitive;
+    var canDocs = features.Contains(FeatureCodes.DocumentsLetters) && User.HasPermission(TenantPermissions.DocumentsManage);
+    var showDocs = features.Contains(FeatureCodes.DocumentsLetters);
+    var canExit = features.Contains(FeatureCodes.EmployeeExit) && User.HasPermission(TenantPermissions.ExitManage);
+    var canCreateLogin = canManage && User.HasPermission(TenantPermissions.UsersManage);
+    var documents = (IReadOnlyList<EmployeeDocument>)ViewBag.Documents;
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    var initials = $"{e.FirstName[..1]}{e.LastName[..1]}";
+
+    var employment = new EmploymentInput
+    {
+        FirstName = e.FirstName, MiddleName = e.MiddleName, LastName = e.LastName, WorkEmail = e.WorkEmail, MobilePhone = e.MobilePhone,
+        DateOfJoining = e.DateOfJoining, EmploymentType = e.EmploymentType, BranchId = e.BranchId, DepartmentId = e.DepartmentId,
+        DesignationId = e.DesignationId, ReportingManagerId = e.ReportingManagerId, NoticePeriodDays = e.NoticePeriodDays, ProbationEndDate = e.ProbationEndDate
+    };
+    var personal = new PersonalInput
+    {
+        Gender = e.Gender, DateOfBirth = e.DateOfBirth, MaritalStatus = e.MaritalStatus, BloodGroup = e.BloodGroup, Nationality = e.Nationality,
+        PersonalEmail = e.PersonalEmail, CurrentAddress = e.CurrentAddress, PermanentAddress = e.PermanentAddress,
+        EmergencyContactName = e.EmergencyContactName, EmergencyContactRelation = e.EmergencyContactRelation, EmergencyContactPhone = e.EmergencyContactPhone, Uan = e.Uan
+    };
+    var bank = new BankInput { BankName = e.BankDetail?.BankName ?? "", AccountHolderName = e.BankDetail?.AccountHolderName ?? e.FullName, Ifsc = e.BankDetail?.Ifsc ?? "", BranchName = e.BankDetail?.BranchName };
+    var education = new EducationInput();
+    var experience = new ExperienceInput { FromDate = today.AddYears(-1) };
+    var document = new DocumentUploadInput();
+    var exit = new ExitInitiateInput { RequestedLastWorkingDay = today.AddDays(e.NoticePeriodDays) };
+    string Val(string? s) => string.IsNullOrWhiteSpace(s) ? "—" : s;
+}
+<div class="page-head">
+    <div class="d-flex align-items-center gap-3">
+        <span class="avatar" style="width:56px;height:56px;font-size:1.15rem">@initials</span>
+        <div>
+            <h1>@e.FullName <span class="badge-status st-@e.Status align-middle">@e.Status</span></h1>
+            <div class="text-muted small">@e.EmployeeCode · @(e.Designation?.Name ?? "No designation") · @(e.Department?.Name ?? "No department") · joined @e.DateOfJoining.ToString("dd MMM yyyy")</div>
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        @if (showDocs && User.HasPermission(TenantPermissions.LettersManage))
+        {
+            <a href="/org/letters/issue?employeeId=@e.Id" class="btn btn-accent"><i class="bi bi-envelope-paper me-1"></i>Issue letter</a>
+        }
+        @if (features.Contains(FeatureCodes.EmployeeTimeline)) { <a href="/org/employees/@e.Id/timeline" class="btn btn-light border"><i class="bi bi-clock-history me-1"></i>Timeline</a> }
+        <a href="/org/employees" class="btn btn-light border"><i class="bi bi-arrow-left me-1"></i>Directory</a>
+    </div>
+</div>
+
+<ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#overview" type="button">Overview</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#employment" type="button">Employment</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#personal" type="button">Personal</button></li>
+    @if (canSensitive) { <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#bank" type="button">Bank</button></li> }
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#background" type="button">Education &amp; experience</button></li>
+    @if (showDocs) { <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#documents" type="button">Documents <span class="badge text-bg-light border">@documents.Count</span></button></li> }
+    @if (features.Contains(FeatureCodes.EmployeeExit)) { <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#exit" type="button">Exit</button></li> }
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane fade show active" id="overview">
+        <div class="row g-3">
+            <div class="col-lg-6"><div class="card h-100"><div class="card-header">Work</div><div class="card-body">
+                <dl class="row small mb-0">
+                    <dt class="col-sm-4">Work email</dt><dd class="col-sm-8">@e.WorkEmail</dd>
+                    <dt class="col-sm-4">Mobile</dt><dd class="col-sm-8">@Val(e.MobilePhone)</dd>
+                    <dt class="col-sm-4">Branch</dt><dd class="col-sm-8">@Val(e.Branch?.Name)</dd>
+                    <dt class="col-sm-4">Reports to</dt><dd class="col-sm-8">@if (e.ReportingManager is { } m) { <a href="/org/employees/details/@m.Id">@m.FullName</a> } else { <span>—</span> }</dd>
+                    <dt class="col-sm-4">Type</dt><dd class="col-sm-8">@e.EmploymentType</dd>
+                    <dt class="col-sm-4">Probation ends</dt><dd class="col-sm-8">@(e.ProbationEndDate?.ToString("dd MMM yyyy") ?? "—")@if (e.ConfirmationDate is { } cd) { <span class="text-muted"> · confirmed @cd.ToString("dd MMM yyyy")</span> }</dd>
+                    <dt class="col-sm-4">Notice period</dt><dd class="col-sm-8">@e.NoticePeriodDays days</dd>
+                    <dt class="col-sm-4">Login</dt><dd class="col-sm-8">@(e.User is null ? "No login" : (e.User.IsActive ? "Active" : "Disabled") + " · " + e.User.Email)</dd>
+                    @if (e.DateOfExit is { } dx) { <dt class="col-sm-4">Exit date</dt><dd class="col-sm-8">@dx.ToString("dd MMM yyyy")</dd> }
+                </dl>
+            </div></div></div>
+            <div class="col-lg-6"><div class="card h-100"><div class="card-header">Direct reports <span class="badge text-bg-light border">@Model.DirectReports.Count</span></div>
+                @if (Model.DirectReports.Count == 0) { <div class="card-body text-muted small">No direct reports.</div> }
+                else
+                {
+                    <ul class="list-group list-group-flush">@foreach (var r in Model.DirectReports)
+                    {
+                        <li class="list-group-item bg-transparent d-flex justify-content-between"><a href="/org/employees/details/@r.Id">@r.Name</a><span class="small text-muted">@r.Designation</span></li>
+                    }</ul>
+                }
+            </div></div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="employment">
+        <div class="card" style="max-width: 980px">
+            <div class="card-header">Employment details
+                <div class="d-flex gap-2">
+                    @if (canManage && e.Status == EmployeeStatus.Probation)
+                    {
+                        <form method="post" action="/org/employees/confirm/@e.Id" asp-antiforgery="true" data-confirm="Confirm @e.FullName's probation as completed today?"><button class="btn btn-sm btn-soft" type="submit"><i class="bi bi-patch-check me-1"></i>Confirm probation</button></form>
+                    }
+                    @if (canCreateLogin && e.UserId is null && e.IsCurrent)
+                    {
+                        <button class="btn btn-sm btn-soft" data-bs-toggle="modal" data-bs-target="#loginModal"><i class="bi bi-key me-1"></i>Create login</button>
+                    }
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="post" action="/org/employees/employment/@e.Id" asp-antiforgery="true" novalidate>
+                    <fieldset disabled="@(!canManage)">
+                        <partial name="_EmploymentFields" for="@employment" />
+                        @if (canManage) { <div class="d-flex justify-content-end mt-3"><button class="btn btn-accent" type="submit">Save employment details</button></div> }
+                    </fieldset>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="personal">
+        <div class="card" style="max-width: 980px"><div class="card-header">Personal details</div><div class="card-body">
+            <form method="post" action="/org/employees/personal/@e.Id" asp-antiforgery="true" novalidate>
+                <fieldset disabled="@(!canManage)" class="row g-3">
+                    <div class="col-md-3"><label asp-for="@personal.Gender" class="form-label"></label><select asp-for="@personal.Gender" asp-items="Html.GetEnumSelectList<Gender>()" class="form-select"><option value="">—</option></select></div>
+                    <div class="col-md-3"><label asp-for="@personal.DateOfBirth" class="form-label"></label><input asp-for="@personal.DateOfBirth" type="date" class="form-control" /></div>
+                    <div class="col-md-3"><label asp-for="@personal.MaritalStatus" class="form-label"></label><select asp-for="@personal.MaritalStatus" asp-items="Html.GetEnumSelectList<MaritalStatus>()" class="form-select"><option value="">—</option></select></div>
+                    <div class="col-md-3"><label asp-for="@personal.BloodGroup" class="form-label"></label><input asp-for="@personal.BloodGroup" class="form-control" /></div>
+                    <div class="col-md-4"><label asp-for="@personal.Nationality" class="form-label"></label><input asp-for="@personal.Nationality" class="form-control" /><span asp-validation-for="@personal.Nationality"></span></div>
+                    <div class="col-md-4"><label asp-for="@personal.PersonalEmail" class="form-label"></label><input asp-for="@personal.PersonalEmail" class="form-control" /><span asp-validation-for="@personal.PersonalEmail"></span></div>
+                    <div class="col-md-4"><label asp-for="@personal.Uan" class="form-label"></label><input asp-for="@personal.Uan" class="form-control" /><span asp-validation-for="@personal.Uan"></span></div>
+                    <div class="col-md-6"><label asp-for="@personal.CurrentAddress" class="form-label"></label><textarea asp-for="@personal.CurrentAddress" class="form-control" rows="2"></textarea></div>
+                    <div class="col-md-6"><label asp-for="@personal.PermanentAddress" class="form-label"></label><textarea asp-for="@personal.PermanentAddress" class="form-control" rows="2"></textarea></div>
+                    <div class="col-md-4"><label asp-for="@personal.EmergencyContactName" class="form-label"></label><input asp-for="@personal.EmergencyContactName" class="form-control" /></div>
+                    <div class="col-md-4"><label asp-for="@personal.EmergencyContactRelation" class="form-label"></label><input asp-for="@personal.EmergencyContactRelation" class="form-control" /></div>
+                    <div class="col-md-4"><label asp-for="@personal.EmergencyContactPhone" class="form-label"></label><input asp-for="@personal.EmergencyContactPhone" class="form-control" /><span asp-validation-for="@personal.EmergencyContactPhone"></span></div>
+                    <div class="col-md-4">
+                        <label asp-for="@personal.Pan" class="form-label"></label>
+                        @if (canSensitive)
+                        {
+                            <input asp-for="@personal.Pan" class="form-control text-uppercase" placeholder="@(Model.PanPlain ?? "Not set")" />
+                            <div class="form-text">Stored encrypted. Leave blank to keep the current value.</div>
+                            <span asp-validation-for="@personal.Pan"></span>
+                        }
+                        else { <input class="form-control" value="@(e.PanMasked ?? "Not set")" disabled /> }
+                    </div>
+                    @if (canManage) { <div class="col-12 d-flex justify-content-end"><button class="btn btn-accent" type="submit">Save personal details</button></div> }
+                </fieldset>
+            </form>
+        </div></div>
+    </div>
+
+    @if (canSensitive)
+    {
+        <div class="tab-pane fade" id="bank">
+            <div class="card" style="max-width: 760px"><div class="card-header">Salary bank account <i class="bi bi-lock text-muted" title="Encrypted at rest"></i></div><div class="card-body">
+                @if (e.BankDetail is not null)
+                {
+                    <div class="alert alert-light border small">Current: <strong>@e.BankDetail.BankName</strong> · A/C <code>@Model.BankAccountPlain</code> · IFSC @e.BankDetail.Ifsc</div>
+                }
+                <form method="post" action="/org/employees/bank/@e.Id" asp-antiforgery="true" class="row g-3" novalidate>
+                    <div class="col-md-6"><label asp-for="@bank.BankName" class="form-label"></label><input asp-for="@bank.BankName" class="form-control" /><span asp-validation-for="@bank.BankName"></span></div>
+                    <div class="col-md-6"><label asp-for="@bank.AccountHolderName" class="form-label"></label><input asp-for="@bank.AccountHolderName" class="form-control" /><span asp-validation-for="@bank.AccountHolderName"></span></div>
+                    <div class="col-md-6"><label asp-for="@bank.AccountNumber" class="form-label"></label><input asp-for="@bank.AccountNumber" class="form-control" autocomplete="off" inputmode="numeric" /><span asp-validation-for="@bank.AccountNumber"></span></div>
+                    <div class="col-md-3"><label asp-for="@bank.Ifsc" class="form-label"></label><input asp-for="@bank.Ifsc" class="form-control text-uppercase" /><span asp-validation-for="@bank.Ifsc"></span></div>
+                    <div class="col-md-3"><label asp-for="@bank.BranchName" class="form-label"></label><input asp-for="@bank.BranchName" class="form-control" /></div>
+                    <div class="col-12 d-flex justify-content-end"><button class="btn btn-accent" type="submit">@(e.BankDetail is null ? "Save bank details" : "Replace bank details")</button></div>
+                </form>
+            </div></div>
+        </div>
+    }
+
+    <div class="tab-pane fade" id="background">
+        <div class="row g-3">
+            <div class="col-xl-6"><div class="card h-100"><div class="card-header">Education</div>
+                <ul class="list-group list-group-flush">
+                    @foreach (var ed in e.Education.OrderByDescending(x => x.YearOfPassing))
+                    {
+                        <li class="list-group-item bg-transparent d-flex justify-content-between align-items-start">
+                            <div><div class="fw-semibold">@ed.Qualification @(ed.Specialization is null ? "" : $"({ed.Specialization})")</div><div class="small text-muted">@ed.Institution @(ed.YearOfPassing is null ? "" : $"· {ed.YearOfPassing}") @(ed.Grade is null ? "" : $"· {ed.Grade}")</div></div>
+                            @if (canManage) { <form method="post" action="/org/employees/deleteeducation/@e.Id?recordId=@ed.Id" asp-antiforgery="true" data-confirm="Remove this qualification?"><button class="btn btn-sm btn-link text-danger" type="submit" title="Remove"><i class="bi bi-x-lg"></i></button></form> }
+                        </li>
+                    }
+                    @if (e.Education.Count == 0) { <li class="list-group-item bg-transparent text-muted small">No education records.</li> }
+                </ul>
+                @if (canManage)
+                {
+                    <div class="card-body border-top"><form method="post" action="/org/employees/addeducation/@e.Id" asp-antiforgery="true" class="row g-2" novalidate>
+                        <div class="col-md-6"><input asp-for="@education.Qualification" class="form-control" placeholder="Qualification (e.g. B.Tech)" /></div>
+                        <div class="col-md-6"><input asp-for="@education.Institution" class="form-control" placeholder="Institution" /></div>
+                        <div class="col-md-5"><input asp-for="@education.Specialization" class="form-control" placeholder="Specialization" /></div>
+                        <div class="col-md-3"><input asp-for="@education.YearOfPassing" class="form-control" placeholder="Year" /></div>
+                        <div class="col-md-2"><input asp-for="@education.Grade" class="form-control" placeholder="Grade" /></div>
+                        <div class="col-md-2"><button class="btn btn-soft w-100" type="submit">Add</button></div>
+                    </form></div>
+                }
+            </div></div>
+            <div class="col-xl-6"><div class="card h-100"><div class="card-header">Previous experience</div>
+                <ul class="list-group list-group-flush">
+                    @foreach (var ex in e.Experience.OrderByDescending(x => x.FromDate))
+                    {
+                        <li class="list-group-item bg-transparent d-flex justify-content-between align-items-start">
+                            <div><div class="fw-semibold">@ex.Company</div><div class="small text-muted">@ex.Designation · @ex.FromDate.ToString("MMM yyyy") – @(ex.ToDate?.ToString("MMM yyyy") ?? "present")</div></div>
+                            @if (canManage) { <form method="post" action="/org/employees/deleteexperience/@e.Id?recordId=@ex.Id" asp-antiforgery="true" data-confirm="Remove this experience?"><button class="btn btn-sm btn-link text-danger" type="submit" title="Remove"><i class="bi bi-x-lg"></i></button></form> }
+                        </li>
+                    }
+                    @if (e.Experience.Count == 0) { <li class="list-group-item bg-transparent text-muted small">No previous experience recorded.</li> }
+                </ul>
+                @if (canManage)
+                {
+                    <div class="card-body border-top"><form method="post" action="/org/employees/addexperience/@e.Id" asp-antiforgery="true" class="row g-2" novalidate>
+                        <div class="col-md-6"><input asp-for="@experience.Company" class="form-control" placeholder="Company" /></div>
+                        <div class="col-md-6"><input asp-for="@experience.Designation" class="form-control" placeholder="Designation" /></div>
+                        <div class="col-md-5"><label class="small text-muted" for="experience_FromDate">From</label><input asp-for="@experience.FromDate" type="date" class="form-control" /></div>
+                        <div class="col-md-5"><label class="small text-muted" for="experience_ToDate">To</label><input asp-for="@experience.ToDate" type="date" class="form-control" /></div>
+                        <div class="col-md-2 d-flex align-items-end"><button class="btn btn-soft w-100" type="submit">Add</button></div>
+                    </form></div>
+                }
+            </div></div>
+        </div>
+    </div>
+
+    @if (showDocs)
+    {
+        <div class="tab-pane fade" id="documents">
+            <div class="card">
+                <div class="card-header">Documents
+                    @if (canDocs) { <button class="btn btn-sm btn-accent" data-bs-toggle="modal" data-bs-target="#uploadModal"><i class="bi bi-upload me-1"></i>Upload</button> }</div>
+                @if (documents.Count == 0) { <div class="empty-state"><i class="bi bi-folder2-open"></i>No documents uploaded.</div> }
+                else
+                {
+                    <div class="table-responsive"><table class="table table-hover">
+                        <thead><tr><th>Document</th><th>Category</th><th>Expires</th><th>Status</th><th></th></tr></thead>
+                        <tbody>@foreach (var d in documents)
+                        {
+                            var expired = d.ExpiresOn is { } x && x < today;
+                            var soon = d.ExpiresOn is { } y && y >= today && y <= today.AddDays(30);
+                            <tr>
+                                <td><a href="/org/employees/document?docId=@d.Id" class="fw-semibold">@d.Title</a><div class="small text-muted">@d.FileName · @((d.SizeBytes / 1024.0).ToString("N0")) KB@(d.VisibleToEmployee ? "" : " · hidden from employee")</div></td>
+                                <td class="small">@d.Category</td>
+                                <td class="small">@if (d.ExpiresOn is { } ex) { <span class="@(expired ? "text-danger fw-semibold" : soon ? "text-warning fw-semibold" : "")">@ex.ToString("dd MMM yyyy")@(expired ? " (expired)" : "")</span> } else { <span>—</span> }</td>
+                                <td>@if (d.IsVerified) { <span class="badge-status st-Active" title="By @d.VerifiedBy">Verified</span> } else { <span class="badge-status st-PendingVerification">Unverified</span> }</td>
+                                <td class="text-end text-nowrap">
+                                    @if (canDocs && !d.IsVerified) { <form method="post" action="/org/employees/verifydocument/@e.Id?docId=@d.Id" asp-antiforgery="true" class="d-inline"><button class="btn btn-sm btn-soft" type="submit">Verify</button></form> }
+                                    @if (canDocs) { <form method="post" action="/org/employees/deletedocument/@e.Id?docId=@d.Id" asp-antiforgery="true" class="d-inline" data-confirm="Delete @d.Title? The file will be removed." data-confirm-danger="1"><button class="btn btn-sm btn-outline-danger" type="submit" title="Delete"><i class="bi bi-trash"></i></button></form> }
+                                </td>
+                            </tr>
+                        }</tbody>
+                    </table></div>
+                }
+            </div>
+        </div>
+    }
+
+    @if (features.Contains(FeatureCodes.EmployeeExit))
+    {
+        <div class="tab-pane fade" id="exit">
+            <div class="card" style="max-width: 760px"><div class="card-header">Exit</div><div class="card-body">
+                @if (Model.OpenExit is { } ox)
+                {
+                    <p>@ox.Type requested on @ox.RequestedOn.ToString("dd MMM yyyy") · last working day @((ox.ApprovedLastWorkingDay ?? ox.RequestedLastWorkingDay).ToString("dd MMM yyyy")) · <span class="badge-status st-@(ox.Status == ExitStatus.Completed ? "Inactive" : ox.Status == ExitStatus.Pending ? "PendingVerification" : "Active")">@ox.Status</span></p>
+                    @if (canExit) { <a href="/org/exits/details/@ox.Id" class="btn btn-soft">Open exit workflow</a> }
+                }
+                else if (!e.IsCurrent) { <p class="text-muted mb-0">This employee is no longer current.</p> }
+                else if (canExit)
+                {
+                    <form method="post" action="/org/employees/initiateexit/@e.Id" asp-antiforgery="true" class="row g-3" novalidate>
+                        <div class="col-md-6"><label asp-for="@exit.Type" class="form-label">Exit type</label><select asp-for="@exit.Type" asp-items="Html.GetEnumSelectList<ExitType>()" class="form-select"></select></div>
+                        <div class="col-md-6"><label asp-for="@exit.RequestedLastWorkingDay" class="form-label"></label><input asp-for="@exit.RequestedLastWorkingDay" type="date" class="form-control" /><div class="form-text">Defaults to the notice period (@e.NoticePeriodDays days).</div></div>
+                        <div class="col-12"><label asp-for="@exit.Reason" class="form-label"></label><textarea asp-for="@exit.Reason" class="form-control" rows="2"></textarea><span asp-validation-for="@exit.Reason"></span></div>
+                        <div class="col-12"><button class="btn btn-outline-danger" type="submit">Initiate exit</button></div>
+                    </form>
+                }
+                else { <p class="text-muted mb-0">No exit in progress.</p> }
+            </div></div>
+        </div>
+    }
+</div>
+
+@if (canDocs)
+{
+    <div class="modal fade" id="uploadModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" method="post" action="/org/employees/upload/@e.Id" asp-antiforgery="true" enctype="multipart/form-data" novalidate>
+        <div class="modal-header"><h5 class="modal-title">Upload document</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body row g-3">
+            <div class="col-12"><label class="form-label" for="file">File</label><input id="file" name="file" type="file" class="form-control" required accept="@DocumentService.AllowedExtensions.Replace(" ", "")" />
+                <div class="form-text">@DocumentService.AllowedExtensions · up to @(DocumentService.MaxBytes / 1024 / 1024) MB. Do not upload full Aadhaar numbers; mask all but the last 4 digits.</div></div>
+            <div class="col-md-7"><label asp-for="@document.Title" class="form-label"></label><input asp-for="@document.Title" class="form-control" placeholder="e.g. PAN card" /><span asp-validation-for="@document.Title"></span></div>
+            <div class="col-md-5"><label asp-for="@document.Category" class="form-label"></label><select asp-for="@document.Category" asp-items="Html.GetEnumSelectList<DocumentCategory>()" class="form-select"></select></div>
+            <div class="col-md-6"><label asp-for="@document.ExpiresOn" class="form-label"></label><input asp-for="@document.ExpiresOn" type="date" class="form-control" /></div>
+            <div class="col-md-6 d-flex align-items-end"><div class="form-check form-switch"><input asp-for="@document.VisibleToEmployee" class="form-check-input" /><label asp-for="@document.VisibleToEmployee" class="form-check-label"></label></div></div>
+            <div class="col-12"><label asp-for="@document.Notes" class="form-label"></label><input asp-for="@document.Notes" class="form-control" /></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Upload</button></div>
+    </form></div></div>
+}
+@if (canCreateLogin && e.UserId is null && e.IsCurrent)
+{
+    <div class="modal fade" id="loginModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" method="post" action="/org/employees/createlogin/@e.Id" asp-antiforgery="true">
+        <div class="modal-header"><h5 class="modal-title">Create login for @e.FirstName</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body"><p class="small text-muted">Sign-in email: <strong>@e.WorkEmail</strong>. If a login with this email already exists it will be linked instead.</p>
+            <label class="form-label" for="pw">Initial password</label><input id="pw" name="password" type="password" minlength="8" class="form-control" required autocomplete="new-password" /></div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Create login</button></div>
+    </form></div></div>
+}

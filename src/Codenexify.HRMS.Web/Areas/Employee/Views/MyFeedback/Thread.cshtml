@@ -1,0 +1,36 @@
+@model Codenexify.HRMS.Application.Strength.FeedbackView
+@using Codenexify.HRMS.Domain.Strength
+@{
+    var t = Model.Thread;
+    var code = (string)ViewBag.Code;
+    ViewData["Title"] = t.Subject;
+}
+<div class="page-head"><div><h1>@t.Subject</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/me/feedback">Anonymous feedback</a></li><li class="breadcrumb-item active">@t.Category</li></ol></nav></div>
+    <span class="badge-status st-@(t.Status == FeedbackStatus.Closed ? "Inactive" : t.Status == FeedbackStatus.Answered ? "Issued" : "PendingVerification") fs-6">@(t.Status == FeedbackStatus.Answered ? "HR replied" : t.Status.ToString())</span></div>
+<div class="row justify-content-center"><div class="col-xl-8">
+    <div class="card"><div class="card-body">
+        @foreach (var m in Model.Messages)
+        {
+            <div class="d-flex @(m.FromHr ? "" : "justify-content-end") mb-3">
+                <div class="p-3 rounded-3 @(m.FromHr ? "bg-body-tertiary" : "bg-primary-subtle")" style="max-width:85%">
+                    <div class="small fw-semibold mb-1">@(m.FromHr ? m.AuthorName ?? "HR" : "You") <span class="text-muted fw-normal">· @m.SentOn.ToString("dd MMM yyyy")</span></div>
+                    <div class="text-break" style="white-space:pre-line">@m.Body</div>
+                </div>
+            </div>
+        }
+        @if (t.Status == FeedbackStatus.Closed)
+        {
+            <div class="small text-muted border-top pt-3">HR closed this conversation. Send new feedback if you have more to say.</div>
+        }
+        else
+        {
+            <form method="post" action="/me/feedback/open" asp-antiforgery="true" class="border-top pt-3" autocomplete="off">
+                <input type="hidden" name="code" value="@code" />
+                <label class="form-label small" for="fu">Add a message (still anonymous)</label>
+                <textarea id="fu" name="reply" rows="3" maxlength="4000" required class="form-control"></textarea>
+                <div class="text-end mt-2"><button class="btn btn-accent" type="submit">Send</button></div>
+            </form>
+        }
+    </div></div>
+</div></div>

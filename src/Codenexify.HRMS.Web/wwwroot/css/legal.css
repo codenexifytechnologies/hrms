@@ -1,0 +1,25 @@
+/* Public policy pages (/privacy, /terms, /refund-policy, /contact) */
+.legal-wrap { padding-top: 2.5rem; padding-bottom: 2rem; }
+.legal-nav { position: sticky; top: 1.5rem; display: flex; flex-direction: column; gap: .25rem;
+  border-left: 2px solid var(--cnx-border); }
+.legal-nav a { padding: .45rem .9rem; margin-left: -2px; border-left: 2px solid transparent; color: var(--cnx-muted);
+  text-decoration: none; font-weight: 500; transition: color .15s, border-color .15s; }
+.legal-nav a:hover, .legal-nav a:focus-visible { color: var(--cnx-text); }
+.legal-nav a.active { color: var(--cnx-accent); border-left-color: var(--cnx-accent); }
+
+.legal-doc { max-width: 52rem; color: var(--cnx-text); line-height: 1.7; }
+.legal-head { padding-bottom: 1.25rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--cnx-border); }
+.legal-head h1 { font-weight: 800; letter-spacing: -.02em; margin-bottom: .5rem; }
+.legal-head .lead { color: var(--cnx-muted); font-size: 1.1rem; margin-bottom: .5rem; }
+.legal-doc h2 { font-size: 1.3rem; font-weight: 700; margin: 2rem 0 .75rem; scroll-margin-top: 1rem; }
+.legal-doc h3 { font-size: 1.05rem; font-weight: 700; margin: 1.5rem 0 .5rem; }
+.legal-doc p, .legal-doc ul { margin-bottom: 1rem; }
+.legal-doc li { margin-bottom: .35rem; }
+.legal-doc a { color: var(--cnx-accent); overflow-wrap: anywhere; }
+
+@media (max-width: 991.98px) {
+  .legal-wrap { padding-top: 1.25rem; }
+  .legal-nav { position: static; flex-direction: row; flex-wrap: wrap; border-left: 0; border-bottom: 1px solid var(--cnx-border); gap: 0; }
+  .legal-nav a { margin: 0 0 -1px; border-left: 0; border-bottom: 2px solid transparent; padding: .5rem .75rem; }
+  .legal-nav a.active { border-bottom-color: var(--cnx-accent); }
+}

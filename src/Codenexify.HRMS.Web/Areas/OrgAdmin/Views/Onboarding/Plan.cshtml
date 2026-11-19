@@ -1,0 +1,44 @@
+@model Codenexify.HRMS.Application.Strength.OnboardingPlanView
+@using Codenexify.HRMS.Domain.Strength
+@{
+    ViewData["Title"] = $"Onboarding · {Model.EmployeeName}";
+    ViewData["BasePath"] = "/org/onboarding";
+    ViewData["Hr"] = true;
+    var done = Model.Tasks.Count(t => t.CompletedAtUtc is not null);
+}
+<div class="page-head"><div><h1>@Model.EmployeeName</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/onboarding">Onboarding</a></li><li class="breadcrumb-item active">@Model.EmployeeCode</li></ol></nav></div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-light border" href="/org/employees/details/@Model.EmployeeId">Profile</a>
+        @if (Model.Status == OnboardingStatus.InProgress)
+        {
+            <form method="post" action="/org/onboarding/@Model.Id/cancel" asp-antiforgery="true"><button class="btn btn-outline-danger" type="submit" data-confirm="Cancel this onboarding? Open tasks are dropped." data-confirm-danger="1">Cancel onboarding</button></form>
+        }
+    </div></div>
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card"><div class="card-header d-flex justify-content-between"><span>Tasks</span><span class="small text-muted">@done of @Model.Tasks.Count done · @Model.Status</span></div>
+            <partial name="_OnboardingTasks" model="Model" />
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card mb-3"><div class="card-body small">
+            <div class="mb-1"><span class="text-muted">Joins</span> @Model.DateOfJoining.ToString("dd MMM yyyy")</div>
+            <div class="mb-1"><span class="text-muted">Template</span> @Model.TemplateName</div>
+            <div class="mb-1"><span class="text-muted">Manager</span> @(Model.Manager ?? "—")</div>
+            <div><span class="text-muted">Buddy</span> @(Model.Buddy ?? "—")</div>
+        </div></div>
+        @if (Model.Status != OnboardingStatus.Cancelled)
+        {
+            <div class="card"><div class="card-header">Add a task</div><div class="card-body">
+                <form method="post" action="/org/onboarding/@Model.Id/tasks" asp-antiforgery="true" class="row g-2">
+                    <div class="col-12"><label class="form-label small" for="tt">Task</label><input id="tt" name="task.Title" maxlength="200" required class="form-control" /></div>
+                    <div class="col-6"><label class="form-label small" for="ta">For</label>
+                        <select id="ta" name="task.Assignee" class="form-select"><option value="Hr">HR</option><option value="Manager">Manager</option>@if (Model.Buddy is not null) { <option value="Buddy">Buddy</option> }<option value="Employee">New joiner</option></select></div>
+                    <div class="col-6"><label class="form-label small" for="td">Due</label><input id="td" name="dueOn" type="date" required value="@DateTime.Today.AddDays(3).ToString("yyyy-MM-dd")" class="form-control" /></div>
+                    <div class="col-12 text-end"><button class="btn btn-soft" type="submit">Add</button></div>
+                </form>
+            </div></div>
+        }
+    </div>
+</div>

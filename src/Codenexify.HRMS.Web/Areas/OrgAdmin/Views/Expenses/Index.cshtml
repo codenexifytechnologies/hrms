@@ -1,0 +1,33 @@
+@model Codenexify.HRMS.Application.Common.PagedResult<Codenexify.HRMS.Application.Payroll.ExpenseClaimRow>
+@using Codenexify.HRMS.Domain.Payroll
+@{
+    ViewData["Title"] = "Expense claims";
+    var tab = (string)ViewBag.Tab;
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+}
+<div class="page-head"><div><h1>Expense claims</h1><div class="text-muted small">Approve, then reimburse with payroll or pay directly</div></div>
+    <a class="btn btn-light border" href="/org/expenses/categories"><i class="bi bi-tags me-1"></i>Categories</a></div>
+<div class="d-flex flex-wrap gap-2 mb-3" role="group" aria-label="Filter claims">
+    @foreach (var (key, label) in new[] { ("awaiting", "Awaiting approval"), ("topay", "Approved, to pay"), ("paid", "Paid"), ("closed", "Rejected / cancelled") })
+    {
+        <a class="btn btn-sm @(tab == key ? "btn-accent" : "btn-light border")" href="/org/expenses?tab=@key">@label</a>
+    }
+</div>
+<div class="card">
+    @if (Model.Items.Count == 0) { <div class="empty-state"><i class="bi bi-receipt"></i>No claims here.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+            <thead><tr><th>#</th><th>Employee</th><th>Claim</th><th>Submitted</th><th class="text-end">Total</th><th>Status</th></tr></thead>
+            <tbody>@foreach (var c in Model.Items)
+            {
+                <tr><td class="text-muted">#@c.Id</td><td>@c.EmployeeName<div class="small text-muted">@c.EmployeeCode</div></td>
+                    <td><a class="fw-semibold" href="/org/expenses/@c.Id">@c.Title</a><div class="small text-muted">@c.ItemCount item(s)@(c.ManagerDecisionBy is null ? "" : $" · manager: {c.ManagerDecisionBy}")</div></td>
+                    <td class="small">@c.SubmittedAtUtc.ToLocalTime().ToString("dd MMM yyyy")</td>
+                    <td class="text-end">₹@c.Total.ToString("N0", inr)</td>
+                    <td class="small">@(c.Status switch { ExpenseStatus.Submitted => "Awaiting approval", ExpenseStatus.ManagerApproved => "Approved by manager", ExpenseStatus.Approved => c.Payout == ExpensePayout.Payroll ? "With next payroll" : "To pay directly", _ => c.Status.ToString() })</td></tr>
+            }</tbody>
+        </table></div>
+    }
+    <partial name="_Pager" model="Model.ToPager()" />
+</div>

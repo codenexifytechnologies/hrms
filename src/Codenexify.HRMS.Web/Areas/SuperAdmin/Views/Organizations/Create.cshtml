@@ -1,0 +1,42 @@
+@model Codenexify.HRMS.Web.Areas.SuperAdmin.Controllers.OrganizationCreateViewModel
+@{
+    ViewData["Title"] = "New organization";
+}
+<div class="page-head">
+    <div><h1>New organization</h1>
+        <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/superadmin/organizations">Organizations</a></li><li class="breadcrumb-item active">New</li></ol></nav></div>
+</div>
+<div class="card" style="max-width: 960px">
+    <div class="card-body">
+        <form method="post" action="/superadmin/organizations/create" asp-antiforgery="true" novalidate>
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+            <div class="form-section-title mt-0">Company</div>
+            <div class="row g-3">
+                <div class="col-md-6"><label asp-for="CompanyName" class="form-label"></label><input asp-for="CompanyName" class="form-control" data-code-source /><span asp-validation-for="CompanyName"></span></div>
+                <div class="col-md-6"><label asp-for="Code" class="form-label"></label><input asp-for="Code" class="form-control" data-code-check="/register/check-code" autocomplete="off" /><div id="codeStatus" class="small"></div><span asp-validation-for="Code"></span></div>
+                <div class="col-md-6"><label asp-for="CompanyEmail" class="form-label"></label><input asp-for="CompanyEmail" class="form-control" /><span asp-validation-for="CompanyEmail"></span></div>
+                <div class="col-md-6"><label asp-for="Phone" class="form-label"></label><input asp-for="Phone" class="form-control" /><span asp-validation-for="Phone"></span></div>
+                <div class="col-md-4"><label asp-for="Industry" class="form-label"></label><input asp-for="Industry" class="form-control" /></div>
+                <div class="col-md-4"><label asp-for="City" class="form-label"></label><input asp-for="City" class="form-control" /></div>
+                <div class="col-md-4"><label asp-for="State" class="form-label"></label><input asp-for="State" class="form-control" /></div>
+            </div>
+            <div class="form-section-title">Subscription</div>
+            <div class="row g-3 align-items-end">
+                <div class="col-md-6"><label asp-for="PlanId" class="form-label"></label>
+                    <select asp-for="PlanId" asp-items="ViewBag.Plans" class="form-select"><option value="">Select a plan…</option></select><span asp-validation-for="PlanId"></span></div>
+                <div class="col-md-3"><label asp-for="BillingCycle" class="form-label"></label><select asp-for="BillingCycle" asp-items="Html.GetEnumSelectList<BillingCycle>()" class="form-select"></select></div>
+                <div class="col-md-3"><div class="form-check form-switch mb-2"><input asp-for="StartAsTrial" class="form-check-input" /><label asp-for="StartAsTrial" class="form-check-label"></label></div></div>
+            </div>
+            <div class="form-section-title">First administrator</div>
+            <div class="row g-3">
+                <div class="col-md-4"><label asp-for="AdminName" class="form-label"></label><input asp-for="AdminName" class="form-control" /><span asp-validation-for="AdminName"></span></div>
+                <div class="col-md-4"><label asp-for="AdminEmail" class="form-label"></label><input asp-for="AdminEmail" class="form-control" /><span asp-validation-for="AdminEmail"></span></div>
+                <div class="col-md-4"><label asp-for="AdminPassword" class="form-label"></label><input asp-for="AdminPassword" class="form-control" autocomplete="new-password" /><span asp-validation-for="AdminPassword"></span></div>
+            </div>
+            <div class="d-flex gap-2 justify-content-end mt-4">
+                <a href="/superadmin/organizations" class="btn btn-light border">Cancel</a>
+                <button type="submit" class="btn btn-accent">Create organization</button>
+            </div>
+        </form>
+    </div>
+</div>

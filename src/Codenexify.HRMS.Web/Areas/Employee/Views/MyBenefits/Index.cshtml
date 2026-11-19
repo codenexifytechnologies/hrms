@@ -1,0 +1,104 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Benefits.MyBenefit>
+@using Codenexify.HRMS.Domain.Benefits
+@using Codenexify.HRMS.Web
+@{
+    ViewData["Title"] = "My benefits";
+    var mine = Model.Where(b => b.Enrollment is not null).ToList();
+    var available = Model.Where(b => b.Enrollment is null).ToList();
+    var deduction = mine.Where(b => b.Enrollment!.Status == BenefitEnrollmentStatus.Active).Sum(b => b.MonthlyDeduction);
+    var allowance = mine.Where(b => b.Enrollment!.Status == BenefitEnrollmentStatus.Active).Sum(b => b.Plan.AllowancePerMonth);
+}
+<div class="page-head"><div><h1>My benefits</h1><div class="text-muted small">Insurance, allowances and perks from your company</div></div></div>
+
+@if (ViewBag.HasEmployee is not true)
+{
+    <div class="alert alert-info">Your login isn't linked to an employee record yet, so benefits can't be shown. Please contact HR.</div>
+}
+else if (Model.Count == 0)
+{
+    <div class="card"><div class="empty-state"><i class="bi bi-gift"></i>No benefits are available to you right now.</div></div>
+}
+else
+{
+    @if (mine.Count > 0)
+    {
+        <div class="small text-muted mb-2">Each month: @(allowance > 0 ? $"₹{allowance:N0} paid with your salary" : "no allowances")@(deduction > 0 ? $" · ₹{deduction:N0} deducted as your share" : "").</div>
+    }
+    <div class="row g-3">
+        @foreach (var b in mine.Concat(available))
+        {
+            var p = b.Plan;
+            var en = b.Enrollment;
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                            <div class="d-flex gap-2 align-items-start">
+                                <span class="fs-4" style="color: var(--cnx-accent)"><i class="bi @BenefitUi.Icon(p.Category)"></i></span>
+                                <div><div class="fw-semibold">@p.Name</div><div class="small text-muted">@BenefitUi.Label(p.Category)@(p.Provider is null ? "" : " · " + p.Provider)</div></div>
+                            </div>
+                            @if (en?.Status == BenefitEnrollmentStatus.Active) { <span class="badge text-bg-success">Enrolled</span> }
+                            else if (en is not null) { <span class="badge text-bg-warning">Ending</span> }
+                            else if (b.CanJoin) { <span class="badge text-bg-primary">Available</span> }
+                            else { <span class="badge text-bg-secondary">Not yet</span> }
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(p.Description)) { <p class="small mb-2" style="white-space: pre-line">@p.Description</p> }
+                        <ul class="list-unstyled small mb-2">
+                            @if (p.CoverageAmount is { } cover) { <li><i class="bi bi-shield-check me-1 text-muted"></i>Cover ₹@cover.ToString("N0")@(p.PolicyNumber is null ? "" : $" · policy {p.PolicyNumber}")</li> }
+                            @if (p.AllowancePerMonth > 0) { <li><i class="bi bi-cash-coin me-1 text-muted"></i>₹@p.AllowancePerMonth.ToString("N0") a month with your salary</li> }
+                            @if (b.MonthlyDeduction > 0 || p.EmployeeContributionPerMonth > 0)
+                            {
+                                var family = en?.Dependents.Count(d => !d.IsDeleted) ?? 0;
+                                <li><i class="bi bi-dash-circle me-1 text-muted"></i>Your share: ₹@((en is null ? p.EmployeeContributionPerMonth : b.MonthlyDeduction).ToString("N0")) a month@(
+                                    p.DependentContributionPerMonth <= 0 ? ""
+                                    : en is null || family == 0 ? $" (+ ₹{p.DependentContributionPerMonth:N0} per family member)"
+                                    : $" (₹{p.EmployeeContributionPerMonth:N0} + ₹{p.DependentContributionPerMonth:N0} × {family} family member{(family == 1 ? "" : "s")})")</li>
+                            }
+                            @if (en is not null) { <li><i class="bi bi-calendar-check me-1 text-muted"></i>Covered from @en.StartsOn.ToString("dd MMM yyyy")@(en.EndsOn is { } until ? $" until {until:dd MMM yyyy}" : "")</li> }
+                            @if (p.CoversDependents) { <li><i class="bi bi-people me-1 text-muted"></i>Covers up to @p.MaxDependents family member(s)</li> }
+                        </ul>
+                        @if (b.Note is not null) { <div class="small text-muted mb-2"><i class="bi bi-info-circle me-1"></i>@b.Note</div> }
+                        @if (en is not null && en.Dependents.Any(d => !d.IsDeleted))
+                        {
+                            <div class="small mb-2"><span class="text-muted">Family covered:</span> @string.Join(", ", en.Dependents.Where(d => !d.IsDeleted).Select(d => $"{d.Name} ({BenefitUi.Label(d.Relation)})"))</div>
+                        }
+                        <div class="d-flex flex-wrap gap-2">
+                            @if (p.DocumentFileName is not null) { <a class="btn btn-sm btn-light border" href="/me/benefits/@p.Id/document"><i class="bi bi-file-earmark-pdf me-1"></i>Policy document</a> }
+                            @if (b.CanEditDependents) { <button class="btn btn-sm btn-light border" type="button" data-bs-toggle="collapse" data-bs-target="#fam-@p.Id"><i class="bi bi-people me-1"></i>Family members</button> }
+                            @if (b.CanJoin) { <button class="btn btn-sm btn-accent" type="button" data-bs-toggle="collapse" data-bs-target="#join-@p.Id"><i class="bi bi-plus-lg me-1"></i>Join</button> }
+                            @if (b.CanLeave)
+                            {
+                                <form method="post" action="/me/benefits/@p.Id/leave" asp-antiforgery="true" class="d-inline" data-confirm="Leave @p.Name? Cover continues to the end of this month." data-confirm-danger>
+                                    <button class="btn btn-sm btn-outline-danger" type="submit">Leave</button>
+                                </form>
+                            }
+                        </div>
+                        @if (b.CanEditDependents && en is not null)
+                        {
+                            <div class="collapse mt-3" id="fam-@p.Id"><div class="border rounded p-3">
+                                <partial name="_DependentsForm" model="@(new DependentsFormModel($"/me/benefits/enrollments/{en.Id}/dependents", p.MaxDependents, en.Dependents.Where(d => !d.IsDeleted).ToList()))" />
+                            </div></div>
+                        }
+                        @if (b.CanJoin)
+                        {
+                            <div class="collapse mt-3" id="join-@p.Id"><div class="border rounded p-3">
+                                @if (p.CoversDependents)
+                                {
+                                    <partial name="_DependentsForm" model="@(new DependentsFormModel($"/me/benefits/{p.Id}/join", p.MaxDependents, []))" />
+                                    <div class="form-text">Saving joins the plan with these family members. You can change them later.</div>
+                                }
+                                else
+                                {
+                                    <form method="post" action="/me/benefits/@p.Id/join" asp-antiforgery="true">
+                                        <p class="small mb-2">You'll be covered from today@(p.EmployeeContributionPerMonth > 0 ? $" and ₹{p.EmployeeContributionPerMonth:N0} will be deducted from your salary each month" : "").</p>
+                                        <button class="btn btn-sm btn-accent" type="submit">Confirm and join</button>
+                                    </form>
+                                }
+                            </div></div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}

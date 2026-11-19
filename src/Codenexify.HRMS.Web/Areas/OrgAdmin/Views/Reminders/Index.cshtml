@@ -1,0 +1,60 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Strength.ReminderRuleRow>
+@using Codenexify.HRMS.Application.Strength
+@using Codenexify.HRMS.Domain.Strength
+@{
+    ViewData["Title"] = "Reminder rules";
+    var editId = ViewBag.EditId as int?;
+    var input = (ReminderRuleInput)ViewBag.Input;
+    string EventText(ReminderEvent e) => e switch
+    {
+        ReminderEvent.ProbationEnding => "Probation ending", ReminderEvent.DocumentExpiring => "Document expiring", ReminderEvent.WorkAnniversary => "Work anniversary",
+        ReminderEvent.Birthday => "Birthday", _ => "Onboarding task overdue"
+    };
+    string When(ReminderRuleRow r) => r.Event == ReminderEvent.OnboardingTaskOverdue
+        ? (r.Days == 0 ? "on the due date" : $"{r.Days} day(s) after the due date")
+        : (r.Days == 0 ? "on the day" : $"{r.Days} day(s) before");
+}
+<div class="page-head"><div><h1>Reminder rules</h1><div class="text-muted small">Automatic in-app and email reminders, checked every hour, sent once per person and date</div></div>
+    <form method="post" action="/org/reminders/run" asp-antiforgery="true"><button class="btn btn-light border" type="submit"><i class="bi bi-play me-1"></i>Run now</button></form></div>
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card">
+            @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-bell"></i>No rules yet. A good start: probation ending in 14 days to the manager and HR.</div> }
+            else
+            {
+                <div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+                    <thead><tr><th>Rule</th><th>When</th><th>Who</th><th>Sent</th><th></th></tr></thead>
+                    <tbody>@foreach (var r in Model)
+                    {
+                        <tr class="@(r.IsActive ? "" : "text-muted")"><td><a class="fw-semibold" href="/org/reminders?edit=@r.Id">@r.Name</a><div class="small text-muted">@EventText(r.Event)@(r.IsActive ? "" : " · paused")</div></td>
+                            <td class="small">@When(r)</td>
+                            <td class="small">@string.Join(", ", new[] { r.NotifyEmployee ? "employee" : null, r.NotifyManager ? "manager" : null, r.NotifyHr ? "HR" : null }.Where(x => x is not null))</td>
+                            <td>@r.SentCount</td>
+                            <td class="text-end"><form method="post" action="/org/reminders/@r.Id/delete" asp-antiforgery="true"><button class="btn btn-sm btn-outline-danger" type="submit" title="Delete" data-confirm="Delete rule @r.Name?" data-confirm-danger="1"><i class="bi bi-trash"></i></button></form></td></tr>
+                    }</tbody>
+                </table></div>
+            }
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card"><div class="card-header">@(editId is null ? "New rule" : "Edit rule")</div><div class="card-body">
+            <form method="post" action="/org/reminders/save@(editId is null ? "" : $"?id={editId}")" asp-antiforgery="true" class="row g-2">
+                <div class="col-12"><label class="form-label small" for="rn">Name (shown as the notification title)</label><input id="rn" name="rule.Name" value="@input.Name" maxlength="100" required class="form-control" placeholder="e.g. Probation review due" /></div>
+                <div class="col-7"><label class="form-label small" for="re">Event</label>
+                    <select id="re" name="rule.Event" class="form-select">@foreach (var e in Enum.GetValues<ReminderEvent>()) { <option value="@e" selected="@(input.Event == e)">@EventText(e)</option> }</select></div>
+                <div class="col-5"><label class="form-label small" for="rd">Days before</label><input id="rd" name="rule.Days" type="number" min="0" max="90" value="@input.Days" class="form-control" /></div>
+                <div class="col-12 small text-muted">For overdue onboarding tasks, “days” means days after the due date.</div>
+                <div class="col-12"><span class="form-label small d-block">Notify</span>
+                    @foreach (var (name, label, on) in new[] { ("NotifyEmployee", "The employee", input.NotifyEmployee), ("NotifyManager", "Their manager", input.NotifyManager), ("NotifyHr", "HR", input.NotifyHr) })
+                    {
+                        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="r@(name)" name="rule.@name" value="true" checked="@on" /><input type="hidden" name="rule.@name" value="false" /><label class="form-check-label small" for="r@(name)">@label</label></div>
+                    }</div>
+                <div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="ra" name="rule.IsActive" value="true" checked="@input.IsActive" /><input type="hidden" name="rule.IsActive" value="false" /><label class="form-check-label small" for="ra">Active</label></div></div>
+                <div class="col-12 d-flex justify-content-between">
+                    @if (editId is not null) { <a class="btn btn-light border" href="/org/reminders">New rule instead</a> } else { <span></span> }
+                    <button class="btn btn-accent" type="submit">Save rule</button></div>
+            </form>
+            <p class="small text-muted mt-3 mb-0">Reminders appear in the bell and are also emailed to people who receive notification emails. Birthday reminders to others skip people who hide their birthday.</p>
+        </div></div>
+    </div>
+</div>

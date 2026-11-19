@@ -1,0 +1,45 @@
+@model Codenexify.HRMS.Application.Strength.FeedbackInput
+@{
+    ViewData["Title"] = "Anonymous feedback";
+    var categories = (IReadOnlyList<string>)ViewBag.Categories;
+    var code = ViewBag.Code as string;
+}
+<div class="page-head"><div><h1>Anonymous feedback</h1><div class="text-muted small">Raise anything with HR without revealing who you are</div></div></div>
+
+@if (code is not null)
+{
+    <div class="card mb-3 tone-green"><div class="card-body">
+        <h2 class="h6"><i class="bi bi-check2-circle me-1"></i>Sent anonymously</h2>
+        <p class="small mb-2">This is your private code. It's the only way to read HR's reply or add more — <strong>write it down now; it won't be shown again</strong> and HR can't recover it.</p>
+        <div class="d-flex align-items-center gap-2"><code class="fs-4 user-select-all" id="fcode">@code</code></div>
+    </div></div>
+}
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card"><div class="card-header">New feedback</div><div class="card-body">
+            <form method="post" action="/me/feedback" asp-antiforgery="true">
+                <div class="mb-2"><label class="form-label small" for="fc">Category</label>
+                    <select id="fc" name="Category" class="form-select">@foreach (var c in categories) { <option>@c</option> }</select></div>
+                <div class="mb-2"><label class="form-label small" for="fs">Subject</label><input id="fs" name="Subject" maxlength="150" required class="form-control" /></div>
+                <div class="mb-2"><label class="form-label small" for="fb">Message</label><textarea id="fb" name="Body" rows="6" minlength="10" maxlength="4000" required class="form-control"></textarea></div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="small text-muted">Avoid details that would identify you if you want to stay anonymous.</span>
+                    <button class="btn btn-accent" type="submit">Send anonymously</button></div>
+            </form>
+        </div></div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card mb-3"><div class="card-header">Check for a reply</div><div class="card-body">
+            <form method="post" action="/me/feedback/open" asp-antiforgery="true" autocomplete="off">
+                <label class="form-label small" for="oc">Your private code</label>
+                <div class="input-group"><input id="oc" name="code" required maxlength="19" class="form-control text-uppercase" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" />
+                    <button class="btn btn-soft" type="submit">Open</button></div>
+            </form>
+        </div></div>
+        <div class="card"><div class="card-body small text-muted">
+            <p><i class="bi bi-shield-lock me-1"></i>Your feedback is stored without your account or name, and with only the day it was sent — not the time.</p>
+            <p class="mb-0">HR replies inside the conversation. Nobody, including HR and Codenexify, can link it back to you through the system.</p>
+        </div></div>
+    </div>
+</div>

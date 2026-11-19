@@ -1,0 +1,78 @@
+@model PagedResult<Codenexify.HRMS.Application.Payroll.LoanRow>
+@using Codenexify.HRMS.Application.Payroll
+@using Codenexify.HRMS.Domain.Payroll
+@{
+    ViewData["Title"] = "Loans & advances";
+    var status = ViewBag.Status as LoanStatus?;
+    var employees = (IReadOnlyList<LookupItem>)ViewBag.Employees;
+    var today = (DateOnly)ViewBag.Today;
+    var manage = User.HasPermission(TenantPermissions.PayrollManage);
+    var loan = new LoanRequestInput { RecoveryStart = new DateOnly(today.Year, today.Month, 1).AddMonths(1) };
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    string M(decimal v) => "₹" + v.ToString("N0", inr);
+}
+<div class="page-head"><div><h1>Loans &amp; salary advances</h1><div class="text-muted small">Approved loans are recovered in instalments through payroll</div></div>
+    @if (manage) { <button class="btn btn-accent" data-bs-toggle="modal" data-bs-target="#loanModal"><i class="bi bi-plus-lg me-1"></i>Record loan</button> }</div>
+<partial name="_PayrollNav" />
+<div class="filter-chips mb-3">
+    <a class="chip @(status is null ? "active" : "")" href="/org/payroll/loans">All</a>
+    @foreach (var s in Enum.GetValues<LoanStatus>()) { <a class="chip @(status == s ? "active" : "")" href="/org/payroll/loans?status=@s">@s</a> }
+</div>
+<div class="card">
+    @if (Model.Items.Count == 0) { <div class="empty-state"><i class="bi bi-bank"></i>No loans.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover align-middle">
+            <thead><tr><th>Employee</th><th>Type</th><th class="text-end">Amount</th><th class="text-end">Instalment</th><th>Recovery from</th><th class="text-end">Outstanding</th><th>Status</th>@if (manage) { <th></th> }</tr></thead>
+            <tbody>@foreach (var l in Model.Items)
+            {
+                <tr><td><div class="fw-semibold">@l.EmployeeName</div><div class="small text-muted">@l.EmployeeCode · @l.Reason</div></td>
+                    <td class="small">@(l.Type == LoanType.Loan ? "Loan" : "Salary advance")</td>
+                    <td class="text-end">@M(l.Amount)</td><td class="text-end">@M(l.Installment)</td><td class="small">@l.RecoveryStart.ToString("MMM yyyy")</td>
+                    <td class="text-end fw-semibold">@M(l.Outstanding)</td>
+                    <td><span class="badge-status st-@(l.Status switch { LoanStatus.Requested => "PendingVerification", LoanStatus.Active => "Active", LoanStatus.Closed => "Inactive", _ => "Expired" })">@l.Status</span>
+                        @if (!string.IsNullOrEmpty(l.DecisionNotes)) { <div class="small text-muted">@l.DecisionNotes</div> }</td>
+                    @if (manage)
+                    {
+                        <td class="text-end text-nowrap">
+                            @if (l.Status == LoanStatus.Requested)
+                            {
+                                <form method="post" action="/org/payroll/loans/@l.Id/decide?approve=true" asp-antiforgery="true" class="d-inline"><button class="btn btn-sm btn-soft" type="submit">Approve</button></form>
+                                <form method="post" action="/org/payroll/loans/@l.Id/decide?approve=false" asp-antiforgery="true" class="d-inline-flex gap-1"><input name="notes" class="form-control form-control-sm" placeholder="Reason" required aria-label="Reason" style="width:120px" /><button class="btn btn-sm btn-outline-danger" type="submit">Reject</button></form>
+                            }
+                            @if (l.Status == LoanStatus.Active)
+                            {
+                                <button class="btn btn-sm btn-light border" data-bs-toggle="modal" data-bs-target="#repayModal" data-set-action="/org/payroll/loans/@l.Id/repay" data-set-who="@l.EmployeeName">Repayment</button>
+                            }
+                        </td>
+                    }
+                </tr>
+            }</tbody>
+        </table></div>
+    }
+    <partial name="_Pager" model="Model.ToPager()" />
+</div>
+@if (manage)
+{
+    <div class="modal fade" id="loanModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" method="post" action="/org/payroll/loans/new" asp-antiforgery="true" novalidate>
+        <div class="modal-header"><h5 class="modal-title">Record loan / advance</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body row g-3">
+            <div class="col-12"><label class="form-label" for="le">Employee</label><select id="le" name="employeeId" class="form-select" required><option value="">Select…</option>@foreach (var e in employees) { <option value="@e.Id">@e.Name</option> }</select></div>
+            <div class="col-6"><label asp-for="@loan.Type" class="form-label"></label><select asp-for="@loan.Type" asp-items="Html.GetEnumSelectList<LoanType>()" class="form-select"></select></div>
+            <div class="col-6"><label asp-for="@loan.Amount" class="form-label"></label><input asp-for="@loan.Amount" class="form-control" /></div>
+            <div class="col-6"><label asp-for="@loan.InstallmentAmount" class="form-label"></label><input asp-for="@loan.InstallmentAmount" class="form-control" /></div>
+            <div class="col-6"><label asp-for="@loan.RecoveryStart" class="form-label"></label><input asp-for="@loan.RecoveryStart" type="date" class="form-control" /></div>
+            <div class="col-12"><label asp-for="@loan.Reason" class="form-label"></label><input asp-for="@loan.Reason" class="form-control" /><span asp-validation-for="@loan.Reason"></span></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Record</button></div>
+    </form></div></div>
+    <div class="modal fade" id="repayModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" method="post" asp-antiforgery="true" data-bind-action>
+        <div class="modal-header"><h5 class="modal-title">Record repayment: <span data-bind="who"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body row g-3">
+            <div class="col-6"><label class="form-label" for="ra">Amount</label><input id="ra" name="amount" type="number" min="1" class="form-control" required /></div>
+            <div class="col-6"><label class="form-label" for="rd">Date</label><input id="rd" name="date" type="date" class="form-control" value="@today.ToString("yyyy-MM-dd")" required /></div>
+            <div class="col-12"><label class="form-label" for="rn">Note</label><input id="rn" name="note" class="form-control" placeholder="e.g. Paid by cheque" /></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Record</button></div>
+    </form></div></div>
+}

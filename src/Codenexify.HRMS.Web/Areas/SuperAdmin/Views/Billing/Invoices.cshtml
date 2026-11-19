@@ -1,0 +1,97 @@
+@model Codenexify.HRMS.Application.Common.PagedResult<Codenexify.HRMS.Application.Billing.InvoiceRow>
+@using Codenexify.HRMS.Application.Billing
+@using Codenexify.HRMS.Domain.Billing
+@{
+    ViewData["Title"] = "Invoices";
+    var q = (InvoiceQuery)ViewBag.Query;
+    var orgs = (List<SelectListItem>)ViewBag.Organizations;
+    var plans = (List<SelectListItem>)ViewBag.Plans;
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    string Money(decimal v) => "₹" + v.ToString("N2", inr);
+    var today = DateTime.Today.ToString("yyyy-MM-dd");
+}
+<div class="page-head">
+    <div><h1>Invoices</h1><div class="text-muted small">GST tax invoices for all organizations · renewal invoices are raised automatically</div></div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-accent" type="button" data-bs-toggle="modal" data-bs-target="#subInvoice"><i class="bi bi-plus-lg me-1"></i>Subscription invoice</button>
+        <button class="btn btn-light border" type="button" data-bs-toggle="modal" data-bs-target="#manualInvoice"><i class="bi bi-pencil-square me-1"></i>Other invoice</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body border-bottom">
+        <form method="get" action="/superadmin/billing/invoices" class="row g-2 align-items-end">
+            <div class="col-md-4"><label class="form-label small" for="fs">Search</label><input id="fs" name="search" value="@q.Search" class="form-control" placeholder="Invoice number or customer" /></div>
+            <div class="col-md-3"><label class="form-label small" for="fo">Organization</label>
+                <select id="fo" name="organizationId" class="form-select"><option value="">All</option>
+                    @foreach (var o in orgs) { <option value="@o.Value" selected="@(o.Value == q.OrganizationId?.ToString())">@o.Text</option> }
+                </select></div>
+            <div class="col-md-2"><label class="form-label small" for="fst">Status</label>
+                <select id="fst" name="status" class="form-select"><option value="">All</option>
+                    @foreach (var s in Enum.GetValues<InvoiceStatus>()) { <option value="@s" selected="@(q.Status == s)">@s</option> }
+                </select></div>
+            <div class="col-md-2"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="fod" name="overdueOnly" value="true" checked="@q.OverdueOnly" /><label class="form-check-label small" for="fod">Overdue only</label></div></div>
+            <div class="col-md-1"><button class="btn btn-soft w-100" type="submit">Filter</button></div>
+        </form>
+    </div>
+    @if (Model.Items.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-receipt"></i>No invoices match.</div>
+    }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover mb-0">
+            <thead><tr><th>Number</th><th>Customer</th><th>Type</th><th>Date</th><th>Due</th><th class="text-end">Total</th><th class="text-end">Balance</th><th>Status</th></tr></thead>
+            <tbody>@foreach (var i in Model.Items)
+            {
+                <tr><td><a class="fw-semibold" href="/superadmin/billing/invoices/@i.Id">@i.Number</a></td>
+                    <td><a href="/superadmin/organizations/details/@i.OrganizationId">@i.OrganizationName</a></td>
+                    <td class="small">@i.Purpose</td><td class="small">@i.InvoiceDate.ToString("dd MMM yyyy")</td>
+                    <td class="small @(i.Overdue ? "text-danger fw-semibold" : "")">@i.DueDate.ToString("dd MMM yyyy")</td>
+                    <td class="text-end">@Money(i.Total)</td><td class="text-end">@Money(i.Balance)</td>
+                    <td><span class="badge-status st-@(i.Overdue ? "Overdue" : i.Status.ToString())">@(i.Overdue ? "Overdue" : i.Status.ToString())</span></td></tr>
+            }</tbody>
+        </table></div>
+    }
+    <partial name="_Pager" model="Model.ToPager()" />
+</div>
+
+<div class="modal fade" id="subInvoice" tabindex="-1" aria-labelledby="subInvoiceTitle" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+        <form method="post" action="/superadmin/billing/invoices/subscription" asp-antiforgery="true">
+            <div class="modal-header"><h5 class="modal-title" id="subInvoiceTitle">Subscription invoice</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body row g-3">
+                <div class="col-12"><label class="form-label" for="si-org">Organization</label>
+                    <select id="si-org" name="organizationId" class="form-select" required><option value="">Choose…</option>@foreach (var o in orgs) { <option value="@o.Value">@o.Text</option> }</select></div>
+                <div class="col-12"><label class="form-label" for="si-plan">Plan</label>
+                    <select id="si-plan" name="planId" class="form-select" required>@foreach (var p in plans) { <option value="@p.Value">@p.Text</option> }</select></div>
+                <div class="col-6"><label class="form-label" for="si-cycle">Billing cycle</label>
+                    <select id="si-cycle" name="cycle" class="form-select"><option>Monthly</option><option>Yearly</option></select></div>
+                <div class="col-6"><label class="form-label" for="si-purpose">Type</label>
+                    <select id="si-purpose" name="purpose" class="form-select"><option value="NewSubscription">New subscription / plan change</option><option value="Renewal">Renewal of current plan</option></select></div>
+                <div class="col-6"><label class="form-label" for="si-start">Service starts</label><input id="si-start" name="startDate" type="date" value="@today" class="form-control" required /></div>
+                <div class="col-6"><label class="form-label" for="si-price">Agreed price (₹, optional)</label><input id="si-price" name="price" type="number" min="0" step="0.01" class="form-control" placeholder="Plan price" /></div>
+                <div class="col-12 small text-muted">Per-employee plans are billed on the organization's current employee count. When this invoice is fully paid, a new subscription is activated (or the current one is extended by one cycle for a renewal).</div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-light border" data-bs-dismiss="modal">Close</button><button class="btn btn-accent" type="submit">Issue invoice</button></div>
+        </form>
+    </div></div>
+</div>
+
+<div class="modal fade" id="manualInvoice" tabindex="-1" aria-labelledby="manualInvoiceTitle" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+        <form method="post" action="/superadmin/billing/invoices/manual" asp-antiforgery="true">
+            <div class="modal-header"><h5 class="modal-title" id="manualInvoiceTitle">Other invoice</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body row g-3">
+                <div class="col-12"><label class="form-label" for="mi-org">Organization</label>
+                    <select id="mi-org" name="organizationId" class="form-select" required><option value="">Choose…</option>@foreach (var o in orgs) { <option value="@o.Value">@o.Text</option> }</select></div>
+                <div class="col-12"><label class="form-label" for="mi-desc">Description</label><input id="mi-desc" name="input.Description" maxlength="300" class="form-control" required placeholder="e.g. Data migration & onboarding" /></div>
+                <div class="col-6"><label class="form-label" for="mi-qty">Quantity</label><input id="mi-qty" name="input.Quantity" type="number" min="0.01" step="0.01" value="1" class="form-control" required /></div>
+                <div class="col-6"><label class="form-label" for="mi-price">Unit price (₹, before GST)</label><input id="mi-price" name="input.UnitPrice" type="number" min="0.01" step="0.01" class="form-control" required /></div>
+                <div class="col-12"><label class="form-label" for="mi-notes">Notes</label><textarea id="mi-notes" name="input.Notes" maxlength="1000" rows="2" class="form-control"></textarea></div>
+                <div class="col-12 small text-muted">GST is added at the rate in billing settings (CGST + SGST within the state, otherwise IGST).</div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-light border" data-bs-dismiss="modal">Close</button><button class="btn btn-accent" type="submit">Issue invoice</button></div>
+        </form>
+    </div></div>
+</div>

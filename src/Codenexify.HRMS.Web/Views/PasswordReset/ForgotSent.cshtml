@@ -1,0 +1,34 @@
+@model Codenexify.HRMS.Web.Controllers.ForgotPasswordViewModel
+@{
+    var platform = (string?)ViewData["Portal"] == "platform";
+    ViewData["Title"] = "Check your email";
+    ViewData["HideNav"] = true;
+    ViewData["AuthMode"] = platform ? "platform" : "company";
+    if (platform) { ViewData["BodyClass"] = "portal-platform"; }
+    Layout = "_PublicLayout";
+    var back = platform ? "/superadmin/account/login" : "/login" + (string.IsNullOrEmpty(Model.CompanyCode) ? "" : "?company=" + Uri.EscapeDataString(Model.CompanyCode.Trim().ToLowerInvariant()));
+}
+@section Styles { <link rel="stylesheet" href="~/css/auth.css" asp-append-version="true" /> }
+<div class="ax-wrap">
+    <partial name="_AuthAside" />
+    <div class="ax-panel">
+        <div class="ax-card">
+            <span class="ax-eyebrow">Check your email</span>
+            <h1 class="ax-title"><i class="bi bi-envelope-check me-2"></i>Link on its way</h1>
+            <p class="ax-sub">If <strong>@Model.Email</strong> belongs to an active @(platform ? "Control Center" : "company") login, we've sent a link to choose a new password. It works once and expires in @Codenexify.HRMS.Application.Identity.PasswordResetService.LinkMinutes minutes.</p>
+            <ul class="small text-muted ps-3 mb-4">
+                <li>No email after a few minutes? Check your spam folder.</li>
+                @if (platform)
+                {
+                    <li>Still nothing? Ask another Super Admin to set a new password for you under Platform users.</li>
+                }
+                else
+                {
+                    <li>Still nothing? Your HR administrator can set a new password for you.</li>
+                }
+                <li>You can ask for up to @Codenexify.HRMS.Application.Identity.PasswordResetService.MaxRequestsPerHour links an hour; each new link replaces the previous one.</li>
+            </ul>
+            <a class="btn ax-submit w-100" href="@back"><i class="bi bi-arrow-left me-2"></i>Back to sign in</a>
+        </div>
+    </div>
+</div>

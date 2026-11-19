@@ -1,0 +1,17 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Performance.PromotionRow>
+@using Codenexify.HRMS.Domain.Performance
+@{
+    ViewData["Title"] = "Promotions";
+    var status = ViewBag.Status as PromotionStatus?;
+}
+<div class="page-head">
+    <div><h1>Promotions</h1><div class="text-muted small">Proposals from managers and HR: approve, reject, and track when they take effect</div></div>
+    <a class="btn btn-accent" href="/me/promotions/new"><i class="bi bi-plus-lg me-1"></i>New promotion</a>
+</div>
+<div class="card">
+    <div class="card-body border-bottom d-flex flex-wrap gap-1">
+        <a class="btn btn-sm @(status is null ? "btn-soft" : "btn-light border")" href="/org/promotions">All</a>
+        @foreach (var s in Enum.GetValues<PromotionStatus>()) { <a class="btn btn-sm @(status == s ? "btn-soft" : "btn-light border")" href="/org/promotions?status=@s">@s</a> }
+    </div>
+    <partial name="_PromotionTable" model="Model" />
+</div>

@@ -1,0 +1,124 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Performance.SkillRow>
+@using Codenexify.HRMS.Application.CoreHr
+@using Codenexify.HRMS.Application.Performance
+@{
+    ViewData["Title"] = "Skills";
+    var departments = (IReadOnlyList<LookupItem>)ViewBag.Departments;
+    var designations = (IReadOnlyList<LookupItem>)ViewBag.Designations;
+    var editId = ViewBag.EditId as int?;
+    var form = (SkillInput)ViewBag.Form;
+    var designationId = ViewBag.DesignationId as int?;
+    var requirements = (IReadOnlyList<RequirementRow>)ViewBag.Requirements;
+    var find = ViewBag.Find as int?;
+    var minLevel = (int)ViewBag.MinLevel;
+    var departmentId = ViewBag.DepartmentId as int?;
+    var matches = (IReadOnlyList<SkillMatch>)ViewBag.Matches;
+    var active = Model.Where(s => s.IsActive).ToList();
+    string Level(int l) => $"{l} · {SkillService.LevelName(l)}";
+}
+<div class="page-head">
+    <div><h1>Skills</h1><div class="text-muted small">Skill catalog, what each job title needs, and who has which skills</div></div>
+    <a class="btn btn-light border" href="/org/skills/export@(departmentId is int dx ? $"?departmentId={dx}" : "")"><i class="bi bi-file-earmark-excel me-1"></i>Skills matrix</a>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card mb-3" id="find"><div class="card-header">Find people by skill</div><div class="card-body">
+            <form method="get" action="/org/skills#find" class="row g-2 align-items-end">
+                <div class="col-md-5"><label class="form-label small" for="f-skill">Skill</label>
+                    <select class="form-select" id="f-skill" name="find" required><option value="">Choose…</option>
+                        @foreach (var s in active) { <option value="@s.Id" selected="@(find == s.Id)">@s.Name</option> }</select></div>
+                <div class="col-md-3"><label class="form-label small" for="f-min">At least</label>
+                    <select class="form-select" id="f-min" name="minLevel">@for (var i = 1; i <= 5; i++) { <option value="@i" selected="@(minLevel == i)">@Level(i)</option> }</select></div>
+                <div class="col-md-3"><label class="form-label small" for="f-dept">Department</label>
+                    <select class="form-select" id="f-dept" name="departmentId"><option value="">All</option>@foreach (var d in departments) { <option value="@d.Id" selected="@(departmentId == d.Id)">@d.Name</option> }</select></div>
+                <div class="col-md-1"><button class="btn btn-accent w-100" type="submit" aria-label="Search"><i class="bi bi-search"></i></button></div>
+            </form>
+            @if (find is not null)
+            {
+                @if (matches.Count == 0) { <div class="small text-muted mt-3">Nobody at that level yet.</div> }
+                else
+                {
+                    <div class="table-responsive mt-3"><table class="table table-sm align-middle mb-0">
+                        <thead><tr><th>Employee</th><th>Department</th><th>Level</th></tr></thead>
+                        <tbody>@foreach (var m in matches)
+                        {
+                            <tr><td><a href="/me/skills/people/@m.EmployeeId">@m.EmployeeName</a> <span class="small text-muted">@m.EmployeeCode@(m.Designation is null ? "" : $" · {m.Designation}")</span></td>
+                                <td class="small">@(m.Department ?? "—")</td>
+                                <td class="small">@Level(m.Level) <span class="text-muted">@(m.Assessed ? "(manager)" : "(self)")</span></td></tr>
+                        }</tbody>
+                    </table></div>
+                }
+            }
+        </div></div>
+
+        <div class="card mb-3" id="requirements"><div class="card-header">What each job title needs</div><div class="card-body">
+            @if (designations.Count == 0) { <div class="small text-muted">Add job titles (designations) under Organization structure first.</div> }
+            else
+            {
+                <form method="get" action="/org/skills#requirements" class="d-flex gap-2 mb-3">
+                    <select class="form-select" name="designationId" aria-label="Job title" data-autosubmit><option value="">Choose a job title…</option>
+                        @foreach (var d in designations) { <option value="@d.Id" selected="@(designationId == d.Id)">@d.Name</option> }</select>
+                </form>
+                @if (designationId is int did)
+                {
+                    <ul class="list-group mb-3">
+                        @foreach (var r in requirements)
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-center"><span>@r.Skill <span class="small text-muted">· @r.Category</span></span>
+                                <form method="post" action="/org/skills/requirements" asp-antiforgery="true" class="d-flex gap-1">
+                                    <input type="hidden" name="designationId" value="@did" /><input type="hidden" name="skillId" value="@r.SkillId" />
+                                    <select class="form-select form-select-sm" name="level" aria-label="Level for @r.Skill"><option value="0">Remove</option>
+                                        @for (var i = 1; i <= 5; i++) { <option value="@i" selected="@(r.Level == i)">@Level(i)</option> }</select>
+                                    <button class="btn btn-sm btn-light border" type="submit">Save</button></form></li>
+                        }
+                        @if (requirements.Count == 0) { <li class="list-group-item small text-muted">No requirements yet.</li> }
+                    </ul>
+                    <form method="post" action="/org/skills/requirements" asp-antiforgery="true" class="row g-2">
+                        <input type="hidden" name="designationId" value="@did" />
+                        <div class="col-md-6"><select class="form-select form-select-sm" name="skillId" required aria-label="Skill"><option value="">Add a skill…</option>
+                            @foreach (var s in active.Where(s => requirements.All(r => r.SkillId != s.Id))) { <option value="@s.Id">@s.Name</option> }</select></div>
+                        <div class="col-md-4"><select class="form-select form-select-sm" name="level" aria-label="Level">@for (var i = 1; i <= 5; i++) { <option value="@i" selected="@(i == 3)">@Level(i)</option> }</select></div>
+                        <div class="col-md-2"><button class="btn btn-sm btn-accent w-100" type="submit">Add</button></div>
+                    </form>
+                }
+            }
+        </div></div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card mb-3"><div class="card-header">@(editId is null ? "Add a skill" : "Edit skill")</div><div class="card-body">
+            <form method="post" action="/org/skills" asp-antiforgery="true" class="row g-2">
+                @if (editId is int id) { <input type="hidden" name="id" value="@id" /> }
+                <div class="col-7"><label class="form-label small" for="s-name">Name</label><input class="form-control" id="s-name" name="skill.Name" value="@form.Name" maxlength="100" required /></div>
+                <div class="col-5"><label class="form-label small" for="s-cat">Category</label><input class="form-control" id="s-cat" name="skill.Category" value="@form.Category" maxlength="60" required list="skill-categories" />
+                    <datalist id="skill-categories">@foreach (var c in Model.Select(s => s.Category).Distinct()) { <option value="@c"></option> }</datalist></div>
+                <div class="col-12"><label class="form-label small" for="s-desc">Description (optional)</label><input class="form-control" id="s-desc" name="skill.Description" value="@form.Description" maxlength="500" /></div>
+                <div class="col-6"><div class="form-check form-switch mt-2"><input class="form-check-input" type="checkbox" id="s-active" name="skill.IsActive" value="true" checked="@form.IsActive" /><label class="form-check-label" for="s-active">Active</label>
+                    <input type="hidden" name="skill.IsActive" value="false" /></div></div>
+                <div class="col-6 d-flex justify-content-end gap-2 align-items-end">
+                    @if (editId is not null) { <a class="btn btn-sm btn-light border" href="/org/skills">Cancel</a> }
+                    <button class="btn btn-sm btn-accent" type="submit">Save</button></div>
+            </form>
+        </div></div>
+
+        <div class="card"><div class="card-header">Catalog (@Model.Count)</div>
+            @if (Model.Count == 0) { <div class="card-body small text-muted">Add the skills that matter in your company, e.g. “Excel”, “Customer handling”, “C#”.</div> }
+            else
+            {
+                <ul class="list-group list-group-flush">
+                    @foreach (var g in Model.GroupBy(s => s.Category))
+                    {
+                        <li class="list-group-item bg-body-tertiary small fw-semibold">@g.Key</li>
+                        @foreach (var s in g)
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-center @(s.IsActive ? "" : "text-muted")">
+                                <span>@s.Name @if (!s.IsActive) { <span class="badge text-bg-secondary">Inactive</span> }</span>
+                                <span class="small">@s.People people · <a href="/org/skills?edit=@s.Id">Edit</a></span></li>
+                        }
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+</div>

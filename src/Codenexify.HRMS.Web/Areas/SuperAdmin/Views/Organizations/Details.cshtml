@@ -1,0 +1,373 @@
+@model OrganizationDetails
+@{
+    var o = Model.Organization;
+    var s = Model.Current;
+    ViewData["Title"] = o.Name;
+    var plans = (List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>)ViewBag.Plans;
+    var canManage = User.HasPermission(PlatformPermissions.OrganizationsManage);
+    var canSubs = User.HasPermission(PlatformPermissions.SubscriptionsManage);
+    var canDelete = User.HasPermission(PlatformPermissions.OrganizationsDelete);
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    int Pct(int used, int limit) => limit <= 0 ? 0 : Math.Min(100, (int)Math.Round(used * 100.0 / limit));
+}
+<div class="page-head">
+    <div class="d-flex align-items-center gap-3">
+        <span class="avatar" style="width:52px;height:52px;font-size:1.1rem;background:@o.BrandColor;color:#fff">@o.Name[..1]</span>
+        <div>
+            <h1>@o.Name <span class="badge-status st-@o.Status align-middle">@o.Status</span></h1>
+            <div class="text-muted small">Code <code>@o.Code</code> · @o.Email · registered @o.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy")</div>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        @if (canManage)
+        {
+            <a href="/superadmin/organizations/edit/@o.Id" class="btn btn-light border"><i class="bi bi-pencil me-1"></i>Edit</a>
+            <button class="btn btn-light border" data-bs-toggle="modal" data-bs-target="#statusModal"><i class="bi bi-arrow-repeat me-1"></i>Change status</button>
+        }
+        @if (canDelete)
+        {
+            <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal"><i class="bi bi-trash"></i></button>
+        }
+    </div>
+</div>
+@if (!string.IsNullOrEmpty(o.StatusReason) && o.Status is not (OrganizationStatus.Active or OrganizationStatus.Trial))
+{
+    <div class="alert alert-warning small"><i class="bi bi-info-circle me-1"></i>Status reason: @o.StatusReason</div>
+}
+
+<ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#overview" type="button">Overview</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#subscription" type="button">Subscription</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#features" type="button">Modules &amp; features</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#admins" type="button">Administrators</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#activity" type="button">Activity</button></li>
+</ul>
+
+<div class="tab-content">
+    <!-- Overview -->
+    <div class="tab-pane fade show active" id="overview">
+        <div class="row g-3">
+            <div class="col-lg-7">
+                <div class="card h-100"><div class="card-header">Company profile</div>
+                    <div class="card-body">
+                        <dl class="row mb-0 small">
+                            <dt class="col-sm-4">Legal name</dt><dd class="col-sm-8">@(o.LegalName ?? "—")</dd>
+                            <dt class="col-sm-4">Phone</dt><dd class="col-sm-8">@(o.Phone ?? "—")</dd>
+                            <dt class="col-sm-4">Website</dt><dd class="col-sm-8">@(o.Website ?? "—")</dd>
+                            <dt class="col-sm-4">GSTIN / PAN</dt><dd class="col-sm-8">@(o.Gstin ?? "—") / @(o.Pan ?? "—")</dd>
+                            <dt class="col-sm-4">Industry</dt><dd class="col-sm-8">@(o.Industry ?? "—")</dd>
+                            <dt class="col-sm-4">Address</dt><dd class="col-sm-8">@string.Join(", ", new[] { o.AddressLine, o.City, o.State, o.PostalCode, o.Country }.Where(x => !string.IsNullOrWhiteSpace(x)))</dd>
+                            <dt class="col-sm-4">Time zone</dt><dd class="col-sm-8">@o.TimeZone</dd>
+                            <dt class="col-sm-4">Terms accepted</dt><dd class="col-sm-8">@(o.TermsAcceptedAtUtc is { } accepted
+                                ? $"{accepted.ToLocalTime():dd MMM yyyy HH:mm} · {o.TermsAcceptedVersions ?? "—"} · IP {o.TermsAcceptedIp ?? "—"}"
+                                : "Created by Codenexify staff (no online acceptance)")</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="card h-100"><div class="card-header">Usage &amp; limits
+                        @if (canManage) { <button class="btn btn-sm btn-soft" data-bs-toggle="modal" data-bs-target="#limitsModal">Configure</button> }</div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between small"><span>Users</span><span>@Model.UserCount / @Model.Limits.MaxEmployees.ToString("N0")</span></div>
+                        <div class="progress mb-3" style="height:8px"><div class="progress-bar" style="width:@Pct(Model.UserCount, Model.Limits.MaxEmployees)%"></div></div>
+                        <div class="d-flex justify-content-between small"><span>Storage</span><span>@((o.StorageUsedMb / 1024.0).ToString("0.##")) GB / @Model.Limits.StorageLimitGb GB</span></div>
+                        <div class="progress mb-3" style="height:8px"><div class="progress-bar bg-info" style="width:@Pct(o.StorageUsedMb, Model.Limits.StorageLimitGb * 1024)%"></div></div>
+                        <div class="d-flex justify-content-between small"><span>Branch limit</span><span>@Model.Limits.MaxBranches</span></div>
+                        <div class="small text-muted mt-2">@Model.ActiveUserCount active user(s). @(o.MaxEmployeesOverride is null && o.MaxBranchesOverride is null && o.StorageLimitGbOverride is null ? "Limits follow the plan." : "Organization-specific limits are set.")</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subscription -->
+    <div class="tab-pane fade" id="subscription">
+        <div class="row g-3">
+            <div class="col-lg-7">
+                <div class="card"><div class="card-header">Current subscription
+                        @if (s is not null) { <span class="badge-status st-@s.Status">@s.Status</span> }</div>
+                    <div class="card-body">
+                        @if (s is null)
+                        {
+                            <div class="empty-state py-4"><i class="bi bi-receipt"></i>No subscription. Activate one to give this organization access.</div>
+                        }
+                        else
+                        {
+                            <div class="row g-3 small">
+                                <div class="col-sm-4"><div class="text-muted">Plan</div><div class="fw-semibold fs-6">@s.Plan.Name</div></div>
+                                <div class="col-sm-4"><div class="text-muted">Billing</div><div class="fw-semibold">@s.BillingCycle · ₹@s.Price.ToString("N2")@(s.Plan.IsPerEmployeePricing ? " / employee" : "")</div></div>
+                                <div class="col-sm-4"><div class="text-muted">Auto renew</div><div class="fw-semibold">@(s.AutoRenew ? "Yes" : "No")</div></div>
+                                <div class="col-sm-4"><div class="text-muted">Period</div><div class="fw-semibold">@s.StartDate.ToString("dd MMM yyyy") – @s.EndDate.ToString("dd MMM yyyy")</div></div>
+                                <div class="col-sm-4"><div class="text-muted">Days left</div><div class="fw-semibold">@Math.Max(0, s.EndDate.DayNumber - today.DayNumber)</div></div>
+                                @if (s.TrialEndsOn is { } te) { <div class="col-sm-4"><div class="text-muted">Trial ends</div><div class="fw-semibold">@te.ToString("dd MMM yyyy")</div></div> }
+                                @if (s.GraceEndsOn is { } ge) { <div class="col-sm-4"><div class="text-muted">Grace ends</div><div class="fw-semibold text-warning">@ge.ToString("dd MMM yyyy")</div></div> }
+                                @if (s.PausedOn is { } po) { <div class="col-sm-4"><div class="text-muted">Paused on</div><div class="fw-semibold">@po.ToString("dd MMM yyyy")</div></div> }
+                                @if (!string.IsNullOrEmpty(s.Notes)) { <div class="col-12"><div class="text-muted">Notes</div>@s.Notes</div> }
+                                @if (!string.IsNullOrEmpty(s.CancellationReason)) { <div class="col-12"><div class="text-muted">Cancellation note</div>@s.CancellationReason</div> }
+                            </div>
+                        }
+                        @if (canSubs)
+                        {
+                            <hr />
+                            <div class="d-flex flex-wrap gap-2">
+                                <button class="btn btn-sm btn-accent" data-bs-toggle="modal" data-bs-target="#activateModal"><i class="bi bi-lightning-charge me-1"></i>@(s?.IsTrial == true ? "Convert to paid" : "Activate / renew")</button>
+                                @if (s is not null && s.Status is not (SubscriptionStatus.Cancelled or SubscriptionStatus.Expired))
+                                {
+                                    <button class="btn btn-sm btn-soft" data-bs-toggle="modal" data-bs-target="#changePlanModal"><i class="bi bi-arrow-down-up me-1"></i>Upgrade / downgrade</button>
+                                }
+                                @if (s is not null && s.Status != SubscriptionStatus.Cancelled)
+                                {
+                                    <button class="btn btn-sm btn-soft" data-bs-toggle="modal" data-bs-target="#extendModal"><i class="bi bi-calendar-plus me-1"></i>Extend</button>
+                                    <button class="btn btn-sm btn-soft" data-bs-toggle="modal" data-bs-target="#termsModal"><i class="bi bi-sliders me-1"></i>Terms &amp; renewal date</button>
+                                }
+                                @if (s?.Status is SubscriptionStatus.Active or SubscriptionStatus.Trial or SubscriptionStatus.PastDue)
+                                {
+                                    <button class="btn btn-sm btn-soft" data-bs-toggle="modal" data-bs-target="#pauseModal"><i class="bi bi-pause-circle me-1"></i>Pause</button>
+                                }
+                                @if (s?.Status == SubscriptionStatus.Paused)
+                                {
+                                    <form asp-antiforgery="true" method="post" action="/superadmin/organizations/resume/@o.Id" data-confirm="Resume this subscription? Paused days will be added back to the period.">
+                                        <button class="btn btn-sm btn-soft" type="submit"><i class="bi bi-play-circle me-1"></i>Resume</button>
+                                    </form>
+                                }
+                                @if (s is not null && s.Status is not (SubscriptionStatus.Cancelled or SubscriptionStatus.Expired))
+                                {
+                                    <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#cancelModal"><i class="bi bi-x-circle me-1"></i>Cancel</button>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="card"><div class="card-header">Subscription history</div>
+                    <div class="card-body">
+                        @if (Model.History.Count == 0) { <div class="text-muted small">No history.</div> }
+                        @foreach (var h in Model.History)
+                        {
+                            <div class="timeline-item small">
+                                <div class="d-flex justify-content-between"><strong>@h.Plan.Name · @h.BillingCycle</strong><span class="badge-status st-@h.Status">@h.Status</span></div>
+                                <div class="text-muted">@h.StartDate.ToString("dd MMM yyyy") – @h.EndDate.ToString("dd MMM yyyy") · ₹@h.Price.ToString("N2")@(h.IsCurrent ? " · current" : "")</div>
+                                @if (!string.IsNullOrEmpty(h.CancellationReason)) { <div class="text-muted fst-italic">@h.CancellationReason</div> }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features -->
+    <div class="tab-pane fade" id="features">
+        <div class="card">
+            <div class="card-header">Effective module access
+                <span class="small text-muted fw-normal">Plan features + organization overrides (add-ons / restrictions)</span></div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead><tr><th>Feature</th><th>Tier</th><th>In plan</th><th>Override</th><th>Effective</th>@if (canSubs) { <th></th> }</tr></thead>
+                    <tbody>
+                    @foreach (var group in Model.Features.GroupBy(f => f.ModuleGroup))
+                    {
+                        <tr><td colspan="6" class="small fw-semibold text-muted bg-body-tertiary">@group.Key</td></tr>
+                        @foreach (var f in group)
+                        {
+                            <tr>
+                                <td>@f.Name <div class="small text-muted"><code>@f.Code</code>@(f.GloballyEnabled ? "" : " · globally disabled")</div></td>
+                                <td><span class="badge text-bg-light border">@f.Tier</span></td>
+                                <td>@(f.InPlan ? Html.Raw("<i class=\"bi bi-check-lg text-success\"></i>") : Html.Raw("<span class=\"text-muted\">—</span>"))</td>
+                                <td>
+                                    @if (f.Override == OverrideMode.Inherit) { <span class="text-muted small">—</span> }
+                                    else
+                                    {
+                                        <span class="badge-status @(f.Override == OverrideMode.Enable ? "st-Active" : "st-Expired")">@(f.Override == OverrideMode.Enable ? "Add-on" : "Disabled")</span>
+                                        @if (f.OverrideExpiresOn is { } ex) { <span class="small text-muted"> until @ex.ToString("dd MMM yyyy")</span> }
+                                        @if (!string.IsNullOrEmpty(f.OverrideReason)) { <div class="small text-muted">@f.OverrideReason</div> }
+                                    }
+                                </td>
+                                <td><span class="badge-status st-@f.Effective.ToString().ToLowerInvariant()">@(f.Effective ? "On" : "Off")</span></td>
+                                @if (canSubs)
+                                {
+                                    <td class="text-end"><button class="btn btn-sm btn-light border" data-bs-toggle="modal" data-bs-target="#featureModal"
+                                            data-set-feature-id="@f.FeatureId" data-set-feature-name="@f.Name" data-set-mode="@f.Override" data-set-reason="@f.OverrideReason"
+                                            data-set-expires="@f.OverrideExpiresOn?.ToString("yyyy-MM-dd")">Configure</button></td>
+                                }
+                            </tr>
+                        }
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admins -->
+    <div class="tab-pane fade" id="admins">
+        <div class="card">
+            <div class="card-header">Organization administrators <span class="small text-muted fw-normal">@Model.UserCount user(s) in total</span></div>
+            @if (Model.Administrators.Count == 0)
+            {
+                <div class="empty-state"><i class="bi bi-person-x"></i>No administrators found.</div>
+            }
+            else
+            {
+                <div class="table-responsive"><table class="table">
+                    <thead><tr><th>Name</th><th>Email</th><th>Roles</th><th>Status</th><th>Last sign-in</th></tr></thead>
+                    <tbody>
+                    @foreach (var u in Model.Administrators)
+                    {
+                        <tr><td>@u.FullName @if (u.IsOwner) { <span class="badge text-bg-dark ms-1">Owner</span> }</td><td>@u.Email</td><td class="small">@u.Roles</td>
+                            <td><span class="badge-status st-@u.IsActive.ToString().ToLowerInvariant()">@(u.IsActive ? "Active" : "Disabled")</span></td>
+                            <td class="small text-muted">@(u.LastLoginAtUtc?.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "Never")</td></tr>
+                    }
+                    </tbody>
+                </table></div>
+            }
+        </div>
+    </div>
+
+    <!-- Activity -->
+    <div class="tab-pane fade" id="activity">
+        <div class="card"><div class="card-header">Recent activity
+                @if (User.HasPermission(PlatformPermissions.AuditView)) { <a class="btn btn-sm btn-soft" href="/superadmin/audit?organizationId=@o.Id">Full audit trail</a> }</div>
+            <div class="card-body">
+                @if (Model.RecentActivity.Count == 0) { <div class="empty-state py-4"><i class="bi bi-activity"></i>No activity recorded.</div> }
+                @foreach (var a in Model.RecentActivity) { <partial name="_AuditRow" model="a" /> }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+@if (canManage)
+{
+    <div class="modal fade" id="statusModal" tabindex="-1"><div class="modal-dialog"><form asp-antiforgery="true" class="modal-content" method="post" action="/superadmin/organizations/changestatus/@o.Id">
+        <div class="modal-header"><h5 class="modal-title">Change organization status</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <label class="form-label" for="st">New status</label>
+            <select id="st" name="status" class="form-select mb-3">
+                @foreach (var st in Enum.GetValues<OrganizationStatus>().Where(x => x != o.Status)) { <option value="@st">@st</option> }
+            </select>
+            <div class="form-text mb-2">Suspended / inactive organizations cannot sign in. Re-activation requires a valid subscription.</div>
+            <label class="form-label" for="sr">Reason (recorded in audit trail)</label>
+            <textarea id="sr" name="reason" class="form-control" rows="2" required maxlength="500"></textarea>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Update status</button></div>
+    </form></div></div>
+
+    <div class="modal fade" id="limitsModal" tabindex="-1"><div class="modal-dialog"><form asp-antiforgery="true" class="modal-content" method="post" action="/superadmin/organizations/limits/@o.Id">
+        <div class="modal-header"><h5 class="modal-title">Organization limits</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <p class="small text-muted">Leave blank to use the plan limit.</p>
+            <div class="mb-3"><label class="form-label" for="lme">Employee limit</label><input id="lme" name="MaxEmployees" type="number" min="1" class="form-control" value="@o.MaxEmployeesOverride" /></div>
+            <div class="mb-3"><label class="form-label" for="lmb">Branch limit</label><input id="lmb" name="MaxBranches" type="number" min="1" class="form-control" value="@o.MaxBranchesOverride" /></div>
+            <div><label class="form-label" for="lms">Storage limit (GB)</label><input id="lms" name="StorageLimitGb" type="number" min="1" class="form-control" value="@o.StorageLimitGbOverride" /></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Save limits</button></div>
+    </form></div></div>
+}
+@if (canDelete)
+{
+    <div class="modal fade" id="deleteModal" tabindex="-1"><div class="modal-dialog"><form asp-antiforgery="true" class="modal-content" method="post" action="/superadmin/organizations/delete/@o.Id">
+        <div class="modal-header"><h5 class="modal-title text-danger">Delete organization</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <div class="alert alert-danger small">The organization must be suspended or inactive first. Users lose access immediately. Data is retained (soft delete) and the code stays reserved.</div>
+            <label class="form-label" for="dc">Type the organization code <code>@o.Code</code> to confirm</label>
+            <input id="dc" name="confirmation" class="form-control mb-3" required autocomplete="off" />
+            <label class="form-label" for="dr">Reason</label>
+            <textarea id="dr" name="reason" class="form-control" rows="2" required maxlength="500"></textarea>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger" type="submit">Delete organization</button></div>
+    </form></div></div>
+}
+@if (canSubs)
+{
+    <div class="modal fade" id="activateModal" tabindex="-1"><div class="modal-dialog"><form asp-antiforgery="true" class="modal-content" method="post" action="/superadmin/organizations/activate/@o.Id">
+        <div class="modal-header"><h5 class="modal-title">Activate a paid period</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <p class="small text-muted">Starts a new paid period and supersedes the current subscription.</p>
+            <div class="mb-3"><label class="form-label" for="ap">Plan</label>
+                <select id="ap" name="PlanId" class="form-select" required>@foreach (var p in plans) { <option value="@p.Value" selected="@(p.Value == s?.PlanId.ToString())">@p.Text</option> }</select></div>
+            <div class="row g-3">
+                <div class="col-6"><label class="form-label" for="ab">Billing cycle</label>
+                    <select id="ab" name="BillingCycle" class="form-select">@foreach (var c in Enum.GetValues<BillingCycle>()) { <option value="@c" selected="@(c == s?.BillingCycle)">@c</option> }</select></div>
+                <div class="col-6"><label class="form-label" for="as">Start date</label><input id="as" name="StartDate" type="date" class="form-control" value="@today.ToString("yyyy-MM-dd")" /></div>
+                <div class="col-6"><label class="form-label" for="apr">Agreed price (blank = plan price)</label><input id="apr" name="Price" type="number" step="0.01" min="0" class="form-control" /></div>
+                <div class="col-6 d-flex align-items-end"><div class="form-check form-switch"><input id="aar" name="AutoRenew" type="checkbox" value="true" class="form-check-input" checked /><label class="form-check-label" for="aar">Auto renew</label></div></div>
+                <div class="col-12"><label class="form-label" for="an">Notes</label><input id="an" name="Notes" class="form-control" maxlength="500" placeholder="e.g. PO number, payment reference" /></div>
+            </div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Activate</button></div>
+    </form></div></div>
+
+    @if (s is not null)
+    {
+        <div class="modal fade" id="changePlanModal" tabindex="-1"><div class="modal-dialog"><form asp-antiforgery="true" class="modal-content" method="post" action="/superadmin/organizations/changeplan/@o.Id">
+            <div class="modal-header"><h5 class="modal-title">Upgrade / downgrade plan</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <p class="small text-muted">Keeps the current period (@s.StartDate.ToString("dd MMM") – @s.EndDate.ToString("dd MMM yyyy")) and status; module access changes immediately.</p>
+                <div class="mb-3"><label class="form-label" for="cp">New plan</label>
+                    <select id="cp" name="planId" class="form-select" required>@foreach (var p in plans.Where(p => p.Value != s.PlanId.ToString())) { <option value="@p.Value">@p.Text</option> }</select></div>
+                <label class="form-label" for="cpp">Agreed price (blank = plan price)</label><input id="cpp" name="price" type="number" step="0.01" min="0" class="form-control" />
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Change plan</button></div>
+        </form></div></div>
+
+        <div class="modal fade" id="extendModal" tabindex="-1"><div class="modal-dialog"><form asp-antiforgery="true" class="modal-content" method="post" action="/superadmin/organizations/extend/@o.Id">
+            <div class="modal-header"><h5 class="modal-title">Extend subscription</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-3"><label class="form-label" for="ed">Days to add</label><input id="ed" name="days" type="number" min="1" max="3650" value="@(s.IsTrial ? 7 : 30)" class="form-control" required /></div>
+                <label class="form-label" for="er">Reason</label><input id="er" name="reason" class="form-control" maxlength="300" required />
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Extend</button></div>
+        </form></div></div>
+
+        <div class="modal fade" id="termsModal" tabindex="-1"><div class="modal-dialog"><form asp-antiforgery="true" class="modal-content" method="post" action="/superadmin/organizations/terms/@o.Id">
+            <div class="modal-header"><h5 class="modal-title">Subscription terms</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body row g-3">
+                <div class="col-6"><label class="form-label" for="tp">Price per period</label><input id="tp" name="Price" type="number" step="0.01" min="0" class="form-control" value="@s.Price" required /></div>
+                <div class="col-6"><label class="form-label" for="te">Renewal / end date</label><input id="te" name="EndDate" type="date" class="form-control" value="@s.EndDate.ToString("yyyy-MM-dd")" required /></div>
+                <div class="col-6"><label class="form-label" for="tme">Employee limit override</label><input id="tme" name="MaxEmployeesOverride" type="number" min="1" class="form-control" value="@s.MaxEmployeesOverride" /></div>
+                <div class="col-6"><label class="form-label" for="tmb">Branch limit override</label><input id="tmb" name="MaxBranchesOverride" type="number" min="1" class="form-control" value="@s.MaxBranchesOverride" /></div>
+                <div class="col-12"><div class="form-check form-switch"><input id="tar" name="AutoRenew" type="checkbox" value="true" class="form-check-input" checked="@s.AutoRenew" /><label class="form-check-label" for="tar">Auto renew</label></div></div>
+                <div class="col-12"><label class="form-label" for="tn">Notes</label><input id="tn" name="Notes" class="form-control" maxlength="500" value="@s.Notes" /></div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Save terms</button></div>
+        </form></div></div>
+
+        <div class="modal fade" id="pauseModal" tabindex="-1"><div class="modal-dialog"><form asp-antiforgery="true" class="modal-content" method="post" action="/superadmin/organizations/pause/@o.Id">
+            <div class="modal-header"><h5 class="modal-title">Pause subscription</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body"><p class="small text-muted">Modules are switched off while paused. Paused days are added back on resume.</p>
+                <label class="form-label" for="pr">Reason</label><input id="pr" name="reason" class="form-control" maxlength="300" required /></div>
+            <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-warning" type="submit">Pause</button></div>
+        </form></div></div>
+
+        <div class="modal fade" id="cancelModal" tabindex="-1"><div class="modal-dialog"><form asp-antiforgery="true" class="modal-content" method="post" action="/superadmin/organizations/cancel/@o.Id">
+            <div class="modal-header"><h5 class="modal-title text-danger">Cancel subscription</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="form-check mb-2"><input class="form-check-input" type="radio" name="immediately" id="cEnd" value="false" checked /><label class="form-check-label" for="cEnd">At the end of the current period (@s.EndDate.ToString("dd MMM yyyy"))</label></div>
+                <div class="form-check mb-3"><input class="form-check-input" type="radio" name="immediately" id="cNow" value="true" /><label class="form-check-label" for="cNow">Immediately — access stops today</label></div>
+                <label class="form-label" for="cr">Reason</label><input id="cr" name="reason" class="form-control" maxlength="300" required />
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Keep subscription</button><button class="btn btn-danger" type="submit">Cancel subscription</button></div>
+        </form></div></div>
+    }
+
+    <div class="modal fade" id="featureModal" tabindex="-1"><div class="modal-dialog"><form asp-antiforgery="true" class="modal-content" method="post" action="/superadmin/organizations/feature/@o.Id">
+        <div class="modal-header"><h5 class="modal-title">Feature access: <span data-bind="featureName"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <input type="hidden" name="featureId" data-bind="featureId" />
+            <label class="form-label" for="fm">Access</label>
+            <select id="fm" name="mode" class="form-select mb-3" data-bind="mode">
+                <option value="Inherit">Follow plan</option>
+                <option value="Enable">Enable (add-on)</option>
+                <option value="Disable">Disable for this organization</option>
+            </select>
+            <div class="row g-3">
+                <div class="col-7"><label class="form-label" for="fr">Reason / add-on reference</label><input id="fr" name="reason" class="form-control" maxlength="300" data-bind="reason" /></div>
+                <div class="col-5"><label class="form-label" for="fe">Expires on</label><input id="fe" name="expiresOn" type="date" class="form-control" data-bind="expires" /></div>
+            </div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Save</button></div>
+    </form></div></div>
+}

@@ -1,0 +1,30 @@
+@model EmploymentInput
+@{
+    var branches = (IReadOnlyList<LookupItem>)ViewBag.Branches;
+    var departments = (IReadOnlyList<LookupItem>)ViewBag.Departments;
+    var designations = (IReadOnlyList<LookupItem>)ViewBag.Designations;
+    var managers = (IReadOnlyList<LookupItem>)ViewBag.Managers;
+}
+<div class="row g-3">
+    <div class="col-md-4"><label asp-for="FirstName" class="form-label"></label><input asp-for="FirstName" class="form-control" /><span asp-validation-for="FirstName"></span></div>
+    <div class="col-md-4"><label asp-for="MiddleName" class="form-label"></label><input asp-for="MiddleName" class="form-control" /></div>
+    <div class="col-md-4"><label asp-for="LastName" class="form-label"></label><input asp-for="LastName" class="form-control" /><span asp-validation-for="LastName"></span></div>
+    <div class="col-md-6"><label asp-for="WorkEmail" class="form-label"></label><input asp-for="WorkEmail" class="form-control" /><span asp-validation-for="WorkEmail"></span></div>
+    <div class="col-md-6"><label asp-for="MobilePhone" class="form-label"></label><input asp-for="MobilePhone" class="form-control" /><span asp-validation-for="MobilePhone"></span></div>
+    <div class="col-md-4"><label asp-for="DateOfJoining" class="form-label"></label><input asp-for="DateOfJoining" type="date" class="form-control" /><span asp-validation-for="DateOfJoining"></span></div>
+    <div class="col-md-4"><label asp-for="EmploymentType" class="form-label"></label><select asp-for="EmploymentType" asp-items="Html.GetEnumSelectList<EmploymentType>()" class="form-select"></select></div>
+    <div class="col-md-4"><label asp-for="ProbationEndDate" class="form-label"></label><input asp-for="ProbationEndDate" type="date" class="form-control" /><div class="form-text">Leave blank if there is no probation.</div></div>
+    <div class="col-md-4"><label asp-for="BranchId" class="form-label"></label>
+        <select asp-for="BranchId" class="form-select"><option value="">—</option>@foreach (var b in branches) { <option value="@b.Id">@b.Name</option> }</select></div>
+    <div class="col-md-4"><label asp-for="DepartmentId" class="form-label"></label>
+        <select asp-for="DepartmentId" class="form-select"><option value="">—</option>@foreach (var d in departments) { <option value="@d.Id">@d.Name</option> }</select></div>
+    <div class="col-md-4"><label asp-for="DesignationId" class="form-label"></label>
+        <select asp-for="DesignationId" class="form-select"><option value="">—</option>@foreach (var d in designations) { <option value="@d.Id">@d.Name</option> }</select></div>
+    <div class="col-md-8"><label asp-for="ReportingManagerId" class="form-label"></label>
+        <select asp-for="ReportingManagerId" class="form-select"><option value="">No manager</option>@foreach (var m in managers) { <option value="@m.Id">@m.Name</option> }</select></div>
+    <div class="col-md-4"><label asp-for="NoticePeriodDays" class="form-label"></label><input asp-for="NoticePeriodDays" class="form-control" /><span asp-validation-for="NoticePeriodDays"></span></div>
+</div>
+@if (branches.Count == 0 || departments.Count == 0 || designations.Count == 0)
+{
+    <div class="small text-muted mt-2"><i class="bi bi-info-circle me-1"></i>Set up branches, departments and designations in <a href="/org/structure">Organization structure</a> to classify employees.</div>
+}

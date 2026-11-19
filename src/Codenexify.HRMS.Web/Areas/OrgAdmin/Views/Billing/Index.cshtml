@@ -1,0 +1,78 @@
+@model Codenexify.HRMS.Application.Common.PagedResult<Codenexify.HRMS.Application.Billing.InvoiceRow>
+@using Codenexify.HRMS.Application.Billing
+@{
+    ViewData["Title"] = "Billing & invoices";
+    var o = (PurchaseOptions)ViewBag.Options;
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    string Money(decimal v) => "₹" + v.ToString("N2", inr);
+    var due = Model.Items.Where(i => i.Balance > 0 && i.Status != Codenexify.HRMS.Domain.Billing.InvoiceStatus.Cancelled).Sum(i => i.Balance);
+}
+<div class="page-head">
+    <div><h1>Billing &amp; invoices</h1><div class="text-muted small">Your subscription invoices, payments and plan purchase</div></div>
+    <a class="btn btn-light border" href="/org/subscription"><i class="bi bi-receipt me-1"></i>Current subscription</a>
+</div>
+
+@if (due > 0)
+{
+    <div class="alert alert-warning d-flex align-items-center gap-2"><i class="bi bi-exclamation-circle"></i><span>You have <strong>@Money(due)</strong> due. Open an invoice to pay.</span></div>
+}
+
+@if (o.CanPurchase)
+{
+    <div class="card mb-3"><div class="card-header">Choose a plan <span class="small text-muted fw-normal">billed for @o.Seats active employee(s) on per-employee plans · GST extra</span></div>
+        <div class="card-body">
+            @if (o.PendingInvoiceId is int pending)
+            {
+                <div class="alert alert-info small"><i class="bi bi-info-circle me-1"></i>You have a plan purchase awaiting payment. <a href="/org/billing/invoices/@pending" class="fw-semibold">Open the invoice</a> to pay, or choose a plan below to see that invoice again.</div>
+            }
+            @if (o.Plans.Count == 0) { <div class="text-muted small">No plans are available for online purchase. Please contact @AppConfig["Platform:SupportEmail"].</div> }
+            <div class="row g-3">
+                @foreach (var p in o.Plans)
+                {
+                    <div class="col-md-6 col-xl-4">
+                        <div class="border rounded p-3 h-100 d-flex flex-column">
+                            <div class="fw-semibold fs-5">@p.Name</div>
+                            @if (!string.IsNullOrWhiteSpace(p.Description)) { <div class="small text-muted mb-2">@p.Description</div> }
+                            <div class="small mb-3">
+                                <div>@Money(p.MonthlyPrice) / month@(p.PerEmployee ? " per employee" : "")</div>
+                                <div>@Money(p.YearlyPrice) / year@(p.PerEmployee ? " per employee" : "")</div>
+                                @if (p.PerEmployee) { <div class="text-muted">≈ @Money(p.MonthlyPrice * o.Seats) / month for @o.Seats employee(s)</div> }
+                            </div>
+                            <form method="post" action="/org/billing/buy" asp-antiforgery="true" class="mt-auto d-flex gap-2">
+                                <input type="hidden" name="planId" value="@p.Id" />
+                                <select name="cycle" class="form-select form-select-sm" aria-label="Billing cycle for @p.Name">
+                                    @if (p.MonthlyPrice > 0) { <option value="Monthly">Monthly</option> }
+                                    @if (p.YearlyPrice > 0) { <option value="Yearly">Yearly</option> }
+                                </select>
+                                <button class="btn btn-accent btn-sm text-nowrap" type="submit">Buy plan</button>
+                            </form>
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="small text-muted mt-3">Your plan starts as soon as the invoice is paid@(o.OnlinePayments ? " — online by card, UPI or net banking, or by bank transfer" : " by bank transfer (details on the invoice)").</div>
+        </div>
+    </div>
+}
+
+<div class="card">
+    <div class="card-header">Invoices</div>
+    @if (Model.Items.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-receipt"></i>No invoices yet.</div>
+    }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover mb-0">
+            <thead><tr><th>Number</th><th>Date</th><th>Due</th><th>For</th><th class="text-end">Total</th><th class="text-end">Balance</th><th>Status</th></tr></thead>
+            <tbody>@foreach (var i in Model.Items)
+            {
+                <tr><td><a class="fw-semibold" href="/org/billing/invoices/@i.Id">@i.Number</a></td><td class="small">@i.InvoiceDate.ToString("dd MMM yyyy")</td>
+                    <td class="small @(i.Overdue ? "text-danger fw-semibold" : "")">@i.DueDate.ToString("dd MMM yyyy")</td><td class="small">@i.Purpose</td>
+                    <td class="text-end">@Money(i.Total)</td><td class="text-end">@Money(i.Balance)</td>
+                    <td><span class="badge-status st-@(i.Overdue ? "Overdue" : i.Status.ToString())">@(i.Overdue ? "Overdue" : i.Status.ToString())</span></td></tr>
+            }</tbody>
+        </table></div>
+    }
+    <partial name="_Pager" model="Model.ToPager()" />
+</div>

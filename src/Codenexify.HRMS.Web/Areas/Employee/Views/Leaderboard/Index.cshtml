@@ -1,0 +1,49 @@
+@model IReadOnlyList<AttendanceScore>
+@{
+    ViewData["Title"] = "Leaderboard";
+    var today = (DateOnly)ViewBag.Today;
+    var mine = ViewBag.Mine as AttendanceScore;
+    var badges = new[] { GamificationService.EarlyBird, GamificationService.PunctualityPro, GamificationService.IronAttendance, GamificationService.PerfectMonth };
+}
+<div class="page-head"><div><h1>Attendance leaderboard</h1><div class="text-muted small">@today.ToString("MMMM yyyy") · points for on-time and late days, streaks of on-time working days</div></div></div>
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card">
+            @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-trophy"></i>No attendance recorded this month yet.</div> }
+            else
+            {
+                <div class="table-responsive"><table class="table table-hover align-middle">
+                    <thead><tr><th>#</th><th>Employee</th><th class="text-end">Points</th><th class="text-end">On time</th><th class="text-end">Streak</th><th>Badges</th></tr></thead>
+                    <tbody>@for (var i = 0; i < Model.Count; i++)
+                    {
+                        var s = Model[i];
+                        <tr class="@(mine?.EmployeeId == s.EmployeeId ? "table-active" : "")">
+                            <td class="fw-bold">@(i switch { 0 => "🥇", 1 => "🥈", 2 => "🥉", _ => (i + 1).ToString() })</td>
+                            <td class="fw-semibold">@s.Name<div class="small text-muted fw-normal">@s.Department</div></td>
+                            <td class="text-end fw-bold">@s.Points</td>
+                            <td class="text-end">@s.OnTimeDays</td>
+                            <td class="text-end">@s.Streak <i class="bi bi-fire text-warning"></i></td>
+                            <td>@foreach (var b in s.Badges) { <i class="bi @b.Icon text-warning me-1" title="@b.Name: @b.Description"></i> }</td>
+                        </tr>
+                    }</tbody>
+                </table></div>
+            }
+        </div>
+    </div>
+    <div class="col-lg-4">
+        @if (mine is not null)
+        {
+            <div class="card mb-3 tone-violet"><div class="card-body">
+                <div class="kpi"><div class="kpi-icon"><i class="bi bi-star"></i></div><div><div class="kpi-label">My points</div><div class="kpi-value">@mine.Points</div><div class="kpi-sub">@mine.OnTimeDays on time · @mine.LateDays late · streak @mine.Streak</div></div></div>
+            </div></div>
+        }
+        <div class="card"><div class="card-header">Badges</div>
+            <ul class="list-group list-group-flush">@foreach (var b in badges)
+            {
+                var earned = mine?.Badges.Contains(b) == true;
+                <li class="list-group-item bg-transparent d-flex gap-3 align-items-center @(earned ? "" : "text-muted")">
+                    <i class="bi @b.Icon fs-4 @(earned ? "text-warning" : "")"></i><div><div class="fw-semibold">@b.Name @if (earned) { <span class="badge text-bg-success">earned</span> }</div><div class="small">@b.Description</div></div></li>
+            }</ul>
+        </div>
+    </div>
+</div>

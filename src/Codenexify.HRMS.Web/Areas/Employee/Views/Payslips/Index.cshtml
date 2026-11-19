@@ -1,0 +1,51 @@
+@model IReadOnlyList<(int DetailId, int Year, int Month, decimal Net)>
+@using Codenexify.HRMS.Application.Payroll
+@using Codenexify.HRMS.Domain.Payroll
+@{
+    ViewData["Title"] = "My payslips";
+    var loans = ViewBag.Loans as IReadOnlyList<LoanRow>;
+    var today = (DateOnly)ViewBag.Today;
+    var loan = new LoanRequestInput { Type = LoanType.SalaryAdvance, RecoveryStart = new DateOnly(today.Year, today.Month, 1).AddMonths(1) };
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    string M(decimal v) => "₹" + v.ToString("N0", inr);
+}
+<div class="page-head"><div><h1>My payslips</h1><div class="text-muted small">Published after payroll is finalized</div></div>
+    @if (loans is not null) { <button class="btn btn-soft" data-bs-toggle="modal" data-bs-target="#loanModal"><i class="bi bi-cash me-1"></i>Request advance / loan</button> }</div>
+<div class="row g-3">
+    <div class="col-lg-7"><div class="card">
+        @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-receipt"></i>No payslips yet.</div> }
+        else
+        {
+            <ul class="list-group list-group-flush">@foreach (var p in Model)
+            {
+                <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center">
+                    <a class="fw-semibold" href="/me/payslips/@p.DetailId">@(new DateOnly(p.Year, p.Month, 1).ToString("MMMM yyyy"))</a>
+                    <span>Net @M(p.Net) <a class="btn btn-sm btn-light border ms-2" href="/me/payslips/@p.DetailId"><i class="bi bi-eye"></i></a></span>
+                </li>
+            }</ul>
+        }
+    </div></div>
+    @if (loans is not null)
+    {
+        <div class="col-lg-5"><div class="card"><div class="card-header">My loans &amp; advances</div>
+            @if (loans.Count == 0) { <div class="card-body text-muted small">None.</div> }
+            <ul class="list-group list-group-flush">@foreach (var l in loans)
+            {
+                <li class="list-group-item bg-transparent small"><div class="d-flex justify-content-between"><strong>@(l.Type == LoanType.Loan ? "Loan" : "Salary advance") @M(l.Amount)</strong><span>@l.Status</span></div>
+                    <div class="text-muted">@M(l.Installment)/month from @l.RecoveryStart.ToString("MMM yyyy") · outstanding @M(l.Outstanding)@(string.IsNullOrEmpty(l.DecisionNotes) ? "" : " · " + l.DecisionNotes)</div></li>
+            }</ul>
+        </div></div>
+
+        <div class="modal fade" id="loanModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" method="post" action="/me/payslips/requestloan" asp-antiforgery="true" novalidate>
+            <div class="modal-header"><h5 class="modal-title">Request a loan or salary advance</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body row g-3">
+                <div class="col-6"><label asp-for="@loan.Type" class="form-label"></label><select asp-for="@loan.Type" asp-items="Html.GetEnumSelectList<LoanType>()" class="form-select"></select></div>
+                <div class="col-6"><label asp-for="@loan.Amount" class="form-label"></label><input asp-for="@loan.Amount" class="form-control" /></div>
+                <div class="col-6"><label asp-for="@loan.InstallmentAmount" class="form-label"></label><input asp-for="@loan.InstallmentAmount" class="form-control" /></div>
+                <div class="col-6"><label asp-for="@loan.RecoveryStart" class="form-label"></label><input asp-for="@loan.RecoveryStart" type="date" class="form-control" /></div>
+                <div class="col-12"><label asp-for="@loan.Reason" class="form-label"></label><input asp-for="@loan.Reason" class="form-control" /><span asp-validation-for="@loan.Reason"></span></div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Submit request</button></div>
+        </form></div></div>
+    }
+</div>

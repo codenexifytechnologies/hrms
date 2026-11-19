@@ -1,0 +1,46 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Performance.WorkTaskRow>
+@using Codenexify.HRMS.Web.Security
+@{
+    ViewData["Title"] = "My tasks";
+    var showDone = ViewBag.ShowDone is true;
+    var today = DateOnly.FromDateTime(DateTime.Now);
+    var canSeePeople = User.HasPermission(Codenexify.HRMS.Application.Catalog.TenantPermissions.EmployeesView);
+}
+<div class="page-head">
+    <div><h1>My tasks</h1><div class="text-muted small">To-dos created for you by the company's automation rules</div></div>
+    <a class="btn btn-light border" href="@(showDone ? "/me/tasks" : "/me/tasks?done=true")">@(showDone ? "Hide finished" : "Show finished")</a>
+</div>
+<div class="card">
+    @if (Model.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-check2-square"></i>@(showDone ? "No tasks yet." : "Nothing to do. You're all caught up.")</div>
+    }
+    else
+    {
+        <ul class="list-group list-group-flush">
+            @foreach (var t in Model)
+            {
+                var overdue = !t.IsDone && t.DueOn is { } d && d < today;
+                <li class="list-group-item d-flex gap-3 align-items-start">
+                    <form method="post" action="/me/tasks/@t.Id/toggle" asp-antiforgery="true">
+                        <input type="hidden" name="done" value="@(showDone ? "true" : "false")" />
+                        <button type="submit" class="btn btn-sm @(t.IsDone ? "btn-success" : "btn-light border")" title="@(t.IsDone ? "Mark as not done" : "Mark as done")" aria-label="@(t.IsDone ? "Mark as not done" : "Mark as done")">
+                            <i class="bi @(t.IsDone ? "bi-check-lg" : "bi-circle")"></i></button>
+                    </form>
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold @(t.IsDone ? "text-decoration-line-through text-muted" : "")">@t.Title</div>
+                        @if (!string.IsNullOrWhiteSpace(t.Details)) { <div class="small text-muted">@t.Details</div> }
+                        <div class="small mt-1">
+                            @if (t.EmployeeName is not null)
+                            {
+                                if (canSeePeople && t.EmployeeId is int eid) { <a href="/org/employees/details/@eid" class="me-3"><i class="bi bi-person me-1"></i>@t.EmployeeName</a> }
+                                else { <span class="me-3 text-muted"><i class="bi bi-person me-1"></i>@t.EmployeeName</span> }
+                            }
+                            @if (t.DueOn is { } due) { <span class="@(overdue ? "text-danger fw-semibold" : "text-muted")"><i class="bi bi-calendar me-1"></i>Due @due.ToString("dd MMM yyyy")@(overdue ? " (overdue)" : "")</span> }
+                        </div>
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+</div>

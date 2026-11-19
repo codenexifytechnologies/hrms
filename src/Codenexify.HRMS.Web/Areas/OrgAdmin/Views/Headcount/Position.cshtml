@@ -1,0 +1,57 @@
+@model Codenexify.HRMS.Application.Planning.HeadcountPositionInput
+@using Codenexify.HRMS.Application.CoreHr
+@using Codenexify.HRMS.Application.Planning
+@using Codenexify.HRMS.Domain.Planning
+@using Codenexify.HRMS.Web
+@{
+    int planId = ViewBag.PlanId;
+    var positionId = ViewBag.PositionId as int?;
+    var plan = (HeadcountPlanInput)ViewBag.Plan;
+    ViewData["Title"] = positionId is null ? "New position" : "Edit " + Model.Title;
+    var branches = (IReadOnlyList<LookupItem>)ViewBag.Branches;
+    var departments = (IReadOnlyList<LookupItem>)ViewBag.Departments;
+    var designations = (IReadOnlyList<LookupItem>)ViewBag.Designations;
+    var action = positionId is null ? $"/org/headcount/{planId}/positions/new" : $"/org/headcount/{planId}/positions/{positionId}";
+}
+<div class="page-head">
+    <div><h1>@ViewData["Title"]</h1><div class="text-muted small"><a href="/org/headcount">Headcount planning</a> / <a href="/org/headcount/@planId">@plan.Name</a></div></div>
+    @if (positionId is not null)
+    {
+        <form method="post" action="/org/headcount/@planId/positions/@positionId/delete" asp-antiforgery="true" data-confirm-danger="Delete this position?">
+            <button class="btn btn-outline-danger" type="submit"><i class="bi bi-trash"></i></button></form>
+    }
+</div>
+<form method="post" action="@action" asp-antiforgery="true" novalidate style="max-width: 900px">
+    <div asp-validation-summary="All" class="alert alert-danger py-2 small"></div>
+    <div class="card mb-3"><div class="card-body row g-3">
+        <div class="col-md-6"><label asp-for="Title" class="form-label"></label><input asp-for="Title" class="form-control" placeholder="e.g. Account executive" /></div>
+        <div class="col-md-6"><label asp-for="DepartmentId" class="form-label"></label>
+            <select asp-for="DepartmentId" class="form-select"><option value="">Choose…</option>
+                @foreach (var d in departments) { <option value="@d.Id" selected="@(Model.DepartmentId == d.Id)">@d.Name</option> }</select></div>
+        <div class="col-md-6"><label asp-for="DesignationId" class="form-label"></label>
+            <select asp-for="DesignationId" class="form-select"><option value="">—</option>
+                @foreach (var d in designations) { <option value="@d.Id" selected="@(Model.DesignationId == d.Id)">@d.Name</option> }</select></div>
+        <div class="col-md-6"><label asp-for="BranchId" class="form-label"></label>
+            <select asp-for="BranchId" class="form-select"><option value="">Any / not decided</option>
+                @foreach (var b in branches) { <option value="@b.Id" selected="@(Model.BranchId == b.Id)">@b.Name</option> }</select></div>
+        <div class="col-md-3"><label asp-for="Kind" class="form-label"></label>
+            <select asp-for="Kind" class="form-select">
+                @foreach (var k in Enum.GetValues<HeadcountPositionKind>()) { <option value="@k" selected="@(Model.Kind == k)">@PlanningUi.Label(k)</option> }</select></div>
+        <div class="col-md-2"><label asp-for="Openings" class="form-label"></label><input asp-for="Openings" class="form-control" inputmode="numeric" /></div>
+        <div class="col-md-3"><label asp-for="TargetStartOn" class="form-label"></label><input asp-for="TargetStartOn" type="date" class="form-control" min="@plan.StartsOn.ToString("yyyy-MM-dd")" max="@plan.EndsOn.ToString("yyyy-MM-dd")" /></div>
+        <div class="col-md-4"><label asp-for="AnnualBudgetPerHire" class="form-label"></label><input asp-for="AnnualBudgetPerHire" class="form-control" inputmode="decimal" />
+            <div class="form-text">Expected annual CTC for each person.</div></div>
+        <div class="col-md-3"><label asp-for="Priority" class="form-label"></label>
+            <select asp-for="Priority" class="form-select">
+                @foreach (var p in Enum.GetValues<HeadcountPriority>()) { <option value="@p" selected="@(Model.Priority == p)">@p</option> }</select></div>
+        <div class="col-md-3"><label asp-for="Status" class="form-label"></label>
+            <select asp-for="Status" class="form-select">
+                @foreach (var s in Enum.GetValues<HeadcountPositionStatus>()) { <option value="@s" selected="@(Model.Status == s)">@PlanningUi.Label(s)</option> }</select></div>
+        <div class="col-12"><label asp-for="Notes" class="form-label"></label><textarea asp-for="Notes" rows="3" class="form-control" placeholder="Why it's needed, who it replaces, hiring channel…"></textarea></div>
+        <div class="col-12 form-text mt-0">A <strong>new role</strong> grows the team. A <strong>replacement</strong> backfills someone who is leaving. Both count as openings to hire.</div>
+    </div></div>
+    <div class="d-flex justify-content-end gap-2">
+        <a class="btn btn-light border" href="/org/headcount/@planId#positions">Cancel</a>
+        <button class="btn btn-accent" type="submit">Save position</button>
+    </div>
+</form>

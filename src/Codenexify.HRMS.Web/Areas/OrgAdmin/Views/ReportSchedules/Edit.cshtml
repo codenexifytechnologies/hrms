@@ -1,0 +1,36 @@
+@model Codenexify.HRMS.Application.Strength.ReportScheduleInput
+@using Codenexify.HRMS.Domain.Strength
+@{
+    var id = ViewBag.Id as int?;
+    ViewData["Title"] = id is null ? "New scheduled report" : Model.Name;
+    var departments = (IReadOnlyList<LookupItem>)ViewBag.Departments;
+    var branches = (IReadOnlyList<LookupItem>)ViewBag.Branches;
+    var recipients = (IReadOnlyList<LookupItem>)ViewBag.Recipients;
+}
+<div class="page-head"><div><h1>@ViewData["Title"]</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/reports">HR reports</a></li><li class="breadcrumb-item"><a href="/org/reports/schedules">Scheduled</a></li><li class="breadcrumb-item active">@(id is null ? "New" : "Edit")</li></ol></nav></div></div>
+<form method="post" action="/org/reports/schedules/edit/@id" asp-antiforgery="true" novalidate>
+    <div asp-validation-summary="All" class="alert alert-danger py-2 small"></div>
+    <div class="row g-3">
+        <div class="col-lg-6"><div class="card"><div class="card-body row g-2">
+            <div class="col-12"><label asp-for="Name" class="form-label small"></label><input asp-for="Name" class="form-control" placeholder="e.g. Monthly joiners & exits" /></div>
+            <div class="col-6"><label class="form-label small" for="sk">Report</label>
+                <select id="sk" name="Kind" class="form-select"><option value="JoinersAndExits" selected="@(Model.Kind == ReportKind.JoinersAndExits)">Joiners &amp; exits (with names)</option><option value="HeadcountSummary" selected="@(Model.Kind == ReportKind.HeadcountSummary)">Headcount summary (numbers only)</option></select></div>
+            <div class="col-6"><label class="form-label small" for="sf">Frequency</label>
+                <select id="sf" name="Frequency" class="form-select"><option value="Weekly" selected="@(Model.Frequency == ReportFrequency.Weekly)">Weekly (Mondays)</option><option value="Monthly" selected="@(Model.Frequency == ReportFrequency.Monthly)">Monthly (1st)</option></select></div>
+            <div class="col-6"><label class="form-label small" for="sd">Department</label>
+                <select id="sd" name="DepartmentId" class="form-select"><option value="">All</option>@foreach (var d in departments) { <option value="@d.Id" selected="@(Model.DepartmentId == d.Id)">@d.Name</option> }</select></div>
+            <div class="col-6"><label class="form-label small" for="sb">Branch</label>
+                <select id="sb" name="BranchId" class="form-select"><option value="">All</option>@foreach (var b in branches) { <option value="@b.Id" selected="@(Model.BranchId == b.Id)">@b.Name</option> }</select></div>
+            <div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="sa" name="IsActive" value="true" checked="@Model.IsActive" /><input type="hidden" name="IsActive" value="false" /><label class="form-check-label small" for="sa">Active</label></div></div>
+        </div></div></div>
+        <div class="col-lg-6"><div class="card"><div class="card-header">Recipients</div><div class="card-body">
+            @if (recipients.Count == 0) { <p class="small text-muted mb-0">No users can view HR reports.</p> }
+            @foreach (var r in recipients)
+            {
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="u@(r.Id)" name="RecipientUserIds" value="@r.Id" checked="@Model.RecipientUserIds.Contains(r.Id)" /><label class="form-check-label small" for="u@(r.Id)">@r.Name</label></div>
+            }
+            <div class="text-end mt-3"><button class="btn btn-accent" type="submit">Save schedule</button></div>
+        </div></div></div>
+    </div>
+</form>

@@ -1,0 +1,63 @@
+@model PagedResult<Codenexify.HRMS.Application.Payroll.SalaryRosterRow>
+@using Codenexify.HRMS.Application.Payroll
+@using Codenexify.HRMS.Domain.Payroll
+@{
+    ViewData["Title"] = "Salaries";
+    var structures = (List<SalaryStructure>)ViewBag.Structures;
+    var today = (DateOnly)ViewBag.Today;
+    var manage = User.HasPermission(TenantPermissions.PayrollManage);
+    var missing = (bool)ViewBag.Missing;
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    var salary = new SalaryAssignInput { EffectiveFrom = new DateOnly(today.Year, today.Month, 1) };
+}
+<div class="page-head"><div><h1>Salaries</h1><div class="text-muted small">Annual gross and salary structure per employee; revisions apply from their effective month</div></div></div>
+<partial name="_PayrollNav" />
+<div class="card">
+    <div class="card-header">
+        <form method="get" class="d-flex flex-wrap gap-2 w-100">
+            <input type="search" name="search" value="@ViewBag.Search" class="form-control" style="max-width:300px" placeholder="Employee" aria-label="Employee" />
+            <div class="form-check form-switch align-self-center"><input class="form-check-input" type="checkbox" name="missing" value="true" id="miss" checked="@missing" data-autosubmit /><label class="form-check-label" for="miss">Only without salary</label></div>
+            <button class="btn btn-light border" type="submit">Filter</button>
+        </form>
+    </div>
+    @if (Model.Items.Count == 0) { <div class="empty-state"><i class="bi bi-wallet2"></i>@(missing ? "Everyone has a salary." : "No employees.")</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover">
+            <thead><tr><th>Employee</th><th>Structure</th><th class="text-end">Annual gross</th><th class="text-end">Monthly</th><th>Effective from</th><th>PF</th>@if (manage) { <th></th> }</tr></thead>
+            <tbody>@foreach (var r in Model.Items)
+            {
+                <tr><td><div class="fw-semibold">@r.Name</div><div class="small text-muted">@r.Code · @r.Department</div></td>
+                    <td>@(r.Structure ?? "—")</td>
+                    <td class="text-end">@(r.AnnualGross is { } a ? "₹" + a.ToString("N0", inr) : "—")</td>
+                    <td class="text-end">@(r.AnnualGross is { } m ? "₹" + Math.Round(m / 12).ToString("N0", inr) : "—")</td>
+                    <td class="small">@(r.EffectiveFrom?.ToString("dd MMM yyyy") ?? (r.AnnualGross is null ? "Not set" : ""))</td>
+                    <td>@(r.AnnualGross is null ? "" : r.PfApplicable ? "Yes" : "No")</td>
+                    @if (manage) { <td class="text-end"><button class="btn btn-sm @(r.AnnualGross is null ? "btn-accent" : "btn-soft")" data-bs-toggle="modal" data-bs-target="#salaryModal" data-set-action="/org/payroll/salaries/@r.EmployeeId" data-set-who="@r.Name">@(r.AnnualGross is null ? "Set salary" : "Revise")</button></td> }
+                </tr>
+            }</tbody>
+        </table></div>
+    }
+    <partial name="_Pager" model="Model.ToPager()" />
+</div>
+
+@if (manage)
+{
+    <div class="modal fade" id="salaryModal" tabindex="-1"><div class="modal-dialog modal-lg"><form class="modal-content" method="post" asp-antiforgery="true" data-bind-action data-salary-preview="/org/payroll/preview" novalidate>
+        <div class="modal-header"><h5 class="modal-title">Salary: <span data-bind="who"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body row g-3">
+            <div class="col-md-6 row g-3 align-content-start">
+                <div class="col-12"><label asp-for="@salary.SalaryStructureId" class="form-label"></label>
+                    <select asp-for="@salary.SalaryStructureId" class="form-select">@foreach (var s in structures) { <option value="@s.Id">@s.Name</option> }</select></div>
+                <div class="col-12"><label asp-for="@salary.AnnualGross" class="form-label"></label><input asp-for="@salary.AnnualGross" class="form-control" step="1000" /><span asp-validation-for="@salary.AnnualGross"></span></div>
+                <div class="col-12"><label asp-for="@salary.EffectiveFrom" class="form-label"></label><input asp-for="@salary.EffectiveFrom" type="date" class="form-control" /></div>
+                <div class="col-12"><div class="form-check form-switch"><input asp-for="@salary.PfApplicable" class="form-check-input" /><label asp-for="@salary.PfApplicable" class="form-check-label"></label></div></div>
+                <div class="col-12"><label asp-for="@salary.Remarks" class="form-label"></label><input asp-for="@salary.Remarks" class="form-control" placeholder="e.g. Annual increment 2026" /></div>
+                <div class="col-12"><div class="form-check"><input asp-for="@salary.PayArrears" class="form-check-input" /><label asp-for="@salary.PayArrears" class="form-check-label small"></label></div>
+                    <div class="form-text">Only needed when the effective date falls in a month whose payroll is finalized. The difference from what was paid is added to the next payroll as arrears (or a recovery). PF/ESI on arrears are not added automatically.</div></div>
+            </div>
+            <div class="col-md-6"><div class="form-label">Monthly breakup</div><div data-preview-out class="small text-muted">Enter an annual gross to see the breakup.</div></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Save salary</button></div>
+    </form></div></div>
+}

@@ -1,0 +1,87 @@
+@model Codenexify.HRMS.Domain.Billing.Invoice
+@using Codenexify.HRMS.Domain.Billing
+@{
+    ViewData["Title"] = $"Invoice {Model.Number}";
+    var credits = (IReadOnlyList<CreditNote>)ViewBag.CreditNotes;
+    var online = (bool)ViewBag.Online;
+    var supplier = (PlatformSetting)ViewBag.Supplier;
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    string Money(decimal v) => "₹" + v.ToString("N2", inr);
+    var open = Model.Status is InvoiceStatus.Issued or InvoiceStatus.PartiallyPaid && Model.Balance > 0;
+    var today = DateOnly.FromDateTime(DateTime.Today);
+}
+<div class="page-head">
+    <div><h1>Invoice @Model.Number <span class="badge-status st-@(open && Model.DueDate < today ? "Overdue" : Model.Status.ToString()) align-middle">@(open && Model.DueDate < today ? "Overdue" : Model.Status.ToString())</span></h1>
+        <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/billing">Billing</a></li><li class="breadcrumb-item active">@Model.Number</li></ol></nav></div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-light border" href="/org/billing/invoices/@Model.Id/pdf"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
+        <a class="btn btn-light border" href="/org/billing/invoices/@Model.Id/print"><i class="bi bi-printer me-1"></i>Print</a>
+        @if (open && online)
+        {
+            <form method="post" action="/org/billing/invoices/@Model.Id/pay" asp-antiforgery="true">
+                <button class="btn btn-accent" type="submit"><i class="bi bi-credit-card me-1"></i>Pay @Money(Model.Balance) online</button>
+            </form>
+        }
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-8">
+        <div class="card h-100"><div class="card-header">@Model.Purpose @(Model.BillingCycle is { } cycle ? $"· {cycle}" : "")</div>
+            <div class="table-responsive"><table class="table small mb-0">
+                <thead><tr><th>Description</th><th class="text-end">Qty</th><th class="text-end">Rate</th><th class="text-end">Amount</th></tr></thead>
+                <tbody>@foreach (var l in Model.Lines) { <tr><td>@l.Description</td><td class="text-end">@l.Quantity.ToString("0.##")</td><td class="text-end">@Money(l.UnitPrice)</td><td class="text-end">@Money(l.Amount)</td></tr> }</tbody>
+            </table></div>
+            <div class="card-body small text-muted">
+                Invoice date @Model.InvoiceDate.ToString("dd MMM yyyy") · due @Model.DueDate.ToString("dd MMM yyyy") · place of supply @Model.PlaceOfSupply
+                @if (Model.Purpose != InvoicePurpose.Manual && !Model.Fulfilled && open) { <div class="mt-1">Your subscription is updated automatically as soon as this invoice is fully paid.</div> }
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card h-100"><div class="card-header">Amounts</div>
+            <div class="card-body small">
+                <div class="d-flex justify-content-between"><span>Taxable value</span><span>@Money(Model.Subtotal)</span></div>
+                @if (Model.IgstRate == 0)
+                {
+                    <div class="d-flex justify-content-between"><span>CGST @Model.CgstRate.ToString("0.##")%</span><span>@Money(Model.CgstAmount)</span></div>
+                    <div class="d-flex justify-content-between"><span>SGST @Model.SgstRate.ToString("0.##")%</span><span>@Money(Model.SgstAmount)</span></div>
+                }
+                else { <div class="d-flex justify-content-between"><span>IGST @Model.IgstRate.ToString("0.##")%</span><span>@Money(Model.IgstAmount)</span></div> }
+                <div class="d-flex justify-content-between fw-semibold border-top mt-2 pt-2"><span>Total</span><span>@Money(Model.Total)</span></div>
+                <div class="d-flex justify-content-between"><span>Paid</span><span>@Money(Model.AmountPaid)</span></div>
+                @if (Model.AmountCredited > 0) { <div class="d-flex justify-content-between"><span>Credited</span><span>@Money(Model.AmountCredited)</span></div> }
+                <div class="d-flex justify-content-between fs-5 fw-bold border-top mt-2 pt-2"><span>Balance</span><span>@Money(Model.Balance)</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (open && !string.IsNullOrWhiteSpace(supplier.BankDetails))
+{
+    <div class="card mb-3"><div class="card-body small"><span class="fw-semibold">Pay by bank transfer:</span> @supplier.BankDetails · Quote <strong>@Model.Number</strong> as the reference. Transfers are marked paid once we receive them.</div></div>
+}
+
+@{ var shown = Model.Payments.Where(p => p.Status != PaymentStatus.Created).OrderByDescending(p => p.Id).ToList(); }
+@if (shown.Count > 0)
+{
+    <div class="card mb-3"><div class="card-header">Payments</div>
+        <div class="table-responsive"><table class="table small mb-0">
+            <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th class="text-end">Amount</th><th>Status</th></tr></thead>
+            <tbody>@foreach (var p in shown)
+            {
+                <tr><td>@(p.PaidAtUtc?.ToLocalTime().ToString("dd MMM yyyy") ?? "—")</td><td>@p.Method</td><td>@(p.Reference ?? p.GatewayPaymentId)</td>
+                    <td class="text-end">@Money(p.Amount)@if (p.RefundedAmount > 0) { <div class="text-muted">refunded @Money(p.RefundedAmount)</div> }</td>
+                    <td><span class="badge-status st-@p.Status">@p.Status</span></td></tr>
+            }</tbody>
+        </table></div>
+    </div>
+}
+@if (credits.Count > 0)
+{
+    <div class="card"><div class="card-header">Credit notes</div>
+        <ul class="list-group list-group-flush small">
+            @foreach (var c in credits) { <li class="list-group-item bg-transparent d-flex justify-content-between"><span><strong>@c.Number</strong> · @c.Date.ToString("dd MMM yyyy") · @c.Reason</span><span>@Money(c.Total)@(c.RefundAmount > 0 ? " refunded" : "")</span></li> }
+        </ul>
+    </div>
+}

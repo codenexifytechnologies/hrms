@@ -1,0 +1,77 @@
+@model TenantDashboard
+@{
+    ViewData["Title"] = "Dashboard";
+    var sub = Model.Subscription;
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    var daysLeft = sub is null ? 0 : Math.Max(0, sub.Subscription.EndDate.DayNumber - today.DayNumber);
+    var rolesData = Model.UsersByRole.Select(r => new { label = r.Role, value = r.Users });
+}
+<div class="page-head">
+    <div><h1>Welcome back, @(User.Identity?.Name?.Split(' ')[0])</h1><div class="text-muted small">@DateTime.Now.ToString("dddd, dd MMM yyyy")</div></div>
+    @if (User.HasPermission(TenantPermissions.UsersManage)) { <a href="/org/users/create" class="btn btn-accent"><i class="bi bi-person-plus me-1"></i>Add user</a> }
+</div>
+
+@if (sub is not null && (sub.Subscription.Status is SubscriptionStatus.Trial or SubscriptionStatus.PastDue || daysLeft <= 7))
+{
+    <div class="alert @(sub.Subscription.Status == SubscriptionStatus.PastDue ? "alert-warning" : "alert-info") d-flex align-items-center gap-2">
+        <i class="bi bi-info-circle fs-5"></i>
+        <div>
+            @if (sub.Subscription.Status == SubscriptionStatus.Trial) { <span>You are on a <strong>@sub.PlanName trial</strong> — @daysLeft day(s) left.</span> }
+            else if (sub.Subscription.Status == SubscriptionStatus.PastDue) { <span>Your renewal is overdue. Access continues until @sub.Subscription.GraceEndsOn?.ToString("dd MMM yyyy").</span> }
+            else { <span>Your subscription renews or ends on @sub.Subscription.EndDate.ToString("dd MMM yyyy").</span> }
+            Contact @AppConfig["Platform:SupportEmail"] to subscribe or renew.
+        </div>
+    </div>
+}
+
+<div class="row g-3 mb-3">
+    <div class="col-sm-6 col-xl-3"><div class="card"><div class="card-body kpi">
+        <div class="kpi-icon"><i class="bi bi-people"></i></div>
+        <div><div class="kpi-label">Users</div><div class="kpi-value">@Model.TotalUsers</div><div class="kpi-sub">@Model.ActiveUsers active@(sub is null ? "" : $" · limit {sub.Limits.MaxEmployees:N0}")</div></div>
+    </div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card tone-green"><div class="card-body kpi">
+        <div class="kpi-icon"><i class="bi bi-box-arrow-in-right"></i></div>
+        <div><div class="kpi-label">Signed in (7 days)</div><div class="kpi-value">@Model.UsersSignedInLast7Days</div><div class="kpi-sub">users with recent activity</div></div>
+    </div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card tone-violet"><div class="card-body kpi">
+        <div class="kpi-icon"><i class="bi bi-shield-lock"></i></div>
+        <div><div class="kpi-label">Roles</div><div class="kpi-value">@Model.RoleCount</div><div class="kpi-sub">system and custom roles</div></div>
+    </div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card tone-blue"><div class="card-body kpi">
+        <div class="kpi-icon"><i class="bi bi-receipt"></i></div>
+        <div><div class="kpi-label">Plan</div><div class="kpi-value fs-5">@(sub?.PlanName ?? "—")</div>
+            <div class="kpi-sub">@(sub is null ? "No subscription" : $"{sub.Subscription.Status} · {daysLeft} day(s) left · {sub.EnabledFeatures.Count} modules")</div></div>
+    </div></div></div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card h-100"><div class="card-header">Users by role</div>
+            <div class="card-body" style="height: 280px">
+                @if (!Model.UsersByRole.Any()) { <div class="empty-state py-5"><i class="bi bi-people"></i>No role assignments yet.</div> }
+                else { <canvas data-chart="bar" data-source="rolesData" data-label="Users" data-horizontal="1"></canvas> }
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card h-100"><div class="card-header">Recent activity
+                @if (User.HasPermission(TenantPermissions.AuditView)) { <a href="/org/audit" class="btn btn-sm btn-soft">View all</a> }</div>
+            <div class="card-body">
+                @if (Model.RecentActivity.Count == 0) { <div class="empty-state py-4"><i class="bi bi-activity"></i>No activity yet.</div> }
+                @foreach (var a in Model.RecentActivity)
+                {
+                    <div class="timeline-item small">
+                        <div class="d-flex justify-content-between gap-2"><strong>@a.Action <span class="text-muted fw-normal">· @a.EntityType</span></strong>
+                            <span class="text-muted text-nowrap">@a.TimestampUtc.ToLocalTime().ToString("dd MMM, HH:mm")</span></div>
+                        <div class="text-muted">@(a.ActorType == PrincipalType.Platform ? "Platform support" : a.ActorName ?? "system")@(string.IsNullOrEmpty(a.Details) ? "" : " — " + a.Details)</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+<script type="application/json" id="rolesData">@Json.Serialize(rolesData)</script>
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="~/js/charts.js" asp-append-version="true"></script>
+}

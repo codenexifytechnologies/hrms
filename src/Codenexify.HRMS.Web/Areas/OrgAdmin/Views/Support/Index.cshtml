@@ -1,0 +1,85 @@
+@model Codenexify.HRMS.Application.Common.PagedResult<Codenexify.HRMS.Application.Support.TicketRow>?
+@using Codenexify.HRMS.Application.Support
+@{
+    ViewData["Title"] = "Support";
+    var grants = (IReadOnlyList<GrantRow>)ViewBag.Grants;
+    var openTickets = (IReadOnlyList<TicketRow>)ViewBag.OpenTickets;
+    var canGrant = User.HasPermission(TenantPermissions.SupportAccessGrant);
+    var q = (TicketQuery)ViewBag.Query;
+}
+<div class="page-head">
+    <div><h1>Support</h1><div class="text-muted small">Ask Codenexify for help and control what our team can see</div></div>
+    @if (Model is not null) { <a class="btn btn-accent" href="/org/support/new"><i class="bi bi-plus-lg me-1"></i>New ticket</a> }
+</div>
+
+@if (Model is not null)
+{
+    <div class="card mb-3">
+        <div class="card-header">Tickets
+            <form method="get" action="/org/support" class="d-flex gap-2">
+                <div class="form-check mb-0"><input class="form-check-input" type="checkbox" id="oo" name="openOnly" value="true" checked="@q.OpenOnly" data-autosubmit /><label class="form-check-label small fw-normal" for="oo">Open only</label></div>
+                <div class="form-check mb-0"><input class="form-check-input" type="checkbox" id="mo" name="mineOnly" value="true" checked="@q.MineOnly" data-autosubmit /><label class="form-check-label small fw-normal" for="mo">Raised by me</label></div>
+            </form>
+        </div>
+        @if (Model.Items.Count == 0) { <div class="empty-state"><i class="bi bi-life-preserver"></i>No tickets yet. Raise one and our team will get back to you.</div> }
+        else
+        {
+            <div class="table-responsive"><table class="table table-hover mb-0">
+                <thead><tr><th>#</th><th>Subject</th><th>Category</th><th>Status</th><th>Raised by</th><th>Last activity</th></tr></thead>
+                <tbody>@foreach (var t in Model.Items)
+                {
+                    <tr><td class="text-muted">#@t.Id</td><td><a class="fw-semibold" href="/org/support/tickets/@t.Id">@t.Subject</a></td>
+                        <td class="small">@t.Category</td>
+                        <td><span class="badge-status st-@t.Status">@(t.Status == Codenexify.HRMS.Domain.Support.TicketStatus.WaitingOnCustomer ? "Awaiting your reply" : t.Status.ToString())</span></td>
+                        <td class="small">@t.RaisedByName</td><td class="small">@t.LastActivityAtUtc.ToLocalTime().ToString("dd MMM, HH:mm")</td></tr>
+                }</tbody>
+            </table></div>
+        }
+        <partial name="_Pager" model="Model.ToPager()" />
+    </div>
+}
+
+@if (canGrant)
+{
+    var active = grants.Where(g => g.Active).ToList();
+    <div class="card" id="access">
+        <div class="card-header">Codenexify support access</div>
+        <div class="card-body">
+            <p class="small text-muted">If our team needs to look at your setup to solve a problem, you can let them view your HRMS <strong>read-only</strong> for a limited time.
+                They cannot change anything. Bank details, PAN, documents, billing and user administration stay hidden. Every page they open is recorded in your audit trail, and you can revoke access at any time.</p>
+            @if (active.Count == 0)
+            {
+                <form method="post" action="/org/support/access/grant" asp-antiforgery="true" class="row g-2 align-items-end">
+                    <div class="col-md-2"><label class="form-label small" for="gh">Hours</label>
+                        <select id="gh" name="grant.Hours" class="form-select">@foreach (var h in new[] { 2, 8, 24, 48, 72 }) { <option value="@h" selected="@(h == 24)">@h</option> }</select></div>
+                    <div class="col-md-4"><label class="form-label small" for="gr">Reason</label><input id="gr" name="grant.Reason" maxlength="300" class="form-control" required placeholder="e.g. Check our payroll setup" /></div>
+                    <div class="col-md-3"><label class="form-label small" for="gt">Related ticket</label>
+                        <select id="gt" name="grant.TicketId" class="form-select"><option value="">None</option>@foreach (var t in openTickets) { <option value="@t.Id">#@t.Id @t.Subject</option> }</select></div>
+                    <div class="col-md-3"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="gp" name="grant.IncludePayroll" value="true" /><label class="form-check-label small" for="gp">Include payroll &amp; salaries</label></div></div>
+                    <div class="col-12"><button class="btn btn-accent" type="submit"><i class="bi bi-unlock me-1"></i>Grant read-only access</button></div>
+                </form>
+            }
+            @if (grants.Count > 0)
+            {
+                <div class="table-responsive mt-3"><table class="table table-sm small mb-0 align-middle">
+                    <thead><tr><th>Granted</th><th>By</th><th>Reason</th><th>Scope</th><th>Until</th><th>Visits by Codenexify</th><th></th></tr></thead>
+                    <tbody>@foreach (var g in grants)
+                    {
+                        <tr><td>@g.GrantedAtUtc.ToLocalTime().ToString("dd MMM, HH:mm")</td><td>@g.GrantedByName</td><td>@g.Reason</td>
+                            <td>@(g.IncludePayroll ? "Incl. payroll" : "HR & attendance")</td>
+                            <td>@if (g.RevokedAtUtc is { } r) { <span class="text-muted">Revoked @r.ToLocalTime().ToString("dd MMM, HH:mm")</span> } else if (g.Active) { <span class="badge-status st-Active">Active</span> <span>@g.ExpiresAtUtc.ToLocalTime().ToString("dd MMM, HH:mm")</span> } else { <span class="text-muted">Expired</span> }</td>
+                            <td>@if (g.Sessions.Count == 0) { <span class="text-muted">None</span> }
+                                @foreach (var s in g.Sessions) { <div>@s.StaffName · @s.StartedAtUtc.ToLocalTime().ToString("dd MMM, HH:mm") · @s.PageViews page(s)@(s.EndedAtUtc is null && s.ExpiresAtUtc > DateTime.UtcNow && g.Active ? " · now viewing" : "")</div> }</td>
+                            <td class="text-end">@if (g.Active)
+                            {
+                                <form method="post" action="/org/support/access/@g.Id/revoke" asp-antiforgery="true" data-confirm="Revoke Codenexify's access now? Any open session ends immediately." data-confirm-danger="1">
+                                    <button class="btn btn-sm btn-outline-danger" type="submit">Revoke</button>
+                                </form>
+                            }</td></tr>
+                    }</tbody>
+                </table></div>
+                <div class="form-text">Page-by-page details are in the <a href="/org/audit">audit trail</a> (actions starting with "SupportSession").</div>
+            }
+        </div>
+    </div>
+}

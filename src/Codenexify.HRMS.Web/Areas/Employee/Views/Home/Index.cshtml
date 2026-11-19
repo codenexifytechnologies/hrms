@@ -1,0 +1,175 @@
+@model TenantUserRow
+@using Codenexify.HRMS.Domain.CoreHr
+@{
+    ViewData["Title"] = "My home";
+    var org = (Codenexify.HRMS.Domain.Platform.Organization)ViewBag.Organization;
+    var features = (IReadOnlySet<string>)ViewBag.Features;
+    var profile = ViewBag.Profile as EmployeeProfile;
+    var e = profile?.Employee;
+    var documents = ViewBag.Documents as IReadOnlyList<EmployeeDocument>;
+    var exit = ViewBag.Exit as ExitRequest;
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    var resignation = new ExitInitiateInput { RequestedLastWorkingDay = today.AddDays(e?.NoticePeriodDays ?? 30) };
+    string Val(string? s) => string.IsNullOrWhiteSpace(s) ? "—" : s;
+}
+<div class="page-head">
+    <div><h1>Hello, @Model.FullName.Split(' ')[0]</h1><div class="text-muted small">@org.Name · @DateTime.Now.ToString("dddd, dd MMM yyyy")</div></div>
+    @if (User.HasPermission(TenantPermissions.DashboardView)) { <a href="/org" class="btn btn-accent"><i class="bi bi-grid-1x2 me-1"></i>Administration</a> }
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card mb-3"><div class="card-header">My account</div>
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <span class="avatar" style="width:56px;height:56px;font-size:1.2rem">@string.Concat(Model.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(s => s[0]))</span>
+                    <div><div class="fw-semibold fs-5">@Model.FullName</div><div class="text-muted">@Model.Email</div></div>
+                </div>
+                <dl class="row small mb-0">
+                    @if (e is not null)
+                    {
+                        <dt class="col-sm-4">Employee ID</dt><dd class="col-sm-8"><code>@e.EmployeeCode</code></dd>
+                        <dt class="col-sm-4">Designation</dt><dd class="col-sm-8">@Val(e.Designation?.Name)</dd>
+                        <dt class="col-sm-4">Department</dt><dd class="col-sm-8">@Val(e.Department?.Name)</dd>
+                        <dt class="col-sm-4">Reports to</dt><dd class="col-sm-8">@Val(e.ReportingManager?.FullName)</dd>
+                        <dt class="col-sm-4">Joined</dt><dd class="col-sm-8">@e.DateOfJoining.ToString("dd MMM yyyy")</dd>
+                    }
+                    <dt class="col-sm-4">Roles</dt><dd class="col-sm-8">@Model.Roles</dd>
+                    <dt class="col-sm-4">Company code</dt><dd class="col-sm-8"><code>@org.Code</code></dd>
+                </dl>
+                <a href="/me/account/changepassword" class="btn btn-soft mt-3"><i class="bi bi-key me-1"></i>Change password</a>
+            </div>
+        </div>
+        @if (e is not null)
+        {
+            <div class="card"><div class="card-header">My personal details
+                    @if (features.Contains(FeatureCodes.SelfService)) { <a class="btn btn-sm btn-soft" href="/me/profile"><i class="bi bi-pencil me-1"></i>Update</a> }
+                    else { <span class="small text-muted fw-normal">contact HR to update</span> }
+                </div><div class="card-body">
+                <dl class="row small mb-0">
+                    <dt class="col-sm-5">Date of birth</dt><dd class="col-sm-7">@(e.DateOfBirth?.ToString("dd MMM yyyy") ?? "—")</dd>
+                    <dt class="col-sm-5">Mobile</dt><dd class="col-sm-7">@Val(e.MobilePhone)</dd>
+                    <dt class="col-sm-5">Personal email</dt><dd class="col-sm-7">@Val(e.PersonalEmail)</dd>
+                    <dt class="col-sm-5">Address</dt><dd class="col-sm-7">@Val(e.CurrentAddress)</dd>
+                    <dt class="col-sm-5">Emergency contact</dt><dd class="col-sm-7">@Val(e.EmergencyContactName) @(e.EmergencyContactPhone is null ? "" : $"· {e.EmergencyContactPhone}")</dd>
+                    <dt class="col-sm-5">PAN</dt><dd class="col-sm-7">@Val(e.PanMasked)</dd>
+                    <dt class="col-sm-5">Salary account</dt><dd class="col-sm-7">@(e.BankDetail is null ? "—" : $"{e.BankDetail.BankName} ·· {e.BankDetail.AccountNumberLast4}")</dd>
+                </dl>
+            </div></div>
+        }
+        else
+        {
+            <div class="card"><div class="card-body small text-muted"><i class="bi bi-info-circle me-1"></i>Your login is not linked to an employee record yet. HR can link it from your employee profile.</div></div>
+        }
+        @if (ViewBag.Preferences is Codenexify.HRMS.Application.Engagement.Preferences prefs)
+        {
+            <div class="card mt-3" id="preferences"><div class="card-header">Preferences</div><div class="card-body">
+                <form method="post" action="/me/profile/preferences" asp-antiforgery="true">
+                    @if (prefs.HasEmployee)
+                    {
+                        <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="pf-hb" name="hideBirthday" value="true" checked="@prefs.HideBirthday" /><label class="form-check-label small" for="pf-hb">Don't show my birthday to colleagues</label></div>
+                    }
+                    <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="pf-me" name="muteEmail" value="true" checked="@prefs.MuteEmailNotifications" /><label class="form-check-label small" for="pf-me">In-app notifications only (no email copies)</label></div>
+                    <button class="btn btn-sm btn-soft mt-2" type="submit">Save preferences</button>
+                </form>
+            </div></div>
+        }
+    </div>
+
+    <div class="col-lg-7">
+        @if (ViewBag.Announcements is IReadOnlyList<Codenexify.HRMS.Application.Engagement.PostView> pinned && pinned.Count > 0)
+        {
+            <div class="card mb-3"><div class="card-header"><span><i class="bi bi-megaphone me-1"></i>Announcements</span><a class="small fw-normal" href="/me/wall?kind=Announcement">All</a></div>
+                <ul class="list-group list-group-flush">
+                    @foreach (var a in pinned)
+                    {
+                        <li class="list-group-item bg-transparent"><a class="fw-semibold" href="/me/wall/post/@a.Id">@a.Title</a>
+                            <div class="small text-muted text-truncate">@a.Body</div></li>
+                    }
+                </ul>
+            </div>
+        }
+        @if (ViewBag.Celebrations is IReadOnlyList<Codenexify.HRMS.Application.Engagement.Celebration> celebrations && celebrations.Count > 0)
+        {
+            <div class="card mb-3"><div class="card-header"><span><i class="bi bi-balloon-heart me-1"></i>Celebrations this week</span>
+                @if (features.Contains(FeatureCodes.SelfService)) { <a class="small fw-normal" href="/me/people">People</a> }</div>
+                <div class="card-body py-2 d-flex flex-wrap gap-4">
+                    @foreach (var c in celebrations.Take(8))
+                    {
+                        <div class="celebration">
+                            <i class="bi @(c.Kind == Codenexify.HRMS.Application.Engagement.CelebrationKind.Birthday ? "bi-cake2 text-danger" : "bi-stars text-warning")"></i>
+                            <div class="lh-sm"><div class="fw-semibold small">@c.Name</div>
+                                <div class="small text-muted">@(c.Kind == Codenexify.HRMS.Application.Engagement.CelebrationKind.Birthday ? "Birthday" : $"{c.Years} yr anniversary") · @(c.IsToday ? "today" : c.Date.ToString("ddd dd MMM"))</div></div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+        @if (ViewBag.Clock is TodayStatus clockStatus) { <partial name="_ClockCard" model="clockStatus" /> }
+        @if (ViewBag.Score is AttendanceScore score)
+        {
+            <div class="card mb-3 tone-violet"><div class="card-body d-flex flex-wrap gap-4 align-items-center">
+                <div class="kpi"><div class="kpi-icon"><i class="bi bi-fire"></i></div><div><div class="kpi-label">On-time streak</div><div class="kpi-value">@score.Streak day(s)</div></div></div>
+                <div class="kpi"><div class="kpi-icon"><i class="bi bi-star"></i></div><div><div class="kpi-label">Points this month</div><div class="kpi-value">@score.Points</div></div></div>
+                <div class="d-flex flex-wrap gap-2">@foreach (var b in score.Badges) { <span class="chip" title="@b.Description"><i class="bi @b.Icon text-warning"></i>@b.Name</span> }</div>
+                <a href="/me/leaderboard" class="ms-auto small">Leaderboard →</a>
+            </div></div>
+        }
+        @if (ViewBag.Balances is IReadOnlyList<BalanceRow> balances && balances.Count > 0)
+        {
+            <div class="card mb-3"><div class="card-header">Leave balance <a href="/me/leave" class="btn btn-sm btn-accent">Apply leave</a></div>
+                <div class="card-body d-flex flex-wrap gap-3">
+                    @foreach (var b in balances.Where(b => b.IsPaid))
+                    {
+                        <div class="text-center px-2"><div class="fs-4 fw-bold" style="color:@b.Color">@b.Available.ToString("0.#")</div><div class="small text-muted">@b.LeaveType</div></div>
+                    }
+                </div>
+            </div>
+        }
+        @if (documents is not null)
+        {
+            <div class="card mb-3"><div class="card-header">My documents</div>
+                @if (documents.Count == 0) { <div class="card-body text-muted small">No documents shared with you yet.</div> }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var d in documents)
+                        {
+                            <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center">
+                                <div><a href="/me/home/document?docId=@d.Id" class="fw-semibold">@d.Title</a><div class="small text-muted">@d.Category@(d.ExpiresOn is { } x ? $" · expires {x:dd MMM yyyy}" : "")</div></div>
+                                @if (d.IsVerified) { <span class="badge-status st-Active">Verified</span> }
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        }
+
+        @if (e is not null && features.Contains(FeatureCodes.EmployeeExit))
+        {
+            <div class="card" id="exit"><div class="card-header">Resignation</div><div class="card-body">
+                @if (exit is not null && exit.Status is ExitStatus.Pending or ExitStatus.Approved)
+                {
+                    <p class="mb-2">Submitted on @exit.RequestedOn.ToString("dd MMM yyyy") · last working day @((exit.ApprovedLastWorkingDay ?? exit.RequestedLastWorkingDay).ToString("dd MMM yyyy")) ·
+                        <span class="badge-status st-@(exit.Status == ExitStatus.Pending ? "PendingVerification" : "Trial")">@exit.Status</span></p>
+                    @if (exit.Status == ExitStatus.Approved && exit.Checklist.Count > 0) { <p class="small text-muted mb-2">Exit checklist: @exit.Checklist.Count(c => c.IsCompleted) of @exit.Checklist.Count items done.</p> }
+                    @if (exit.Status == ExitStatus.Pending)
+                    {
+                        <form method="post" action="/me/home/withdraw?id=@exit.Id" asp-antiforgery="true" data-confirm="Withdraw your resignation?"><button class="btn btn-sm btn-light border" type="submit">Withdraw resignation</button></form>
+                    }
+                }
+                else if (!e.IsCurrent) { <p class="text-muted mb-0">Your employment has ended.</p> }
+                else
+                {
+                    @if (exit?.Status == ExitStatus.Rejected) { <div class="alert alert-light border small">Your previous request was not accepted: @exit.DecisionNotes</div> }
+                    <p class="small text-muted">Your notice period is @e.NoticePeriodDays days. HR will confirm your last working day.</p>
+                    <form method="post" action="/me/home/resign" asp-antiforgery="true" class="row g-3" data-confirm="Submit your resignation to HR?" novalidate>
+                        <div class="col-md-6"><label asp-for="@resignation.RequestedLastWorkingDay" class="form-label"></label><input asp-for="@resignation.RequestedLastWorkingDay" type="date" class="form-control" /></div>
+                        <div class="col-12"><label asp-for="@resignation.Reason" class="form-label"></label><textarea asp-for="@resignation.Reason" class="form-control" rows="2"></textarea><span asp-validation-for="@resignation.Reason"></span></div>
+                        <div class="col-12"><button class="btn btn-outline-danger" type="submit">Submit resignation</button></div>
+                    </form>
+                }
+            </div></div>
+        }
+    </div>
+</div>

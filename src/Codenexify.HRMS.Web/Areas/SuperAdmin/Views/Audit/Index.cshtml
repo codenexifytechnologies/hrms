@@ -1,0 +1,59 @@
+@model PagedResult<Codenexify.HRMS.Domain.Audit.AuditLog>
+@{
+    ViewData["Title"] = "Audit trail";
+    var q = (AuditQuery)ViewBag.Query;
+}
+<div class="page-head">
+    <div><h1>Audit trail</h1><div class="text-muted small">
+        @(ViewBag.OrganizationName is string on ? $"Filtered to {on}" : "Every data change and privileged action across the platform")</div></div>
+</div>
+<div class="card">
+    <div class="card-header">
+        <form method="get" class="row g-2 w-100 align-items-end">
+            @if (q.OrganizationId is not null) { <input type="hidden" name="organizationId" value="@q.OrganizationId" /> }
+            <div class="col-md-4"><input type="search" name="search" value="@q.Search" class="form-control" placeholder="Action, entity, actor or details" /></div>
+            <div class="col-md-2"><select name="actorType" class="form-select"><option value="">All actors</option>
+                @foreach (var t in Enum.GetValues<PrincipalType>()) { <option value="@t" selected="@(q.ActorType == t)">@t</option> }</select></div>
+            <div class="col-md-2"><input type="date" name="from" value="@q.From?.ToString("yyyy-MM-dd")" class="form-control" aria-label="From" /></div>
+            <div class="col-md-2"><input type="date" name="to" value="@q.To?.ToString("yyyy-MM-dd")" class="form-control" aria-label="To" /></div>
+            <div class="col-md-2 d-flex gap-2"><button class="btn btn-light border flex-grow-1" type="submit">Filter</button>
+                <a href="/superadmin/audit" class="btn btn-link">Reset</a></div>
+        </form>
+    </div>
+    @if (Model.Items.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-journal-x"></i>No audit entries match.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover small">
+                <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Entity</th><th>Org</th><th>Details / changes</th><th>IP</th></tr></thead>
+                <tbody>
+                @foreach (var a in Model.Items)
+                {
+                    <tr>
+                        <td class="text-nowrap">@a.TimestampUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm:ss")</td>
+                        <td>@(a.ActorName ?? "system")<div class="text-muted">@a.ActorType</div></td>
+                        <td class="fw-semibold">@a.Action</td>
+                        <td>@a.EntityType @(a.EntityId is null ? "" : "#" + a.EntityId)</td>
+                        <td>@if (a.OrganizationId is { } oid) { <a href="/superadmin/organizations/details/@oid">#@oid</a> }</td>
+                        <td style="max-width: 420px">
+                            @if (!string.IsNullOrEmpty(a.Details)) { <div>@a.Details</div> }
+                            @if (a.OldValues is not null || a.NewValues is not null)
+                            {
+                                <details><summary class="text-muted">Changes</summary>
+                                    @if (a.OldValues is not null) { <div class="text-danger">− <code class="json">@a.OldValues</code></div> }
+                                    @if (a.NewValues is not null) { <div class="text-success">+ <code class="json">@a.NewValues</code></div> }
+                                </details>
+                            }
+                        </td>
+                        <td class="text-muted">@a.IpAddress</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+    <partial name="_Pager" model="Model.ToPager()" />
+</div>

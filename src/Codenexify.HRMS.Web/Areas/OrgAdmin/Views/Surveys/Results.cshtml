@@ -1,0 +1,80 @@
+@model Codenexify.HRMS.Application.Strength.SurveyResults
+@using Codenexify.HRMS.Domain.Strength
+@{
+    var s = Model.Survey;
+    ViewData["Title"] = s.Title;
+    var rate = Model.EligibleCount > 0 ? Math.Round(100m * s.ResponseCount / Model.EligibleCount) : (decimal?)null;
+}
+<div class="page-head"><div><h1>@s.Title</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/surveys">Surveys</a></li><li class="breadcrumb-item active">@s.Status</li></ol></nav></div>
+    <div class="d-flex gap-2">
+        @if (s.Status == SurveyStatus.Draft)
+        {
+            <form method="post" action="/org/surveys/@s.Id/delete" asp-antiforgery="true"><button class="btn btn-outline-danger" type="submit" data-confirm="Delete this draft?" data-confirm-danger="1">Delete</button></form>
+            <form method="post" action="/org/surveys/@s.Id/publish" asp-antiforgery="true"><button class="btn btn-accent" type="submit" data-confirm="Publish now? Everyone in the audience is notified and questions can't be changed.">Publish</button></form>
+        }
+        else if (s.Status == SurveyStatus.Open)
+        {
+            <form method="post" action="/org/surveys/@s.Id/close" asp-antiforgery="true"><button class="btn btn-light border" type="submit" data-confirm="Close this survey now?">Close now</button></form>
+        }
+    </div>
+</div>
+<div class="row g-3 mb-3">
+    <div class="col-6 col-xl-3"><div class="card"><div class="card-body kpi"><div class="kpi-icon"><i class="bi bi-people"></i></div><div><div class="kpi-label">Audience</div><div class="kpi-value">@Model.EligibleCount</div></div></div></div></div>
+    <div class="col-6 col-xl-3"><div class="card tone-green"><div class="card-body kpi"><div class="kpi-icon"><i class="bi bi-check2-circle"></i></div><div><div class="kpi-label">Responses</div><div class="kpi-value">@s.ResponseCount@(rate is { } r ? $" · {r}%" : "")</div></div></div></div></div>
+    <div class="col-6 col-xl-3"><div class="card tone-blue"><div class="card-body kpi"><div class="kpi-icon"><i class="bi bi-incognito"></i></div><div><div class="kpi-label">Privacy</div><div class="kpi-value fs-6">@(s.IsAnonymous ? "Anonymous" : "Named")</div></div></div></div></div>
+    <div class="col-6 col-xl-3"><div class="card tone-amber"><div class="card-body kpi"><div class="kpi-icon"><i class="bi bi-calendar-event"></i></div><div><div class="kpi-label">@(s.Status == SurveyStatus.Open ? "Closes" : "Window")</div>
+        <div class="kpi-value fs-6">@(s.OpenedAtUtc is null ? "Not published" : s.Status == SurveyStatus.Open ? s.ClosesAtUtc?.ToLocalTime().ToString("dd MMM, HH:mm") : $"{s.OpenedAtUtc?.ToLocalTime():dd MMM} – {s.ClosesAtUtc?.ToLocalTime():dd MMM}")</div></div></div></div></div>
+</div>
+
+@if (!Model.Visible)
+{
+    <div class="card"><div class="card-body text-center py-5">
+        <i class="bi bi-eye-slash fs-2 text-muted"></i>
+        <p class="mt-2 mb-0">Results appear once at least <strong>@Model.MinResponses</strong> @(Model.MinResponses == 1 ? "person has" : "people have") answered@(s.Status == SurveyStatus.Draft ? " — publish the survey first" : $" ({s.ResponseCount} so far)").</p>
+        @if (s.IsAnonymous) { <p class="small text-muted mb-0">This protects anonymity: with very few answers, people could be identified.</p> }
+    </div></div>
+    <div class="card mt-3"><div class="card-header">Questions</div>
+        <ol class="list-group list-group-flush list-group-numbered">
+            @foreach (var q in Model.Outline)
+            {
+                <li class="list-group-item bg-transparent">@q.Text
+                    <span class="small text-muted">· @(q.Type switch { QuestionType.Rating => "rating 1–5", QuestionType.Enps => "eNPS 0–10", QuestionType.Choice => "choice: " + string.Join(" / ", q.Options), _ => "free text" })@(q.Required ? "" : " · optional")</span></li>
+            }
+        </ol>
+    </div>
+}
+else
+{
+    @foreach (var (q, n) in Model.Questions.Select((q, n) => (q, n + 1)))
+    {
+        var max = q.Distribution.Count == 0 ? 0 : q.Distribution.Max(d => d.Count);
+        <div class="card mb-3"><div class="card-header d-flex justify-content-between"><span>@n. @q.Text</span><span class="small text-muted">@q.Answered answered</span></div><div class="card-body">
+            @if (q.Type == QuestionType.Enps && q.Enps is { } e)
+            {
+                <div class="mb-2"><span class="fs-4 fw-semibold @(e >= 0 ? "text-success" : "text-danger")">eNPS @(e > 0 ? "+" : "")@e</span> <span class="small text-muted ms-2">average @q.Average · promoters 9–10 minus detractors 0–6</span></div>
+            }
+            else if (q.Average is { } avg) { <div class="mb-2"><span class="fs-4 fw-semibold">@avg</span><span class="text-muted"> / 5</span></div> }
+            @if (q.Distribution.Count > 0)
+            {
+                @foreach (var d in q.Distribution)
+                {
+                    var pct = q.Answered == 0 ? 0 : (int)Math.Round(100.0 * d.Count / q.Answered);
+                    <div class="d-flex align-items-center gap-2 small mb-1">
+                        <span class="text-truncate" style="width:9rem">@d.Label</span>
+                        <div class="progress flex-grow-1" role="progressbar" aria-label="@d.Label" aria-valuenow="@pct" aria-valuemin="0" aria-valuemax="100" style="height:.6rem"><div class="progress-bar" style="width:@(pct)%"></div></div>
+                        <span class="text-muted text-end" style="width:4.5rem">@d.Count · @pct%</span>
+                    </div>
+                }
+            }
+            @if (q.Type == QuestionType.Text)
+            {
+                if (q.Comments.Count == 0) { <div class="small text-muted">No comments.</div> }
+                else
+                {
+                    <ul class="list-group list-group-flush small">@foreach (var c in q.Comments) { <li class="list-group-item bg-transparent px-0">@c</li> }</ul>
+                }
+            }
+        </div></div>
+    }
+}

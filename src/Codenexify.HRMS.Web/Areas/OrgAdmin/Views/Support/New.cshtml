@@ -1,0 +1,18 @@
+@model Codenexify.HRMS.Application.Support.TicketInput
+@using Codenexify.HRMS.Domain.Support
+@{
+    ViewData["Title"] = "New support ticket";
+}
+<div class="page-head"><div><h1>New support ticket</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/support">Support</a></li><li class="breadcrumb-item active">New ticket</li></ol></nav></div></div>
+<div class="card" style="max-width: 820px"><div class="card-body">
+    <form method="post" action="/org/support/new" asp-antiforgery="true" class="row g-3" novalidate>
+        <div asp-validation-summary="All" class="alert alert-danger py-2 small col-12"></div>
+        <div class="col-12"><label asp-for="Subject" class="form-label"></label><input asp-for="Subject" class="form-control" placeholder="Short summary of the problem" /></div>
+        <div class="col-md-6"><label asp-for="Category" class="form-label"></label><select asp-for="Category" class="form-select" asp-items="Html.GetEnumSelectList<TicketCategory>()"></select></div>
+        <div class="col-md-6"><label asp-for="Priority" class="form-label"></label><select asp-for="Priority" class="form-select" asp-items="Html.GetEnumSelectList<TicketPriority>()"></select>
+            <div class="form-text">Use <em>Urgent</em> only when payroll or attendance is blocked for everyone.</div></div>
+        <div class="col-12"><label asp-for="Body" class="form-label"></label><textarea asp-for="Body" rows="7" class="form-control" placeholder="What happened, where (page / menu), what you expected, and any error message. Please don't include passwords, bank or Aadhaar numbers."></textarea></div>
+        <div class="col-12 d-flex justify-content-end gap-2"><a href="/org/support" class="btn btn-light border">Cancel</a><button class="btn btn-accent" type="submit">Submit ticket</button></div>
+    </form>
+</div></div>

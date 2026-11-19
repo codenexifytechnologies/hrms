@@ -1,0 +1,173 @@
+@model Codenexify.HRMS.Application.Planning.PreboardingPortal
+@using Codenexify.HRMS.Application.CoreHr
+@using Codenexify.HRMS.Application.Planning
+@using Codenexify.HRMS.Domain.CoreHr
+@using Codenexify.HRMS.Domain.Planning
+@{
+    ViewData["Title"] = "Welcome to " + Model.OrganizationName;
+    ViewData["HideNav"] = true;
+    Layout = "_PublicLayout";
+    var token = (string)ViewBag.Token;
+    var personal = ViewBag.PostedPersonal as PreboardingPersonalInput ?? Model.Personal;
+    var bank = ViewBag.PostedBank as BankInput ?? new BankInput();
+    var section = ViewBag.Section as string;
+    var s = Model.Settings;
+    var locked = Model.SubmittedAtUtc is not null;
+    var items = Model.Steps.Where(x => x.ItemId is not null).ToList();
+    var done = Model.Steps.Count(x => x.Done);
+    var pct = Model.Steps.Count == 0 ? 100 : 100 * done / Model.Steps.Count;
+}
+<div class="container py-4" style="max-width: 880px" id="top">
+    <div class="d-flex align-items-center gap-3 mb-4">
+        @if (!string.IsNullOrWhiteSpace(Model.LogoUrl)) { <img src="@Model.LogoUrl" alt="@Model.OrganizationName logo" style="max-height: 48px; max-width: 160px" /> }
+        <div><div class="text-muted small">@Model.OrganizationName</div><h1 class="h3 mb-0">Welcome, @Model.FirstName!</h1></div>
+    </div>
+
+    <div class="card mb-3"><div class="card-body">
+        <div class="row g-3 small">
+            <div class="col-sm-6 col-md-3"><div class="text-muted">First day</div><div class="fw-semibold">@Model.DateOfJoining.ToString("dddd, d MMM yyyy")</div></div>
+            @if (Model.Designation is not null) { <div class="col-sm-6 col-md-3"><div class="text-muted">Role</div><div class="fw-semibold">@Model.Designation</div></div> }
+            @if (Model.Department is not null) { <div class="col-sm-6 col-md-3"><div class="text-muted">Team</div><div class="fw-semibold">@Model.Department</div></div> }
+            @if (Model.ManagerName is not null) { <div class="col-sm-6 col-md-3"><div class="text-muted">Your manager</div><div class="fw-semibold">@Model.ManagerName</div></div> }
+            @if (Model.Location is not null) { <div class="col-sm-6 col-md-3"><div class="text-muted">Office</div><div class="fw-semibold">@Model.Location</div></div> }
+        </div>
+        @if (!string.IsNullOrWhiteSpace(s.WelcomeMessage)) { <p class="mt-3 mb-0" style="white-space: pre-line">@s.WelcomeMessage</p> }
+    </div></div>
+
+    @if (!string.IsNullOrWhiteSpace(s.FirstDayInfo))
+    {
+        <div class="card mb-3"><div class="card-header"><span><i class="bi bi-calendar-event me-1"></i>Your first day</span></div><div class="card-body" style="white-space: pre-line">@s.FirstDayInfo</div></div>
+    }
+
+    @if (locked)
+    {
+        <div class="alert alert-success"><i class="bi bi-check-circle me-1"></i>You sent everything on @Model.SubmittedAtUtc!.Value.ToLocalTime().ToString("dd MMM yyyy"). Thank you! If something needs to change, contact the HR team.</div>
+    }
+    else
+    {
+        <div class="card mb-3"><div class="card-body">
+            <div class="d-flex justify-content-between small mb-1"><span class="fw-semibold">Before you join</span><span class="text-muted">@done of @Model.Steps.Count done</span></div>
+            <div class="progress" style="height: 8px" role="progressbar" aria-label="Progress" aria-valuenow="@pct" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width: @pct%"></div></div>
+            <div class="small text-muted mt-2">Your answers are saved as you go. This page works until @Model.ExpiresAtUtc.AddDays(-1).ToString("dd MMM yyyy"). Please don't share the link.</div>
+        </div></div>
+    }
+
+    @* ---------------------------------------------------------------- personal *@
+    <div class="card mb-3" id="personal">
+        <div class="card-header d-flex justify-content-between"><span>1. About you</span>@if (Model.PersonalDone) { <span class="text-success small"><i class="bi bi-check-circle-fill me-1"></i>Saved</span> }</div>
+        <div class="card-body">
+            <form method="post" action="/welcome/personal" asp-antiforgery="true" novalidate>
+                <input type="hidden" name="token" value="@token" />
+                @if (section == "personal") { <div asp-validation-summary="All" class="alert alert-danger py-2 small"></div> }
+                <fieldset disabled="@locked" class="row g-3">
+                    <div class="col-md-4"><label class="form-label" for="dob">Date of birth</label><input id="dob" name="Personal.DateOfBirth" type="date" class="form-control" value="@personal.DateOfBirth?.ToString("yyyy-MM-dd")" required /></div>
+                    <div class="col-md-4"><label class="form-label" for="gender">Gender</label>
+                        <select id="gender" name="Personal.Gender" class="form-select"><option value="">—</option>
+                            @foreach (var g in Enum.GetValues<Gender>()) { <option value="@g" selected="@(personal.Gender == g)">@(g == Gender.PreferNotToSay ? "Prefer not to say" : g.ToString())</option> }</select></div>
+                    <div class="col-md-4"><label class="form-label" for="marital">Marital status</label>
+                        <select id="marital" name="Personal.MaritalStatus" class="form-select"><option value="">—</option>
+                            @foreach (var m in Enum.GetValues<MaritalStatus>()) { <option value="@m" selected="@(personal.MaritalStatus == m)">@m</option> }</select></div>
+                    <div class="col-md-3"><label class="form-label" for="blood">Blood group</label><input id="blood" name="Personal.BloodGroup" class="form-control" value="@personal.BloodGroup" maxlength="5" placeholder="e.g. B+" /></div>
+                    @if (s.AskPan)
+                    {
+                        <div class="col-md-4"><label class="form-label" for="pan">PAN</label><input id="pan" name="Personal.Pan" class="form-control text-uppercase" maxlength="10" autocomplete="off" placeholder="@(Model.PanMasked ?? "ABCDE1234F")" />
+                            <div class="form-text">@(Model.PanMasked is null ? "Needed for salary and tax." : "Saved. Leave blank to keep it.")</div></div>
+                    }
+                    <div class="col-12"><label class="form-label" for="addr">Current address</label><textarea id="addr" name="Personal.CurrentAddress" rows="2" class="form-control" maxlength="500" required>@personal.CurrentAddress</textarea></div>
+                    <div class="col-12"><label class="form-label" for="paddr">Permanent address <span class="text-muted small">(leave blank if the same)</span></label><textarea id="paddr" name="Personal.PermanentAddress" rows="2" class="form-control" maxlength="500">@(personal.PermanentAddress == personal.CurrentAddress ? "" : personal.PermanentAddress)</textarea></div>
+                    <div class="col-md-5"><label class="form-label" for="ecn">Emergency contact</label><input id="ecn" name="Personal.EmergencyContactName" class="form-control" value="@personal.EmergencyContactName" maxlength="150" required /></div>
+                    <div class="col-md-3"><label class="form-label" for="ecr">Relationship</label><input id="ecr" name="Personal.EmergencyContactRelation" class="form-control" value="@personal.EmergencyContactRelation" maxlength="50" required /></div>
+                    <div class="col-md-4"><label class="form-label" for="ecp">Their phone</label><input id="ecp" name="Personal.EmergencyContactPhone" type="tel" class="form-control" value="@personal.EmergencyContactPhone" maxlength="20" required /></div>
+                    @if (!locked) { <div class="col-12 text-end"><button class="btn btn-accent" type="submit">Save</button></div> }
+                </fieldset>
+            </form>
+        </div>
+    </div>
+
+    @* ---------------------------------------------------------------- bank *@
+    @if (s.AskBankDetails)
+    {
+        <div class="card mb-3" id="bank">
+            <div class="card-header d-flex justify-content-between"><span>2. Bank account for your salary</span>@if (Model.BankDone) { <span class="text-success small"><i class="bi bi-check-circle-fill me-1"></i>Saved (account ending @Model.BankLast4)</span> }</div>
+            <div class="card-body">
+                <form method="post" action="/welcome/bank" asp-antiforgery="true" novalidate autocomplete="off">
+                    <input type="hidden" name="token" value="@token" />
+                    @if (section == "bank") { <div asp-validation-summary="All" class="alert alert-danger py-2 small"></div> }
+                    <fieldset disabled="@locked" class="row g-3">
+                        @if (Model.BankDone && !locked) { <div class="col-12 small text-muted">Saved already. Fill this in again only to change it.</div> }
+                        <div class="col-md-6"><label class="form-label" for="bname">Bank name</label><input id="bname" name="Bank.BankName" class="form-control" value="@bank.BankName" maxlength="150" required /></div>
+                        <div class="col-md-6"><label class="form-label" for="holder">Account holder name</label><input id="holder" name="Bank.AccountHolderName" class="form-control" value="@bank.AccountHolderName" maxlength="150" required /></div>
+                        <div class="col-md-5"><label class="form-label" for="acct">Account number</label><input id="acct" name="Bank.AccountNumber" class="form-control" inputmode="numeric" maxlength="18" required /></div>
+                        <div class="col-md-3"><label class="form-label" for="ifsc">IFSC</label><input id="ifsc" name="Bank.Ifsc" class="form-control text-uppercase" value="@bank.Ifsc" maxlength="11" required /></div>
+                        <div class="col-md-4"><label class="form-label" for="bbranch">Branch</label><input id="bbranch" name="Bank.BranchName" class="form-control" value="@bank.BranchName" maxlength="150" /></div>
+                        @if (!locked) { <div class="col-12 text-end"><button class="btn btn-accent" type="submit">Save</button></div> }
+                    </fieldset>
+                </form>
+            </div>
+        </div>
+    }
+
+    @* ---------------------------------------------------------------- items *@
+    @if (items.Count > 0)
+    {
+        <div class="card mb-3" id="documents">
+            <div class="card-header">@(s.AskBankDetails ? "3" : "2"). Documents and policies</div>
+            <ul class="list-group list-group-flush">
+                @foreach (var it in items)
+                {
+                    <li class="list-group-item" id="item-@it.ItemId">
+                        <div class="d-flex gap-3 align-items-start">
+                            <i class="bi @(it.Done ? "bi-check-circle-fill text-success" : "bi-circle text-muted") fs-5"></i>
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold">@it.Title @if (!it.Required) { <span class="badge text-bg-light border">optional</span> }</div>
+                                @if (it.Kind == PreboardingItemKind.Document)
+                                {
+                                    @if (!string.IsNullOrWhiteSpace(it.Description)) { <div class="small text-muted" style="white-space: pre-line">@it.Description</div> }
+                                    @if (it.Done) { <div class="small text-success">Uploaded @it.DoneAtUtc?.ToLocalTime().ToString("dd MMM, HH:mm")@(locked ? "" : ". Upload again to replace it.")</div> }
+                                    @if (!locked)
+                                    {
+                                        <form method="post" action="/welcome/upload" asp-antiforgery="true" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 mt-2">
+                                            <input type="hidden" name="token" value="@token" /><input type="hidden" name="itemId" value="@it.ItemId" />
+                                            <input type="file" name="file" class="form-control form-control-sm" style="max-width: 360px" accept=".pdf,.png,.jpg,.jpeg,.docx,.doc,.xlsx" required aria-label="File for @it.Title" />
+                                            <button class="btn btn-sm btn-light border" type="submit"><i class="bi bi-upload me-1"></i>Upload</button>
+                                        </form>
+                                        <div class="form-text">PDF, JPG, PNG or Word; up to @(DocumentService.MaxBytes / 1024 / 1024) MB.</div>
+                                    }
+                                }
+                                else
+                                {
+                                    <div class="border rounded p-3 my-2 small bg-body-tertiary" style="white-space: pre-line; max-height: 280px; overflow: auto">@it.Description</div>
+                                    @if (it.Done) { <div class="small text-success">Accepted @it.DoneAtUtc?.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</div> }
+                                    else if (!locked)
+                                    {
+                                        <form method="post" action="/welcome/acknowledge" asp-antiforgery="true">
+                                            <input type="hidden" name="token" value="@token" /><input type="hidden" name="itemId" value="@it.ItemId" />
+                                            <button class="btn btn-sm btn-light border" type="submit"><i class="bi bi-check2 me-1"></i>I have read and accept this</button>
+                                        </form>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+
+    @if (!locked)
+    {
+        <div class="card mb-3"><div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div class="small">@(Model.CanSubmit ? "Everything required is done. Send it to the HR team." : "Finish the steps above, then send everything to the HR team.")</div>
+            <form method="post" action="/welcome/submit" asp-antiforgery="true" data-confirm="Send your details to the HR team? You won't be able to change them here afterwards.">
+                <input type="hidden" name="token" value="@token" />
+                <button class="btn btn-accent" type="submit" disabled="@(!Model.CanSubmit)"><i class="bi bi-send me-1"></i>Send to HR</button>
+            </form>
+        </div></div>
+    }
+
+    @if (s.ContactName is not null || s.ContactEmail is not null || s.ContactPhone is not null)
+    {
+        <p class="small text-muted text-center">Questions? Contact @(s.ContactName ?? "the HR team")@if (s.ContactEmail is not null) { <span> · <a href="mailto:@s.ContactEmail">@s.ContactEmail</a></span> }@if (s.ContactPhone is not null) { <span> · @s.ContactPhone</span> }</p>
+    }
+    <p class="small text-muted text-center">Your details go only to @Model.OrganizationName. We never ask for your Aadhaar number here.</p>
+</div>

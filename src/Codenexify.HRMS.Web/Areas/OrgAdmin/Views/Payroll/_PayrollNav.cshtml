@@ -1,0 +1,19 @@
+@inject Codenexify.HRMS.Application.Subscriptions.IFeatureAccessService FeatureAccess
+@{
+    var features = await FeatureAccess.GetEnabledFeaturesAsync(User.GetOrganizationId()!.Value);
+    var path = Context.Request.Path.Value?.ToLowerInvariant() ?? "";
+    var manage = User.HasPermission(TenantPermissions.PayrollManage);
+    string Active(string p) => path == p || (p != "/org/payroll" && path.StartsWith(p)) || (p == "/org/payroll" && path.StartsWith("/org/payroll/run")) ? "active" : "";
+}
+<ul class="nav nav-pills small mb-3 gap-1 flex-wrap">
+    <li class="nav-item"><a class="nav-link @Active("/org/payroll")" href="/org/payroll">Payroll runs</a></li>
+    <li class="nav-item"><a class="nav-link @Active("/org/payroll/salaries")" href="/org/payroll/salaries">Salaries</a></li>
+    <li class="nav-item"><a class="nav-link @Active("/org/payroll/structures")" href="/org/payroll/structures">Structures</a></li>
+    <li class="nav-item"><a class="nav-link @Active("/org/payroll/adjustments")" href="/org/payroll/adjustments">One-time items</a></li>
+    @if (features.Contains(FeatureCodes.Loans)) { <li class="nav-item"><a class="nav-link @Active("/org/payroll/loans")" href="/org/payroll/loans">Loans &amp; advances</a></li> }
+    @if (features.Contains(FeatureCodes.EmployeeTax)) { <li class="nav-item"><a class="nav-link @Active("/org/payroll/declarations")" href="/org/payroll/declarations">Tax declarations</a></li> }
+    @if (features.Contains(FeatureCodes.EmployeeTax)) { <li class="nav-item"><a class="nav-link @Active("/org/payroll/returns")" href="/org/payroll/returns">Form 16 &amp; 24Q</a></li> }
+    @if (features.Contains(FeatureCodes.Gratuity)) { <li class="nav-item"><a class="nav-link @Active("/org/payroll/gratuity")" href="/org/payroll/gratuity">Gratuity</a></li> }
+    @if (features.Contains(FeatureCodes.EmployeeExit)) { <li class="nav-item"><a class="nav-link @Active("/org/payroll/settlement")" href="/org/payroll/settlements">Full &amp; final</a></li> }
+    @if (manage) { <li class="nav-item"><a class="nav-link @Active("/org/payroll/settings")" href="/org/payroll/settings">Settings</a></li> }
+</ul>

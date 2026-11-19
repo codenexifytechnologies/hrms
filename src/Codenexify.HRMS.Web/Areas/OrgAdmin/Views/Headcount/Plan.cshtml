@@ -1,0 +1,139 @@
+@model Codenexify.HRMS.Application.Planning.HeadcountPlanView
+@using Codenexify.HRMS.Domain.Planning
+@using Codenexify.HRMS.Web
+@{
+    var p = Model.Plan;
+    ViewData["Title"] = p.Name;
+    var editable = p.Status != HeadcountPlanStatus.Closed;
+    var d = Model.Departments;
+    string Money(decimal v) => "₹" + v.ToString("N0");
+}
+<div class="page-head">
+    <div><h1>@p.Name</h1><div class="text-muted small"><a href="/org/headcount">Headcount planning</a> · @p.StartsOn.ToString("dd MMM yyyy") – @p.EndsOn.ToString("dd MMM yyyy")
+        @if (p.ApprovedAtUtc is { } at) { <span> · approved @at.ToLocalTime().ToString("dd MMM yyyy")</span> }</div></div>
+    <div class="d-flex flex-wrap gap-2 align-items-start">
+        <span class="badge @PlanningUi.Css(p.Status) fs-6">@p.Status</span>
+        @if (editable) { <a class="btn btn-sm btn-light border" href="/org/headcount/@p.Id/edit">Edit</a> }
+        <a class="btn btn-sm btn-light border" href="/org/headcount/@p.Id/export"><i class="bi bi-file-earmark-excel me-1"></i>Export</a>
+        @{
+            (string Step, string Label, string Css, string Confirm)? next = p.Status switch
+            {
+                HeadcountPlanStatus.Draft => ("approve", "Approve plan", "btn-accent", "Approve this plan? It stays editable until you close it."),
+                HeadcountPlanStatus.Approved => ("close", "Close plan", "btn-light border", "Close this plan? It becomes read-only (you can reopen it)."),
+                _ => ("reopen", "Reopen", "btn-light border", "Reopen this plan for changes?")
+            };
+        }
+        @if (p.Status == HeadcountPlanStatus.Approved)
+        {
+            <form method="post" action="/org/headcount/@p.Id/status" asp-antiforgery="true" data-confirm="Move the plan back to draft?">
+                <input type="hidden" name="step" value="draft" /><button class="btn btn-sm btn-light border" type="submit">Back to draft</button></form>
+        }
+        <form method="post" action="/org/headcount/@p.Id/status" asp-antiforgery="true" data-confirm="@next.Value.Confirm">
+            <input type="hidden" name="step" value="@next.Value.Step" /><button class="btn btn-sm @next.Value.Css" type="submit">@next.Value.Label</button></form>
+        @if (p.Status == HeadcountPlanStatus.Draft)
+        {
+            <form method="post" action="/org/headcount/@p.Id/delete" asp-antiforgery="true" data-confirm-danger="Delete this draft plan and its positions?">
+                <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash"></i></button></form>
+        }
+    </div>
+</div>
+@if (!string.IsNullOrWhiteSpace(p.Notes)) { <div class="card mb-3"><div class="card-body small" style="white-space: pre-line">@p.Notes</div></div> }
+
+<div class="card mb-3">
+    <div class="card-header">By department</div>
+    @if (d.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-diagram-3"></i>Add positions to see each department's plan.</div>
+    }
+    else
+    {
+        <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+            <thead><tr><th>Department</th><th class="text-end" title="Employees in the department today">Today</th><th class="text-end" title="Already hired, joining before the plan ends">Joining</th>
+                <th class="text-end" title="Known last working days during the plan">Leaving</th><th class="text-end">New roles</th><th class="text-end">Replacements</th>
+                <th class="text-end">Filled</th><th class="text-end">To hire</th><th class="text-end" title="Today + joining − leaving + still to hire">Projected</th><th class="text-end">Budget</th>
+                @if (Model.ShowsCost) { <th class="text-end" title="Actual salaries of the people linked">Committed</th> }</tr></thead>
+            <tbody>@foreach (var s in d)
+            {
+                <tr><td class="fw-semibold">@s.Department</td><td class="text-end">@s.Today</td><td class="text-end">@s.JoiningSoon</td><td class="text-end">@(s.KnownExits == 0 ? "—" : "−" + s.KnownExits)</td>
+                    <td class="text-end">@s.NewOpenings</td><td class="text-end">@s.ReplacementOpenings</td><td class="text-end">@s.Filled</td>
+                    <td class="text-end fw-semibold">@s.Remaining</td><td class="text-end">@s.Projected</td><td class="text-end">@Money(s.Budget)</td>
+                    @if (Model.ShowsCost) { <td class="text-end @(s.Committed > s.Budget ? "text-danger" : "")">@Money(s.Committed ?? 0)</td> }</tr>
+            }</tbody>
+            <tfoot><tr class="fw-semibold"><td>Total</td><td class="text-end">@d.Sum(x => x.Today)</td><td class="text-end">@d.Sum(x => x.JoiningSoon)</td><td class="text-end">@(d.Sum(x => x.KnownExits) == 0 ? "—" : "−" + d.Sum(x => x.KnownExits))</td>
+                <td class="text-end">@d.Sum(x => x.NewOpenings)</td><td class="text-end">@d.Sum(x => x.ReplacementOpenings)</td><td class="text-end">@d.Sum(x => x.Filled)</td>
+                <td class="text-end">@d.Sum(x => x.Remaining)</td><td class="text-end">@d.Sum(x => x.Projected)</td><td class="text-end">@Money(d.Sum(x => x.Budget))</td>
+                @if (Model.ShowsCost) { <td class="text-end">@Money(d.Sum(x => x.Committed ?? 0))</td> }</tr></tfoot>
+        </table></div>
+        @if (!Model.ShowsCost) { <div class="card-body py-2 small text-muted border-top">Committed cost (hires' actual salaries) is shown only to people with payroll access.</div> }
+    }
+</div>
+
+<div class="card mb-3" id="positions">
+    <div class="card-header d-flex justify-content-between align-items-center"><span>Positions</span>
+        @if (editable) { <a class="btn btn-sm btn-accent" href="/org/headcount/@p.Id/positions/new"><i class="bi bi-plus-lg me-1"></i>Add position</a> }</div>
+    @if (Model.Positions.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-person-plus"></i>No positions yet.</div>
+    }
+    else
+    {
+        <div class="table-responsive"><table class="table align-middle mb-0">
+            <thead><tr><th>Role</th><th>Department</th><th>Start</th><th class="text-end">Openings</th><th class="text-end">Budget / hire</th><th>Status</th><th>Hired</th></tr></thead>
+            <tbody>@foreach (var pos in Model.Positions)
+            {
+                var candidates = Model.UnlinkedJoiners.Where(j => j.DepartmentId == pos.DepartmentId).ToList();
+                <tr>
+                    <td>@if (editable) { <a class="fw-semibold" href="/org/headcount/@p.Id/positions/@pos.Id">@pos.Title</a> } else { <span class="fw-semibold">@pos.Title</span> }
+                        <div class="small text-muted">@PlanningUi.Label(pos.Kind)@(pos.Designation is null ? "" : " · " + pos.Designation)@(pos.Branch is null ? "" : " · " + pos.Branch) · <span class="@PlanningUi.Css(pos.Priority)">@pos.Priority priority</span></div>
+                        @if (!string.IsNullOrWhiteSpace(pos.Notes)) { <div class="small text-muted fst-italic">@pos.Notes</div> }</td>
+                    <td class="small">@pos.Department</td>
+                    <td class="small text-nowrap">@pos.TargetStartOn.ToString("MMM yyyy")</td>
+                    <td class="text-end">@pos.Filled / @pos.Openings</td>
+                    <td class="text-end small">@Money(pos.BudgetPerHire)</td>
+                    <td><span class="badge @PlanningUi.Css(pos.Status)">@PlanningUi.Label(pos.Status)</span></td>
+                    <td class="small" style="min-width: 240px">
+                        @foreach (var h in pos.Hires)
+                        {
+                            <div class="d-flex align-items-center gap-1">
+                                <a href="/org/employees/details/@h.EmployeeId">@h.Name</a><span class="text-muted">· joins @h.DateOfJoining.ToString("dd MMM")@(h.AnnualGross is { } g ? " · " + Money(g) : "")</span>
+                                @if (editable)
+                                {
+                                    <form method="post" action="/org/headcount/@p.Id/hires/@h.HireId/unlink" asp-antiforgery="true" data-confirm="Unlink @h.Name from this position?">
+                                        <button class="btn btn-sm btn-link text-danger p-0 ms-1" type="submit" title="Unlink" aria-label="Unlink @h.Name"><i class="bi bi-x-lg"></i></button></form>
+                                }
+                            </div>
+                        }
+                        @if (editable && pos.Remaining > 0)
+                        {
+                            if (candidates.Count > 0)
+                            {
+                                <form method="post" action="/org/headcount/@p.Id/positions/@pos.Id/link" asp-antiforgery="true" class="d-flex gap-1 mt-1">
+                                    <select name="employeeId" class="form-select form-select-sm" aria-label="Link a hire to @pos.Title">
+                                        @foreach (var j in candidates) { <option value="@j.EmployeeId">@j.Name (joins @j.DateOfJoining.ToString("dd MMM"))</option> }
+                                    </select>
+                                    <button class="btn btn-sm btn-light border text-nowrap" type="submit">Link</button>
+                                </form>
+                            }
+                            else if (pos.Hires.Count == 0) { <span class="text-muted">Nobody from @pos.Department has joined in this period yet.</span> }
+                        }
+                    </td>
+                </tr>
+            }</tbody>
+        </table></div>
+    }
+</div>
+
+@if (Model.UnlinkedJoiners.Count > 0)
+{
+    <div class="card">
+        <div class="card-header">Joined in this period, not linked to a position <span class="text-muted small">(@Model.UnlinkedJoiners.Count)</span></div>
+        <div class="table-responsive"><table class="table table-sm mb-0">
+            <thead><tr><th>Employee</th><th>Department</th><th>Joining date</th></tr></thead>
+            <tbody>@foreach (var j in Model.UnlinkedJoiners)
+            {
+                <tr><td><a href="/org/employees/details/@j.EmployeeId">@j.Name</a> <span class="text-muted small">@j.Code</span></td><td class="small">@(j.Department ?? "No department")</td><td class="small">@j.DateOfJoining.ToString("dd MMM yyyy")</td></tr>
+            }</tbody>
+        </table></div>
+        <div class="card-body py-2 small text-muted border-top">Unplanned hires, or hires for a position not added yet. Link them from the position's row above.</div>
+    </div>
+}

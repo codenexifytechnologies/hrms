@@ -1,0 +1,25 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Strength.SurveyRow>
+@using Codenexify.HRMS.Domain.Strength
+@{
+    ViewData["Title"] = "Surveys";
+    string Css(SurveyStatus s) => s switch { SurveyStatus.Open => "Active", SurveyStatus.Draft => "PendingVerification", _ => "Inactive" };
+}
+<div class="page-head"><div><h1>Surveys</h1><div class="text-muted small">Pulse checks, engagement and exit surveys</div></div>
+    <a class="btn btn-accent" href="/org/surveys/new"><i class="bi bi-plus-lg me-1"></i>New survey</a></div>
+<div class="card">
+    @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-clipboard-check"></i>No surveys yet. Start with a short pulse check.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+            <thead><tr><th>Survey</th><th>Audience</th><th>Questions</th><th>Responses</th><th>Window</th><th>Status</th></tr></thead>
+            <tbody>@foreach (var s in Model)
+            {
+                <tr><td><a class="fw-semibold" href="/org/surveys/@s.Id">@s.Title</a><div class="small text-muted">@s.Kind@(s.IsAnonymous ? " · anonymous" : " · named")</div></td>
+                    <td class="small">@(s.Kind == SurveyKind.Exit ? "Employees leaving" : s.Department ?? "Everyone")</td>
+                    <td>@s.QuestionCount</td><td>@s.ResponseCount</td>
+                    <td class="small">@(s.OpenedAtUtc is { } o ? $"{o.ToLocalTime():dd MMM} – {s.ClosesAtUtc?.ToLocalTime():dd MMM yyyy}" : "—")</td>
+                    <td><span class="badge-status st-@Css(s.Status)">@s.Status</span></td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>

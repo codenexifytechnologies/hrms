@@ -1,0 +1,56 @@
+@model Codenexify.HRMS.Application.Strength.SignatureView
+@using Codenexify.HRMS.Domain.Strength
+@{
+    var s = Model.Request;
+    ViewData["Title"] = Model.Subject;
+}
+<div class="page-head"><div><h1>@Model.Subject</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/me/sign">Letters to sign</a></li><li class="breadcrumb-item active">@Model.LetterNumber</li></ol></nav></div></div>
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card"><div class="card-body letter-preview">@Html.Raw(Model.BodyHtml)</div></div>
+    </div>
+    <div class="col-lg-5">
+        @if (s.Message is not null) { <div class="alert alert-info small"><strong>@s.RequestedBy:</strong> @s.Message</div> }
+        @if (s.Status != SignatureStatus.Pending)
+        {
+            <div class="card"><div class="card-body">
+                <p class="mb-2">Status: <strong>@s.Status</strong>@(s.SignedAtUtc is { } at ? $" on {at.ToLocalTime():dd MMM yyyy, HH:mm}" : "")</p>
+                @if (s.SignedDocumentId is int d) { <a class="btn btn-soft" href="/me/sign/signed/@d"><i class="bi bi-file-earmark-pdf me-1"></i>Download signed copy</a> }
+                @if (s.DeclineReason is not null) { <p class="small text-muted mb-0">Your reason: @s.DeclineReason</p> }
+            </div></div>
+        }
+        else if (Model.TextChanged)
+        {
+            <div class="alert alert-warning">This letter was changed or withdrawn after signing was requested. Ask HR for a new request.</div>
+        }
+        else
+        {
+            <div class="card mb-3"><div class="card-header">Sign electronically</div><div class="card-body">
+                <ol class="small ps-3">
+                    <li>Read the whole letter.</li>
+                    <li>Get a one-time code by email@(Model.MaskedEmail is null ? "" : $" ({Model.MaskedEmail})").</li>
+                    <li>Enter the code, type your full name and accept.</li>
+                </ol>
+                <form method="post" action="/me/sign/@s.Id/code" asp-antiforgery="true" class="mb-3">
+                    <button class="btn btn-light border w-100" type="submit"><i class="bi bi-envelope me-1"></i>@(Model.CodeSent ? "Send a new code" : "Email me a code")</button>
+                </form>
+                <form method="post" action="/me/sign/@s.Id" asp-antiforgery="true" autocomplete="off">
+                    <label class="form-label small" for="sc">Code from the email</label>
+                    <input id="sc" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required class="form-control mb-2" autocomplete="one-time-code" />
+                    <label class="form-label small" for="sn">Type your full name</label>
+                    <input id="sn" name="typedName" maxlength="150" required class="form-control mb-2" placeholder="@Model.EmployeeName" />
+                    <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="sa" name="agree" value="true" required />
+                        <label class="form-check-label small" for="sa">I have read this letter and accept it. I understand my typed name, the time and my IP address are recorded as my electronic signature.</label></div>
+                    <button class="btn btn-accent w-100" type="submit"><i class="bi bi-pen me-1"></i>Sign</button>
+                </form>
+            </div></div>
+            <details class="small"><summary class="text-muted">Don't agree with this letter?</summary>
+                <form method="post" action="/me/sign/@s.Id/decline" asp-antiforgery="true" class="mt-2">
+                    <label class="form-label small" for="dr">Tell HR why</label><textarea id="dr" name="reason" rows="2" maxlength="500" required class="form-control mb-2"></textarea>
+                    <button class="btn btn-sm btn-outline-danger" type="submit" data-confirm="Decline to sign this letter?" data-confirm-danger="1">Decline</button>
+                </form>
+            </details>
+        }
+    </div>
+</div>

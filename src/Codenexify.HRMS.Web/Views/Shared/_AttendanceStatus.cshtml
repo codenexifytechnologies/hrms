@@ -1,0 +1,20 @@
+@model Codenexify.HRMS.Domain.Time.AttendanceStatus
+@{
+    var css = Model switch
+    {
+        Codenexify.HRMS.Domain.Time.AttendanceStatus.Present => "Active",
+        Codenexify.HRMS.Domain.Time.AttendanceStatus.HalfDay => "PastDue",
+        Codenexify.HRMS.Domain.Time.AttendanceStatus.Absent => "Expired",
+        Codenexify.HRMS.Domain.Time.AttendanceStatus.Leave or Codenexify.HRMS.Domain.Time.AttendanceStatus.HalfDayLeave => "Trial",
+        _ => "Inactive"
+    };
+    var label = Model switch
+    {
+        Codenexify.HRMS.Domain.Time.AttendanceStatus.HalfDay => "Half day",
+        Codenexify.HRMS.Domain.Time.AttendanceStatus.HalfDayLeave => "Half-day leave",
+        Codenexify.HRMS.Domain.Time.AttendanceStatus.WeeklyOff => "Weekly off",
+        Codenexify.HRMS.Domain.Time.AttendanceStatus.NotMarked => "Not marked",
+        _ => Model.ToString()
+    };
+}
+<span class="badge-status st-@css">@label</span>

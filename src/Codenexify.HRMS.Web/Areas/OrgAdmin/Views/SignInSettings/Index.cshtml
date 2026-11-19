@@ -1,0 +1,40 @@
+@model Codenexify.HRMS.Application.Identity.SignInSettingsView
+@{
+    ViewData["Title"] = "Sign-in options";
+    var s = Model.Settings;
+    var code = User.FindFirst("cnx:orgcode")?.Value;
+}
+<div class="page-head"><div><h1>Sign-in options</h1><div class="text-muted small">Let people sign in with their company Google or Microsoft account, or a code sent to their mobile</div></div></div>
+<form method="post" action="/org/security" asp-antiforgery="true">
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card h-100"><div class="card-header">Single sign-on</div><div class="card-body">
+                @if (!Model.SsoInPlan) { <div class="alert alert-light border small">Single sign-on is part of the Strength plan.</div> }
+                <fieldset disabled="@(!Model.SsoInPlan)">
+                    <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" id="sg" name="SsoGoogle" value="true" checked="@s.SsoGoogle" disabled="@(!Model.GoogleReady)" /><input type="hidden" name="SsoGoogle" value="false" />
+                        <label class="form-check-label" for="sg"><i class="bi bi-google me-1"></i>Google Workspace@(Model.GoogleReady ? "" : " (not set up on the platform yet)")</label></div>
+                    <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" id="sm" name="SsoMicrosoft" value="true" checked="@s.SsoMicrosoft" disabled="@(!Model.MicrosoftReady)" /><input type="hidden" name="SsoMicrosoft" value="false" />
+                        <label class="form-check-label" for="sm"><i class="bi bi-microsoft me-1"></i>Microsoft 365 / Entra ID@(Model.MicrosoftReady ? "" : " (not set up on the platform yet)")</label></div>
+                    <label class="form-label small" for="sd">Company email domains</label>
+                    <input id="sd" name="SsoDomains" value="@s.SsoDomains" maxlength="300" class="form-control" placeholder="acme.com, acme.in" />
+                    <div class="form-text">Only accounts on these domains can use single sign-on, and only if a user with that exact email already exists here. Nobody is created automatically.</div>
+                </fieldset>
+            </div></div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card h-100"><div class="card-header">Mobile OTP</div><div class="card-body">
+                @if (!Model.OtpInPlan) { <div class="alert alert-light border small">Mobile OTP sign-in is part of the Strength plan.</div> }
+                <fieldset disabled="@(!Model.OtpInPlan)">
+                    <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" id="so" name="MobileOtpLogin" value="true" checked="@s.MobileOtpLogin" disabled="@(!Model.SmsReady)" /><input type="hidden" name="MobileOtpLogin" value="false" />
+                        <label class="form-check-label" for="so"><i class="bi bi-phone me-1"></i>Sign in with a code sent by SMS@(Model.SmsReady ? "" : " (SMS not set up on the platform yet)")</label></div>
+                    <div class="form-text">Uses the mobile number on each user's account (Users → edit). Codes expire after 5 minutes; repeated wrong codes lock the account like wrong passwords.</div>
+                    @if (Model.UsersWithoutMobile > 0) { <div class="small text-warning-emphasis mt-2"><i class="bi bi-exclamation-triangle me-1"></i>@Model.UsersWithoutMobile active user(s) have no mobile number and will need their password.</div> }
+                </fieldset>
+            </div></div>
+        </div>
+    </div>
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <span class="small text-muted">Password sign-in always stays available. Login page link for your people: <code>/login/methods?company=@code</code></span>
+        <button class="btn btn-accent" type="submit">Save</button>
+    </div>
+</form>

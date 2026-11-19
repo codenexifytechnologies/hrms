@@ -1,0 +1,26 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Strength.ReportScheduleRow>
+@using Codenexify.HRMS.Domain.Strength
+@{ ViewData["Title"] = "Scheduled reports"; }
+<div class="page-head"><div><h1>Scheduled reports</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/reports">HR reports</a></li><li class="breadcrumb-item active">Scheduled</li></ol></nav></div>
+    <a class="btn btn-accent" href="/org/reports/schedules/edit"><i class="bi bi-plus-lg me-1"></i>New schedule</a></div>
+<div class="card">
+    @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-calendar2-week"></i>No scheduled reports. Weekly reports go out on Mondays, monthly ones on the 1st.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+            <thead><tr><th>Report</th><th>Scope</th><th>Recipients</th><th>Next</th><th>Last sent</th><th></th></tr></thead>
+            <tbody>@foreach (var s in Model)
+            {
+                <tr class="@(s.IsActive ? "" : "text-muted")"><td><a class="fw-semibold" href="/org/reports/schedules/edit/@s.Id">@s.Name</a><div class="small text-muted">@(s.Kind == ReportKind.JoinersAndExits ? "Joiners & exits" : "Headcount summary") · @s.Frequency@(s.IsActive ? "" : " · paused")</div></td>
+                    <td class="small">@(new[] { s.Department, s.Branch }.Where(x => x is not null) is var parts && parts.Any() ? string.Join(" · ", parts) : "Everyone")</td>
+                    <td>@s.Recipients</td><td class="small">@s.NextRunOn.ToString("dd MMM yyyy")</td><td class="small">@(s.LastSentAtUtc?.ToLocalTime().ToString("dd MMM, HH:mm") ?? "—")</td>
+                    <td class="text-end text-nowrap">
+                        <form method="post" action="/org/reports/schedules/@s.Id/send" asp-antiforgery="true" class="d-inline"><button class="btn btn-sm btn-soft" type="submit">Send now</button></form>
+                        <form method="post" action="/org/reports/schedules/@s.Id/delete" asp-antiforgery="true" class="d-inline"><button class="btn btn-sm btn-outline-danger" type="submit" title="Delete" data-confirm="Delete schedule @s.Name?" data-confirm-danger="1"><i class="bi bi-trash"></i></button></form>
+                    </td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>
+<p class="small text-muted mt-2">Emails carry the summary numbers and names only; the full report opens in HRMS after sign-in. Recipients must be able to view HR reports.</p>

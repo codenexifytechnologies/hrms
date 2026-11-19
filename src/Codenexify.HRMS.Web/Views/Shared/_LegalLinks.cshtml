@@ -1,0 +1,14 @@
+@inject Codenexify.HRMS.Application.Support.ILegalPageService Legal
+@{
+    var links = await Legal.LinksAsync();
+    var css = ViewData["LegalLinksClass"] as string ?? "legal-links";
+}
+@if (links.Count > 0)
+{
+    <nav class="@css" aria-label="Policies">
+        @foreach (var l in links)
+        {
+            <a href="/@l.Slug">@l.Title</a>
+        }
+    </nav>
+}

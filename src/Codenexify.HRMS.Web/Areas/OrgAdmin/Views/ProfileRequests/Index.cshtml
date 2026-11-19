@@ -1,0 +1,54 @@
+@model Codenexify.HRMS.Application.Common.PagedResult<Codenexify.HRMS.Application.Engagement.ProfileChangeRow>
+@using Codenexify.HRMS.Domain.Engagement
+@{
+    ViewData["Title"] = "Profile change requests";
+    var status = ViewBag.Status as ProfileChangeStatus?;
+}
+<div class="page-head">
+    <div><h1>Profile change requests</h1><div class="text-muted small">Employees' corrections to their personal details · applied only when you approve</div></div>
+</div>
+<div class="d-flex flex-wrap gap-2 mb-3" role="group" aria-label="Filter by status">
+    <a class="btn btn-sm @(status == ProfileChangeStatus.Pending ? "btn-accent" : "btn-light border")" href="/org/employees/requests">Pending</a>
+    <a class="btn btn-sm @(status == ProfileChangeStatus.Approved ? "btn-accent" : "btn-light border")" href="/org/employees/requests?status=Approved">Approved</a>
+    <a class="btn btn-sm @(status == ProfileChangeStatus.Rejected ? "btn-accent" : "btn-light border")" href="/org/employees/requests?status=Rejected">Rejected</a>
+    <a class="btn btn-sm @(status is null ? "btn-accent" : "btn-light border")" href="/org/employees/requests?all=true">All</a>
+</div>
+@if (Model.Items.Count == 0) { <div class="card"><div class="empty-state"><i class="bi bi-inbox"></i>No requests here.</div></div> }
+@foreach (var r in Model.Items)
+{
+    <div class="card mb-3"><div class="card-header">
+            <span><a href="/org/employees/details/@r.EmployeeId" class="fw-semibold">@r.EmployeeName</a> <span class="text-muted small fw-normal">@r.EmployeeCode · @r.RequestedAtUtc.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</span></span>
+            <span class="badge-status st-@(r.Status switch { ProfileChangeStatus.Approved => "Active", ProfileChangeStatus.Pending => "PendingVerification", ProfileChangeStatus.Rejected => "Expired", _ => "Inactive" })">@r.Status</span>
+        </div>
+        <div class="table-responsive"><table class="table table-sm small mb-0">
+            <thead><tr><th>Field</th><th>Current</th><th>Requested</th></tr></thead>
+            <tbody>@foreach (var c in r.Changes)
+            {
+                <tr><td class="fw-semibold">@c.Label</td><td class="text-muted">@(c.From ?? "—")</td><td>@(c.To ?? "(remove)")</td></tr>
+            }</tbody>
+        </table></div>
+        <div class="card-body small">
+            @if (r.Note is not null) { <div class="mb-2"><span class="text-muted">Employee's note:</span> @r.Note</div> }
+            @if (r.Status == ProfileChangeStatus.Pending)
+            {
+                <div class="d-flex flex-wrap gap-2">
+                    <form method="post" action="/org/employees/requests/@r.Id/approve" asp-antiforgery="true" class="d-flex gap-2">
+                        <label class="visually-hidden" for="an-@r.Id">Note</label>
+                        <input id="an-@r.Id" name="notes" maxlength="500" class="form-control form-control-sm" placeholder="Note (optional)" />
+                        <button class="btn btn-sm btn-accent text-nowrap" type="submit"><i class="bi bi-check2 me-1"></i>Approve</button>
+                    </form>
+                    <form method="post" action="/org/employees/requests/@r.Id/reject" asp-antiforgery="true" class="d-flex gap-2 ms-md-auto">
+                        <label class="visually-hidden" for="rn-@r.Id">Reason</label>
+                        <input id="rn-@r.Id" name="notes" maxlength="500" class="form-control form-control-sm" placeholder="Reason (required)" required />
+                        <button class="btn btn-sm btn-outline-danger text-nowrap" type="submit">Reject</button>
+                    </form>
+                </div>
+            }
+            else if (r.DecidedBy is not null)
+            {
+                <div class="text-muted">@r.Status by @r.DecidedBy on @r.DecidedAtUtc?.ToLocalTime().ToString("dd MMM yyyy")@(r.DecisionNotes is null ? "" : $": {r.DecisionNotes}")</div>
+            }
+        </div>
+    </div>
+}
+@if (Model.TotalPages > 1) { <div class="card"><partial name="_Pager" model="Model.ToPager()" /></div> }

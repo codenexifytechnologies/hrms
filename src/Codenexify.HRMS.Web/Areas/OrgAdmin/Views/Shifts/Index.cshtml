@@ -1,0 +1,57 @@
+@model IReadOnlyList<ShiftRow>
+@{
+    ViewData["Title"] = "Shifts";
+    var assignments = (IReadOnlyList<ShiftAssignmentRow>)ViewBag.Assignments;
+    var employees = (IReadOnlyList<LookupItem>)ViewBag.Employees;
+    var today = (DateOnly)ViewBag.Today;
+    var activeShifts = Model.Where(s => s.IsActive).ToList();
+}
+<div class="page-head">
+    <div><h1>Shifts &amp; weekly offs</h1><div class="text-muted small">Employees without an assignment follow the default shift.</div></div>
+    <a href="/org/shifts/edit" class="btn btn-accent"><i class="bi bi-plus-lg me-1"></i>Add shift</a>
+</div>
+<div class="row g-3">
+    <div class="col-xl-7">
+        <div class="card mb-3"><div class="card-header">Shifts</div>
+            <div class="table-responsive"><table class="table table-hover">
+                <thead><tr><th>Shift</th><th>Timing</th><th>Weekly off</th><th class="text-end">Assigned</th><th>Status</th><th></th></tr></thead>
+                <tbody>@foreach (var s in Model)
+                {
+                    <tr>
+                        <td class="fw-semibold">@s.Name <code class="small">@s.Code</code> @if (s.IsDefault) { <span class="badge text-bg-dark ms-1">Default</span> }</td>
+                        <td class="small text-nowrap">@s.Start.ToString("HH:mm") – @s.End.ToString("HH:mm")@(s.End <= s.Start ? " (+1)" : "")<div class="text-muted">break @s.BreakMinutes m · grace @s.GraceMinutes m</div></td>
+                        <td class="small">@s.WeeklyOffs.Replace(",", ", ")</td>
+                        <td class="text-end">@s.AssignedEmployees</td>
+                        <td><span class="badge-status st-@s.IsActive.ToString().ToLowerInvariant()">@(s.IsActive ? "Active" : "Inactive")</span></td>
+                        <td class="text-end"><a class="btn btn-sm btn-soft" href="/org/shifts/edit/@s.Id">Edit</a></td>
+                    </tr>
+                }</tbody>
+            </table></div>
+        </div>
+        <div class="card"><div class="card-header">Current shift assignments</div>
+            @if (assignments.Count == 0) { <div class="card-body text-muted small">No explicit assignments; everyone follows the default shift.</div> }
+            else
+            {
+                <div class="table-responsive"><table class="table table-sm">
+                    <thead><tr><th>Employee</th><th>Shift</th><th>From</th><th>To</th></tr></thead>
+                    <tbody>@foreach (var a in assignments)
+                    {
+                        <tr><td>@a.EmployeeName <span class="small text-muted">@a.EmployeeCode</span></td><td>@a.ShiftName</td><td class="small">@a.From.ToString("dd MMM yyyy")</td><td class="small">@(a.To?.ToString("dd MMM yyyy") ?? "—")</td></tr>
+                    }</tbody>
+                </table></div>
+            }
+        </div>
+    </div>
+    <div class="col-xl-5">
+        <div class="card"><div class="card-header">Assign a shift</div><div class="card-body">
+            <form method="post" action="/org/shifts/assign" asp-antiforgery="true" class="row g-3">
+                <div class="col-7"><label class="form-label" for="sh">Shift</label><select id="sh" name="shiftId" class="form-select" required>@foreach (var s in activeShifts) { <option value="@s.Id">@s.Name (@s.Start.ToString("HH:mm")–@s.End.ToString("HH:mm"))</option> }</select></div>
+                <div class="col-5"><label class="form-label" for="ef">Effective from</label><input id="ef" name="effectiveFrom" type="date" class="form-control" value="@today.ToString("yyyy-MM-dd")" required /></div>
+                <div class="col-12"><label class="form-label" for="emps">Employees</label>
+                    <select id="emps" name="employeeIds" class="form-select" multiple size="10" required>@foreach (var e in employees) { <option value="@e.Id">@e.Name</option> }</select>
+                    <div class="form-text">Hold Ctrl / Cmd to select several. Past days in range are recalculated.</div></div>
+                <div class="col-12"><button class="btn btn-accent w-100" type="submit">Assign shift</button></div>
+            </form>
+        </div></div>
+    </div>
+</div>

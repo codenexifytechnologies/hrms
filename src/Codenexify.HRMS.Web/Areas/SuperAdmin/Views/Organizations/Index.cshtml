@@ -1,0 +1,70 @@
+@model PagedResult<OrganizationRow>
+@{
+    ViewData["Title"] = "Organizations";
+    var counts = (IReadOnlyDictionary<OrganizationStatus, int>)ViewBag.Counts;
+    var q = (OrganizationListQuery)ViewBag.Query;
+    string ChipUrl(OrganizationStatus? s) => $"/superadmin/organizations?{(s is null ? "" : "status=" + s)}{(string.IsNullOrEmpty(q.Search) ? "" : "&search=" + Uri.EscapeDataString(q.Search))}";
+}
+<div class="page-head">
+    <div><h1>Organizations</h1><div class="text-muted small">All client companies registered on the platform</div></div>
+    @if (User.HasPermission(PlatformPermissions.OrganizationsManage))
+    {
+        <a href="/superadmin/organizations/create" class="btn btn-accent"><i class="bi bi-plus-lg me-1"></i>New organization</a>
+    }
+</div>
+
+<div class="filter-chips mb-3">
+    <a class="chip @(q.Status is null ? "active" : "")" href="@ChipUrl(null)">All <span class="count">@counts.Values.Sum()</span></a>
+    @foreach (var s in Enum.GetValues<OrganizationStatus>())
+    {
+        <a class="chip @(q.Status == s ? "active" : "")" href="@ChipUrl(s)">@(s == OrganizationStatus.PendingVerification ? "Pending verification" : s.ToString()) <span class="count">@counts[s]</span></a>
+    }
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <form method="get" class="d-flex flex-wrap gap-2 w-100">
+            @if (q.Status is not null) { <input type="hidden" name="status" value="@q.Status" /> }
+            <div class="input-group" style="max-width: 360px">
+                <span class="input-group-text bg-transparent"><i class="bi bi-search"></i></span>
+                <input type="search" name="search" value="@q.Search" class="form-control" placeholder="Search name, code, email, city" />
+            </div>
+            <select name="planId" class="form-select" style="max-width: 280px" data-autosubmit>
+                <option value="">All plans</option>
+                @foreach (var p in (List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>)ViewBag.Plans)
+                {
+                    <option value="@p.Value" selected="@(p.Value == q.PlanId?.ToString())">@p.Text.Split(" (")[0]</option>
+                }
+            </select>
+            <button class="btn btn-light border" type="submit">Filter</button>
+        </form>
+    </div>
+    @if (Model.Items.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-buildings"></i>No organizations match these filters.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead><tr><th>Organization</th><th>Plan</th><th>Subscription</th><th>Ends</th><th class="text-end">Users</th><th>Status</th><th>Registered</th></tr></thead>
+                <tbody>
+                @foreach (var o in Model.Items)
+                {
+                    <tr>
+                        <td><a href="/superadmin/organizations/details/@o.Id" class="fw-semibold">@o.Name</a>
+                            <div class="small text-muted">@o.Code · @o.Email@(o.City is null ? "" : " · " + o.City)</div></td>
+                        <td>@(o.PlanName ?? "—")</td>
+                        <td>@if (o.SubscriptionStatus is { } ss) { <span class="badge-status st-@ss">@ss</span> } else { <span class="text-muted">—</span> }</td>
+                        <td class="text-nowrap">@(o.EndDate?.ToString("dd MMM yyyy") ?? "—")</td>
+                        <td class="text-end">@o.UserCount</td>
+                        <td><span class="badge-status st-@o.Status">@o.Status</span></td>
+                        <td class="text-nowrap small text-muted">@o.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+    <partial name="_Pager" model="Model.ToPager()" />
+</div>

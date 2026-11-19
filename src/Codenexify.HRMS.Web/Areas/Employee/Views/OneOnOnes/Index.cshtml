@@ -1,0 +1,73 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Performance.OneOnOneRow>
+@using Codenexify.HRMS.Application.CoreHr
+@using Codenexify.HRMS.Domain.Performance
+@{
+    ViewData["Title"] = "One-on-ones";
+    var me = (int)ViewBag.Me;
+    var partners = (IReadOnlyList<LookupItem>)ViewBag.Partners;
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    var upcoming = Model.Where(m => m.Status == MeetingStatus.Scheduled).OrderBy(m => m.OnDate).ThenBy(m => m.StartsAt).ToList();
+    var past = Model.Where(m => m.Status != MeetingStatus.Scheduled).OrderByDescending(m => m.OnDate).Take(30).ToList();
+    string With(Codenexify.HRMS.Application.Performance.OneOnOneRow m) => m.ManagerId == me ? m.EmployeeName : $"{m.ManagerName} (my manager)";
+}
+<div class="page-head">
+    <div><h1>One-on-ones</h1><div class="text-muted small">Regular 1:1s with your manager and your team: shared agenda, notes and action items</div></div>
+    @if (partners.Count > 0) { <button class="btn btn-accent" type="button" data-bs-toggle="collapse" data-bs-target="#new"><i class="bi bi-plus-lg me-1"></i>Schedule a 1:1</button> }
+</div>
+
+@if (partners.Count == 0)
+{
+    <div class="alert alert-info small">1:1s are between a manager and the people in their reporting line. You don't have a manager or team on record yet; HR can set reporting managers on employee profiles.</div>
+}
+else
+{
+    <div class="collapse mb-3" id="new"><div class="card"><div class="card-body">
+        <form method="post" action="/me/one-on-ones" asp-antiforgery="true" class="row g-3">
+            <div class="col-md-4"><label class="form-label" for="m-with">With</label>
+                <select class="form-select" id="m-with" name="meeting.OtherEmployeeId" required>@foreach (var p in partners) { <option value="@p.Id">@p.Name</option> }</select></div>
+            <div class="col-6 col-md-2"><label class="form-label" for="m-date">Date</label><input class="form-control" id="m-date" type="date" name="meeting.OnDate" value="@today.ToString("yyyy-MM-dd")" required /></div>
+            <div class="col-6 col-md-2"><label class="form-label" for="m-time">Time</label><input class="form-control" id="m-time" type="time" name="meeting.StartsAt" value="10:00" required /></div>
+            <div class="col-6 col-md-2"><label class="form-label" for="m-dur">Minutes</label><input class="form-control" id="m-dur" type="number" name="meeting.DurationMinutes" value="30" min="10" max="240" /></div>
+            <div class="col-6 col-md-2"><label class="form-label" for="m-rep">Repeats</label>
+                <select class="form-select" id="m-rep" name="meeting.Repeat"><option value="None">No</option><option value="Weekly">Weekly</option><option value="Fortnightly">Every 2 weeks</option><option value="Monthly">Monthly</option></select></div>
+            <div class="col-md-9"><label class="form-label" for="m-topic">First agenda topic (optional)</label><input class="form-control" id="m-topic" name="meeting.FirstTopic" maxlength="500" /></div>
+            <div class="col-md-3 d-flex align-items-end"><button class="btn btn-accent w-100" type="submit">Schedule</button></div>
+        </form>
+    </div></div></div>
+}
+
+<div class="card mb-3">
+    <div class="card-header">Upcoming</div>
+    @if (upcoming.Count == 0) { <div class="empty-state"><i class="bi bi-calendar2-check"></i>No 1:1s scheduled.</div> }
+    else
+    {
+        <div class="list-group list-group-flush">
+            @foreach (var m in upcoming)
+            {
+                <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="/me/one-on-ones/@m.Id">
+                    <div><div class="fw-semibold">@With(m)</div>
+                        <div class="small text-muted">@m.OnDate.ToString("ddd dd MMM yyyy") · @m.StartsAt.ToString("HH:mm") · @m.DurationMinutes min@(m.Repeat == MeetingRepeat.None ? "" : $" · repeats {m.Repeat.ToString().ToLowerInvariant()}")</div></div>
+                    <div class="text-end">
+                        @if (m.OnDate < today) { <span class="badge text-bg-warning">Not marked held</span> }
+                        else if (m.OnDate == today) { <span class="badge text-bg-primary">Today</span> }
+                        @if (m.OpenItems > 0) { <div class="small text-muted">@m.OpenItems open item(s)</div> }
+                    </div>
+                </a>
+            }
+        </div>
+    }
+</div>
+
+@if (past.Count > 0)
+{
+    <div class="card"><div class="card-header">Past</div>
+        <div class="list-group list-group-flush">
+            @foreach (var m in past)
+            {
+                <a class="list-group-item list-group-item-action d-flex justify-content-between" href="/me/one-on-ones/@m.Id">
+                    <span>@With(m) <span class="small text-muted">· @m.OnDate.ToString("dd MMM yyyy")</span></span>
+                    <span class="badge @(m.Status == MeetingStatus.Completed ? "text-bg-success" : "text-bg-secondary")">@(m.Status == MeetingStatus.Completed ? "Held" : "Cancelled")</span>
+                </a>
+            }
+        </div></div>
+}

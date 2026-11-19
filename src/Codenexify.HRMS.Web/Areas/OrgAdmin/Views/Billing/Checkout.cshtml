@@ -1,0 +1,32 @@
+@model Codenexify.HRMS.Application.Billing.CheckoutData
+@{
+    ViewData["Title"] = "Pay invoice";
+    var invoiceId = (int)ViewBag.InvoiceId;
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    var options = new
+    {
+        key = Model.KeyId, order_id = Model.OrderId, amount = Model.AmountPaise, currency = Model.Currency,
+        name = "Codenexify HRMS", description = Model.Description, prefill = new { name = Model.CustomerName, email = Model.CustomerEmail },
+        notes = new { invoice = Model.InvoiceNumber }
+    };
+}
+<div class="page-head"><div><h1>Pay invoice @Model.InvoiceNumber</h1></div></div>
+<div class="card" style="max-width: 560px"><div class="card-body text-center py-5">
+    <div class="fs-2 fw-bold mb-1">₹@((Model.AmountPaise / 100m).ToString("N2", inr))</div>
+    <div class="text-muted small mb-4">@Model.Description · secure payment by Razorpay (cards, UPI, net banking)</div>
+    <button class="btn btn-accent btn-lg" type="button" data-rzp-open><i class="bi bi-lock me-1"></i>Pay now</button>
+    <div class="small text-danger mt-3 d-none" data-rzp-error></div>
+    <div class="mt-3"><a href="/org/billing/invoices/@invoiceId" class="small">Cancel and go back</a></div>
+</div></div>
+
+<form method="post" action="/org/billing/confirm" asp-antiforgery="true" data-rzp-form class="d-none">
+    <input type="hidden" name="invoiceId" value="@invoiceId" />
+    <input type="hidden" name="razorpay_order_id" />
+    <input type="hidden" name="razorpay_payment_id" />
+    <input type="hidden" name="razorpay_signature" />
+</form>
+<script type="application/json" id="rzpOptions">@Json.Serialize(options)</script>
+@section Scripts {
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script src="~/js/checkout.js" asp-append-version="true"></script>
+}

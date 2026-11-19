@@ -1,0 +1,152 @@
+@model Codenexify.HRMS.Application.Benefits.BenefitPlanView
+@using Codenexify.HRMS.Application.Benefits
+@using Codenexify.HRMS.Domain.Benefits
+@using Codenexify.HRMS.Web
+@{
+    var p = Model.Plan;
+    ViewData["Title"] = p.Name;
+    var active = Model.Members.Where(m => m.Status == BenefitEnrollmentStatus.Active).ToList();
+    var past = Model.Members.Where(m => m.Status != BenefitEnrollmentStatus.Active).ToList();
+    var types = BenefitService.ParseTypes(p.EligibleEmploymentTypes);
+    var rules = new List<string>();
+    if (types.Count > 0) rules.Add(string.Join(", ", types.Select(BenefitUi.Label)) + " only");
+    if (p.MinServiceDays > 0) rules.Add($"after {p.MinServiceDays} days of service");
+    if (Model.BranchName is not null) rules.Add($"branch {Model.BranchName}");
+    if (Model.DepartmentName is not null) rules.Add($"department {Model.DepartmentName}");
+    if (p.ExcludeProbation) rules.Add("not during probation");
+    var today = DateOnly.FromDateTime(DateTime.Today);
+}
+<div class="page-head">
+    <div><h1><i class="bi @BenefitUi.Icon(p.Category) me-2"></i>@p.Name</h1>
+        <div class="text-muted small"><a href="/org/benefits">Perks &amp; benefits</a> / @BenefitUi.Label(p.Category)
+            @if (!p.IsActive) { <span class="badge text-bg-secondary ms-1">Discontinued</span> }</div></div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-light border" href="/org/benefits/@p.Id/export"><i class="bi bi-file-earmark-excel me-1"></i>Member list</a>
+        <a class="btn btn-accent" href="/org/benefits/@p.Id/edit"><i class="bi bi-pencil me-1"></i>Edit plan</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-7">
+        <div class="card h-100"><div class="card-body">
+            @if (!string.IsNullOrWhiteSpace(p.Description)) { <p style="white-space: pre-line">@p.Description</p> }
+            <dl class="row small mb-0">
+                <dt class="col-sm-4">Enrolment</dt><dd class="col-sm-8">@(p.EnrollmentMode == BenefitEnrollmentMode.Automatic ? "Automatic for eligible employees" : "Employees opt in")
+                    @if (p.EnrollmentOpensOn is not null || p.EnrollmentClosesOn is not null) { <span class="text-muted">· window @(p.EnrollmentOpensOn?.ToString("dd MMM yyyy") ?? "any time") – @(p.EnrollmentClosesOn?.ToString("dd MMM yyyy") ?? "open")</span> }</dd>
+                <dt class="col-sm-4">Eligible</dt><dd class="col-sm-8">@(rules.Count == 0 ? "All current employees" : string.Join("; ", rules))</dd>
+                <dt class="col-sm-4">Family cover</dt><dd class="col-sm-8">@(p.CoversDependents ? $"Up to {p.MaxDependents} dependent(s)" : "Employee only")</dd>
+                <dt class="col-sm-4">Provider</dt><dd class="col-sm-8">@(p.Provider ?? "—")@(p.PolicyNumber is null ? "" : $" · policy {p.PolicyNumber}")</dd>
+                <dt class="col-sm-4">Cover</dt><dd class="col-sm-8">@(p.CoverageAmount is { } c ? $"₹{c:N0} per employee" : "—")@(p.PolicyRenewsOn is { } r ? $" · renews {r:dd MMM yyyy}" : "")</dd>
+            </dl>
+            @if (p.PolicyRenewsOn is { } renew && renew <= today.AddDays(30) && p.IsActive)
+            {
+                <div class="alert alert-warning small py-2 mt-3 mb-0"><i class="bi bi-calendar-event me-1"></i>The policy renews on @renew.ToString("dd MMM yyyy"). Update the policy number, cover and document after renewal.</div>
+            }
+        </div></div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card h-100"><div class="card-body">
+            <div class="row text-center g-2 mb-3">
+                <div class="col-4"><div class="small text-muted">Company</div><div class="fw-semibold">@BenefitUi.Money(p.EmployerCostPerMonth)</div></div>
+                <div class="col-4"><div class="small text-muted">Employee pays</div><div class="fw-semibold">@BenefitUi.Money(p.EmployeeContributionPerMonth)</div>
+                    @if (p.DependentContributionPerMonth > 0) { <div class="small text-muted">+ @BenefitUi.Money(p.DependentContributionPerMonth)/dependent</div> }</div>
+                <div class="col-4"><div class="small text-muted">Allowance</div><div class="fw-semibold">@BenefitUi.Money(p.AllowancePerMonth)</div>
+                    @if (p.AllowancePerMonth > 0) { <div class="small text-muted">@(p.AllowanceTaxable ? "taxable" : "not taxable")</div> }</div>
+            </div>
+            <div class="small text-muted text-center mb-3">per member, per month · @active.Count active member(s)</div>
+            <div class="border-top pt-3">
+                <div class="fw-semibold small mb-2">Policy document</div>
+                @if (p.DocumentFileName is not null) { <a class="small d-block mb-2" href="/org/benefits/@p.Id/document"><i class="bi bi-file-earmark-pdf me-1"></i>@p.DocumentFileName</a> }
+                <form method="post" action="/org/benefits/@p.Id/document" enctype="multipart/form-data" asp-antiforgery="true" class="d-flex gap-2">
+                    <input type="file" name="file" accept="application/pdf,.pdf" class="form-control form-control-sm" required />
+                    <button class="btn btn-sm btn-light border text-nowrap" type="submit">@(p.DocumentFileName is null ? "Upload" : "Replace")</button>
+                </form>
+                <div class="form-text">PDF, up to 10 MB. Members can download it from My benefits.</div>
+            </div>
+        </div></div>
+    </div>
+</div>
+
+@if (p.IsActive)
+{
+    <div class="card mb-3"><div class="card-body">
+        <form method="post" action="/org/benefits/@p.Id/enroll" asp-antiforgery="true" class="row g-2 align-items-end">
+            <div class="col-md-6"><label class="form-label small" for="employeeId">Enrol an employee</label>
+                <select class="form-select" id="employeeId" name="employeeId" required>
+                    <option value="">Choose…</option>
+                    @if (Model.EligibleNotEnrolled.Count > 0)
+                    {
+                        <optgroup label="Eligible">@foreach (var e in Model.EligibleNotEnrolled) { <option value="@e.EmployeeId">@e.Name (@e.Code)</option> }</optgroup>
+                    }
+                    @if (Model.IneligibleNotEnrolled.Count > 0)
+                    {
+                        <optgroup label="Not eligible: exception">@foreach (var e in Model.IneligibleNotEnrolled) { <option value="@e.EmployeeId">@e.Name (@e.Code)</option> }</optgroup>
+                    }
+                </select></div>
+            <div class="col-md-3"><label class="form-label small" for="startsOn">From</label><input class="form-control" type="date" id="startsOn" name="startsOn" value="@today.ToString("yyyy-MM-dd")" required /></div>
+            <div class="col-md-3"><button class="btn btn-accent w-100" type="submit"><i class="bi bi-person-plus me-1"></i>Enrol</button></div>
+        </form>
+        @if (p.EnrollmentMode == BenefitEnrollmentMode.Automatic)
+        {
+            <form method="post" action="/org/benefits/@p.Id/sync" asp-antiforgery="true" class="mt-2">
+                <span class="small text-muted">@Model.EligibleNotEnrolled.Count eligible employee(s) not yet enrolled. They're added automatically every hour, or</span>
+                <button class="btn btn-link btn-sm p-0 align-baseline" type="submit">enrol them now</button>
+            </form>
+        }
+    </div></div>
+}
+
+<div class="card mb-3">
+    <div class="card-header">Members (@active.Count)</div>
+    @if (active.Count == 0) { <div class="empty-state"><i class="bi bi-people"></i>No one is enrolled yet.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table mb-0 align-middle">
+            <thead><tr><th>Employee</th><th>Since</th><th>Family</th><th class="text-end">Deduction / month</th><th>Enrolled by</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var m in active)
+            {
+                <tr>
+                    <td><a href="/org/employees/details/@m.EmployeeId">@m.EmployeeName</a><div class="small text-muted">@m.EmployeeCode</div></td>
+                    <td class="small">@m.StartsOn.ToString("dd MMM yyyy")</td>
+                    <td class="small">@(m.Dependents.Count == 0 ? "—" : string.Join(", ", m.Dependents.Select(d => $"{d.Name} ({BenefitUi.Label(d.Relation)})")))</td>
+                    <td class="text-end">@BenefitUi.Money(m.MonthlyDeduction)</td>
+                    <td class="small text-muted">@m.EnrolledBy</td>
+                    <td class="text-end text-nowrap">
+                        @if (p.CoversDependents) { <button class="btn btn-sm btn-light border" type="button" data-bs-toggle="collapse" data-bs-target="#dep-@m.EnrollmentId">Family</button> }
+                        <button class="btn btn-sm btn-outline-danger" type="button" data-bs-toggle="collapse" data-bs-target="#end-@m.EnrollmentId">End</button>
+                    </td>
+                </tr>
+                <tr class="collapse" id="end-@m.EnrollmentId"><td colspan="6" class="bg-body-tertiary">
+                    <form method="post" action="/org/benefits/enrollments/@m.EnrollmentId/end" asp-antiforgery="true" class="row g-2 align-items-end">
+                        <input type="hidden" name="planId" value="@p.Id" />
+                        <div class="col-md-3"><label class="form-label small">Last covered day</label><input class="form-control form-control-sm" type="date" name="lastDay" value="@today.ToString("yyyy-MM-dd")" required /></div>
+                        <div class="col-md-6"><label class="form-label small">Reason</label><input class="form-control form-control-sm" name="reason" maxlength="300" required placeholder="e.g. Moved to the new policy" /></div>
+                        <div class="col-md-3"><button class="btn btn-sm btn-danger w-100" type="submit">End membership</button></div>
+                    </form>
+                </td></tr>
+                @if (p.CoversDependents)
+                {
+                    <tr class="collapse" id="dep-@m.EnrollmentId"><td colspan="6" class="bg-body-tertiary">
+                        <partial name="_DependentsForm" model="@(new DependentsFormModel($"/org/benefits/enrollments/{m.EnrollmentId}/dependents", p.MaxDependents, m.Dependents, p.Id))" />
+                    </td></tr>
+                }
+            }
+            </tbody>
+        </table></div>
+    }
+</div>
+
+@if (past.Count > 0)
+{
+    <div class="card">
+        <div class="card-header">Past members (@past.Count)</div>
+        <div class="table-responsive"><table class="table table-sm mb-0 align-middle small">
+            <thead><tr><th>Employee</th><th>Covered</th><th>Reason</th></tr></thead>
+            <tbody>@foreach (var m in past)
+            {
+                <tr><td>@m.EmployeeName <span class="text-muted">@m.EmployeeCode</span></td><td>@m.StartsOn.ToString("dd MMM yyyy") – @(m.EndsOn?.ToString("dd MMM yyyy"))</td><td class="text-muted">@m.EndReason</td></tr>
+            }</tbody>
+        </table></div>
+    </div>
+}

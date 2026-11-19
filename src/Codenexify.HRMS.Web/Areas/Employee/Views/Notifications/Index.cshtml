@@ -1,0 +1,27 @@
+@model PagedResult<Notification>
+@{
+    ViewData["Title"] = "Notifications";
+}
+<div class="page-head">
+    <div><h1>Notifications</h1></div>
+    @if (Model.Items.Any(n => !n.IsRead))
+    {
+        <form method="post" action="/me/notifications/readall" asp-antiforgery="true"><button class="btn btn-light border" type="submit"><i class="bi bi-check2-all me-1"></i>Mark all as read</button></form>
+    }
+</div>
+<div class="card">
+    @if (Model.Items.Count == 0) { <div class="empty-state"><i class="bi bi-bell-slash"></i>You're all caught up.</div> }
+    else
+    {
+        <ul class="list-group list-group-flush">@foreach (var n in Model.Items)
+        {
+            <li class="list-group-item bg-transparent d-flex justify-content-between gap-3 @(n.IsRead ? "" : "fw-semibold")">
+                <a href="/me/notifications/open/@n.Id" class="text-reset text-decoration-none flex-grow-1">
+                    @if (!n.IsRead) { <span class="badge rounded-pill text-bg-primary me-1">new</span> }
+                    @n.Title<div class="small fw-normal text-muted">@n.Message</div></a>
+                <span class="small text-muted text-nowrap">@n.CreatedAtUtc.ToLocalTime().ToString("dd MMM, HH:mm")</span>
+            </li>
+        }</ul>
+    }
+    <partial name="_Pager" model="Model.ToPager()" />
+</div>

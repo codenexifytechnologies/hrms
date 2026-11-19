@@ -1,0 +1,129 @@
+@model Codenexify.HRMS.Application.Performance.OneOnOneView
+@using Codenexify.HRMS.Application.Performance
+@using Codenexify.HRMS.Domain.Performance
+@{
+    var m = Model.Meeting;
+    var me = (int)ViewBag.Me;
+    var other = Model.IAmManager ? Model.EmployeeName : Model.ManagerName;
+    ViewData["Title"] = $"1:1 with {other}";
+    var today = DateOnly.FromDateTime(DateTime.Today);
+}
+@functions {
+    private Microsoft.AspNetCore.Html.IHtmlContent ItemRow(MeetingItemView v, int back, int me, bool showDate)
+    {
+        var it = v.Item;
+        var text = System.Net.WebUtility.HtmlEncode(it.Text);
+        var meta = new List<string>();
+        if (it.Kind == MeetingItemKind.Action && v.OwnerName is not null) meta.Add(System.Net.WebUtility.HtmlEncode(v.OwnerName));
+        if (it.DueOn is { } d) meta.Add($"due {d:dd MMM}");
+        if (showDate) meta.Add($"from {v.MeetingDate:dd MMM}");
+        meta.Add($"added by {System.Net.WebUtility.HtmlEncode(v.AddedByName)}");
+        return new Microsoft.AspNetCore.Html.HtmlString(
+            $"<span class=\"{(it.IsDone ? "text-decoration-line-through text-muted" : "")}\">{text}</span><div class=\"small text-muted\">{string.Join(" · ", meta)}</div>");
+    }
+}
+<div class="page-head">
+    <div><h1>1:1 with @other</h1>
+        <div class="text-muted small"><a href="/me/one-on-ones">One-on-ones</a> · @m.OnDate.ToString("dddd dd MMM yyyy") · @m.StartsAt.ToString("HH:mm") · @m.DurationMinutes min
+            @if (m.Repeat != MeetingRepeat.None) { <span>· repeats @m.Repeat.ToString().ToLowerInvariant()</span> }</div></div>
+    <div class="d-flex flex-wrap gap-2 align-items-start">
+        @if (Model.PreviousId is int prev) { <a class="btn btn-sm btn-light border" href="/me/one-on-ones/@prev"><i class="bi bi-chevron-left"></i> Previous</a> }
+        @if (Model.NextId is int nxt) { <a class="btn btn-sm btn-light border" href="/me/one-on-ones/@nxt">Next <i class="bi bi-chevron-right"></i></a> }
+        @if (Model.IsOpen)
+        {
+            <button class="btn btn-sm btn-light border" type="button" data-bs-toggle="collapse" data-bs-target="#move">Move</button>
+            <form method="post" action="/me/one-on-ones/@m.Id/cancel" asp-antiforgery="true" data-confirm="Cancel this 1:1?" data-confirm-danger><button class="btn btn-sm btn-outline-danger" type="submit">Cancel</button></form>
+            @if (m.OnDate <= today)
+            {
+                <form method="post" action="/me/one-on-ones/@m.Id/complete" asp-antiforgery="true"><button class="btn btn-sm btn-accent" type="submit"><i class="bi bi-check2-circle me-1"></i>Mark as held</button></form>
+            }
+        }
+        else
+        {
+            <span class="badge @(m.Status == MeetingStatus.Completed ? "text-bg-success" : "text-bg-secondary") fs-6">@(m.Status == MeetingStatus.Completed ? "Held" : "Cancelled")</span>
+        }
+    </div>
+</div>
+
+@if (Model.IsOpen)
+{
+    <div class="collapse mb-3" id="move"><div class="card"><div class="card-body">
+        <form method="post" action="/me/one-on-ones/@m.Id/reschedule" asp-antiforgery="true" class="row g-2 align-items-end">
+            <div class="col-6 col-md-3"><label class="form-label small" for="mv-date">New date</label><input class="form-control form-control-sm" id="mv-date" type="date" name="onDate" value="@m.OnDate.ToString("yyyy-MM-dd")" required /></div>
+            <div class="col-6 col-md-2"><label class="form-label small" for="mv-time">Time</label><input class="form-control form-control-sm" id="mv-time" type="time" name="startsAt" value="@m.StartsAt.ToString("HH:mm")" required /></div>
+            <div class="col-md-2"><button class="btn btn-sm btn-accent w-100" type="submit">Move</button></div>
+        </form>
+    </div></div></div>
+}
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card mb-3"><div class="card-header">Agenda</div>
+            <ul class="list-group list-group-flush">
+                @foreach (var a in Model.Agenda)
+                {
+                    <li class="list-group-item d-flex gap-2 align-items-start">
+                        <form method="post" action="/me/one-on-ones/items/@a.Item.Id/toggle" asp-antiforgery="true"><input type="hidden" name="back" value="@m.Id" />
+                            <button class="btn btn-sm p-0 border-0 bg-transparent" type="submit" aria-label="@(a.Item.IsDone ? "Mark not discussed" : "Mark discussed")"><i class="bi @(a.Item.IsDone ? "bi-check-square-fill text-success" : "bi-square") fs-5"></i></button></form>
+                        <div class="flex-grow-1">@ItemRow(a, m.Id, me, false)</div>
+                        @if (a.Item.AddedByEmployeeId == me && m.Status != MeetingStatus.Completed)
+                        {
+                            <form method="post" action="/me/one-on-ones/items/@a.Item.Id/remove" asp-antiforgery="true"><input type="hidden" name="back" value="@m.Id" /><button class="btn btn-sm btn-link text-danger p-0" type="submit" aria-label="Remove"><i class="bi bi-x-lg"></i></button></form>
+                        }
+                    </li>
+                }
+                @if (Model.Agenda.Count == 0) { <li class="list-group-item small text-muted">No topics yet. Both of you can add topics before the meeting.</li> }
+            </ul>
+            @if (m.Status != MeetingStatus.Cancelled)
+            {
+                <div class="card-footer"><form method="post" action="/me/one-on-ones/@m.Id/items" asp-antiforgery="true" class="d-flex gap-2">
+                    <input type="hidden" name="kind" value="Agenda" />
+                    <input class="form-control form-control-sm" name="text" maxlength="500" required placeholder="Add a topic" aria-label="New topic" />
+                    <button class="btn btn-sm btn-light border text-nowrap" type="submit">Add topic</button></form></div>
+            }
+        </div>
+
+        <div class="card mb-3"><div class="card-header">Action items</div>
+            <ul class="list-group list-group-flush">
+                @foreach (var a in Model.CarriedOver.Concat(Model.Actions))
+                {
+                    var carried = Model.CarriedOver.Contains(a);
+                    <li class="list-group-item d-flex gap-2 align-items-start">
+                        <form method="post" action="/me/one-on-ones/items/@a.Item.Id/toggle" asp-antiforgery="true"><input type="hidden" name="back" value="@m.Id" />
+                            <button class="btn btn-sm p-0 border-0 bg-transparent" type="submit" aria-label="@(a.Item.IsDone ? "Reopen" : "Mark done")"><i class="bi @(a.Item.IsDone ? "bi-check-square-fill text-success" : "bi-square") fs-5"></i></button></form>
+                        <div class="flex-grow-1">@ItemRow(a, m.Id, me, carried)
+                            @if (a.Item.DueOn is { } due && !a.Item.IsDone && due < today) { <span class="badge text-bg-danger">Overdue</span> }</div>
+                        @if (!carried && a.Item.AddedByEmployeeId == me && m.Status != MeetingStatus.Completed)
+                        {
+                            <form method="post" action="/me/one-on-ones/items/@a.Item.Id/remove" asp-antiforgery="true"><input type="hidden" name="back" value="@m.Id" /><button class="btn btn-sm btn-link text-danger p-0" type="submit" aria-label="Remove"><i class="bi bi-x-lg"></i></button></form>
+                        }
+                    </li>
+                }
+                @if (Model.Actions.Count + Model.CarriedOver.Count == 0) { <li class="list-group-item small text-muted">No action items. Open ones carry over to your next 1:1.</li> }
+            </ul>
+            @if (m.Status != MeetingStatus.Cancelled)
+            {
+                <div class="card-footer"><form method="post" action="/me/one-on-ones/@m.Id/items" asp-antiforgery="true" class="row g-2">
+                    <input type="hidden" name="kind" value="Action" />
+                    <div class="col-12"><input class="form-control form-control-sm" name="text" maxlength="500" required placeholder="Add an action item" aria-label="New action item" /></div>
+                    <div class="col-5"><select class="form-select form-select-sm" name="ownerId" aria-label="Owner">
+                        <option value="@m.EmployeeId" selected="@(!Model.IAmManager)">@Model.EmployeeName</option><option value="@m.ManagerEmployeeId" selected="@Model.IAmManager">@Model.ManagerName</option></select></div>
+                    <div class="col-4"><input class="form-control form-control-sm" type="date" name="dueOn" aria-label="Due date" /></div>
+                    <div class="col-3"><button class="btn btn-sm btn-light border w-100" type="submit">Add</button></div>
+                </form></div>
+            }
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <form method="post" action="/me/one-on-ones/@m.Id/notes" asp-antiforgery="true">
+            <div class="card mb-3"><div class="card-header">Shared notes <span class="small text-muted">· you both see these</span></div><div class="card-body">
+                <textarea class="form-control" name="shared" rows="8" maxlength="8000" aria-label="Shared notes" disabled="@(m.Status == MeetingStatus.Cancelled)">@m.SharedNotes</textarea>
+            </div></div>
+            <div class="card mb-3"><div class="card-header"><i class="bi bi-lock me-1"></i>My private notes <span class="small text-muted">· only you see these</span></div><div class="card-body">
+                <textarea class="form-control" name="mine" rows="5" maxlength="4000" aria-label="Private notes" disabled="@(m.Status == MeetingStatus.Cancelled)">@Model.MyPrivateNotes</textarea>
+            </div></div>
+            @if (m.Status != MeetingStatus.Cancelled) { <button class="btn btn-accent w-100" type="submit">Save notes</button> }
+        </form>
+    </div>
+</div>

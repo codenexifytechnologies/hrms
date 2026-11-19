@@ -1,0 +1,30 @@
+@model Codenexify.HRMS.Application.Support.MaintenanceInput
+@{
+    ViewData["Title"] = "System & maintenance";
+}
+<div class="page-head"><div><h1>System &amp; maintenance</h1><div class="text-muted small">Platform-wide switches</div></div></div>
+@if (Model.Enabled)
+{
+    <div class="alert alert-warning"><i class="bi bi-cone-striped me-1"></i><strong>Maintenance mode is ON.</strong> Organization portals, employee self-service and the API are unavailable; the Control Center and payment webhooks keep working.</div>
+}
+<form method="post" action="/superadmin/system" asp-antiforgery="true" novalidate style="max-width: 820px">
+    <div asp-validation-summary="All" class="alert alert-danger py-2 small"></div>
+    <div class="card mb-3"><div class="card-header">Maintenance mode</div><div class="card-body row g-3">
+        <div class="col-12"><div class="form-check form-switch"><input asp-for="Enabled" class="form-check-input" /><label asp-for="Enabled" class="form-check-label"></label></div>
+            <div class="form-text">Takes effect within 15 seconds. Announce planned maintenance in advance under Announcements.</div></div>
+        <div class="col-12"><label asp-for="Message" class="form-label"></label><textarea asp-for="Message" rows="2" class="form-control" placeholder="We are upgrading the platform. Back shortly."></textarea></div>
+        <div class="col-md-5"><label asp-for="Until" class="form-label"></label><input asp-for="Until" type="datetime-local" class="form-control" /></div>
+    </div></div>
+    <div class="card mb-3"><div class="card-header">Support</div><div class="card-body row g-3">
+        <div class="col-md-6"><label asp-for="SupportEmail" class="form-label"></label><input asp-for="SupportEmail" class="form-control" placeholder="support@your-domain" /></div>
+        <div class="col-12 form-text">New tickets and customer replies are emailed here (when outgoing email is configured in Billing &amp; email settings).</div>
+    </div></div>
+    <div class="d-flex justify-content-end"><button class="btn btn-accent" type="submit">Save</button></div>
+</form>
+<div class="card border-danger mt-4" style="max-width: 820px">
+    <div class="card-header text-danger"><i class="bi bi-exclamation-octagon me-1"></i>Danger zone</div>
+    <div class="card-body d-flex flex-wrap gap-3 align-items-center justify-content-between">
+        <div><strong>Reset all data</strong><div class="text-muted small">Delete every company, its users, employees and records. Control Center logins and platform setup are kept.</div></div>
+        <a class="btn btn-outline-danger" href="/superadmin/system/reset">Reset all data…</a>
+    </div>
+</div>

@@ -1,0 +1,47 @@
+@model Codenexify.HRMS.Application.Documents.LetterPreview
+@{
+    ViewData["Title"] = "Check the letter";
+    var input = (Codenexify.HRMS.Application.Documents.LetterIssueInput)ViewBag.Input;
+    var employee = ViewBag.Employee as Codenexify.HRMS.Domain.CoreHr.Employee;
+    var employeeId = (int)ViewBag.EmployeeId;
+}
+<div class="page-head"><div><h1>Check the letter</h1><div class="text-muted small">Step 2 of 2 — @employee?.FullName · reference will be @Model.NumberPreview</div></div></div>
+<partial name="_LettersNav" />
+@if (Model.Missing.Count > 0)
+{
+    <div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1"></i><strong>Missing details:</strong> @string.Join(", ", Model.Missing).
+        Update the employee's profile (or salary), or replace the <code>{{…}}</code> text below, before issuing.</div>
+}
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card"><div class="card-header">Preview</div>
+            <div class="card-body letter-preview">
+                <div class="fw-semibold mb-2">@Model.SubjectDisplay</div>
+                @Html.Raw(Model.BodyHtml)
+                <div class="mt-4 small text-muted">For the company<br /><br /><strong>@input.SignatoryName</strong><br />@input.SignatoryDesignation</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card"><div class="card-header">Final text (you can edit)</div><div class="card-body">
+            <form method="post" action="/org/letters/preview" asp-antiforgery="true" id="letterForm">
+                <input type="hidden" name="employeeId" value="@employeeId" />
+                <input type="hidden" name="issue.TemplateId" value="@input.TemplateId" />
+                <input type="hidden" name="issue.LetterDate" value="@input.LetterDate?.ToString("yyyy-MM-dd")" />
+                <input type="hidden" name="issue.SignatoryName" value="@input.SignatoryName" />
+                <input type="hidden" name="issue.SignatoryDesignation" value="@input.SignatoryDesignation" />
+                <input type="hidden" name="issue.ShareWithEmployee" value="@(input.ShareWithEmployee ? "true" : "false")" />
+                <label class="form-label small" for="ls">Subject</label>
+                <input id="ls" name="issue.Subject" value="@Model.Subject" maxlength="200" class="form-control mb-2" />
+                <label class="form-label small" for="lb">Letter text</label>
+                <textarea id="lb" name="issue.Body" rows="16" maxlength="8000" class="form-control font-monospace small">@Model.Body</textarea>
+                <div class="form-text"><code>{{Letter.Number}}</code> is filled in when the letter is issued.</div>
+                <div class="d-flex flex-wrap justify-content-end gap-2 mt-3">
+                    <a class="btn btn-light border" href="/org/letters/issue?employeeId=@employeeId">Back</a>
+                    <button class="btn btn-soft" type="submit">Refresh preview</button>
+                    <button class="btn btn-accent" type="submit" formaction="/org/letters/issue" @(Model.Missing.Count > 0 ? "disabled" : "")><i class="bi bi-file-earmark-check me-1"></i>Issue letter</button>
+                </div>
+            </form>
+        </div></div>
+    </div>
+</div>

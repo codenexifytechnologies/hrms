@@ -1,0 +1,167 @@
+@model HrSettingsInput
+@{
+    ViewData["Title"] = "Organization structure";
+    var branches = (IReadOnlyList<BranchRow>)ViewBag.Branches;
+    var departments = (IReadOnlyList<DepartmentRow>)ViewBag.Departments;
+    var designations = (IReadOnlyList<DesignationRow>)ViewBag.Designations;
+    var checklist = (IReadOnlyList<ExitChecklistTemplateItem>)ViewBag.Checklist;
+    var managers = (IReadOnlyList<LookupItem>)ViewBag.Managers;
+    var branch = new BranchInput();
+    var department = new DepartmentInput();
+    var designation = new DesignationInput();
+    var settings = Model;
+}
+<div class="page-head">
+    <div><h1>Organization structure</h1><div class="text-muted small">Branches, departments, designations and HR settings</div></div>
+</div>
+
+<ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#branches" type="button">Branches <span class="badge text-bg-light border">@branches.Count</span></button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#departments" type="button">Departments <span class="badge text-bg-light border">@departments.Count</span></button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#designations" type="button">Designations <span class="badge text-bg-light border">@designations.Count</span></button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#settings" type="button">HR settings</button></li>
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane fade show active" id="branches">
+        <div class="card">
+            <div class="card-header">Branches &amp; office locations
+                <button class="btn btn-sm btn-accent" data-bs-toggle="modal" data-bs-target="#branchModal"><i class="bi bi-plus-lg me-1"></i>Add branch</button></div>
+            @if (branches.Count == 0) { <div class="empty-state"><i class="bi bi-geo-alt"></i>No branches yet. Add your head office first.</div> }
+            else
+            {
+                <div class="table-responsive"><table class="table table-hover">
+                    <thead><tr><th>Branch</th><th>Location</th><th class="text-end">Employees</th><th>Status</th><th></th></tr></thead>
+                    <tbody>@foreach (var b in branches)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@b.Name <code class="small ms-1">@b.Code</code> @if (b.IsHeadOffice) { <span class="badge text-bg-dark ms-1">Head office</span> }</td>
+                            <td class="small">@string.Join(", ", new[] { b.City, b.State }.Where(x => !string.IsNullOrWhiteSpace(x)))</td>
+                            <td class="text-end">@b.EmployeeCount</td>
+                            <td><span class="badge-status st-@b.IsActive.ToString().ToLowerInvariant()">@(b.IsActive ? "Active" : "Inactive")</span></td>
+                            <td class="text-end text-nowrap">
+                                <a class="btn btn-sm btn-soft" href="/org/structure/branch/@b.Id">Edit</a>
+                                <form method="post" action="/org/structure/deletebranch/@b.Id" asp-antiforgery="true" class="d-inline" data-confirm="Delete branch @b.Name?" data-confirm-danger="1"><button class="btn btn-sm btn-outline-danger" type="submit" title="Delete"><i class="bi bi-trash"></i></button></form>
+                            </td>
+                        </tr>
+                    }</tbody>
+                </table></div>
+            }
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="departments">
+        <div class="card">
+            <div class="card-header">Departments
+                <button class="btn btn-sm btn-accent" data-bs-toggle="modal" data-bs-target="#departmentModal"><i class="bi bi-plus-lg me-1"></i>Add department</button></div>
+            @if (departments.Count == 0) { <div class="empty-state"><i class="bi bi-diagram-2"></i>No departments yet.</div> }
+            else
+            {
+                <div class="table-responsive"><table class="table table-hover">
+                    <thead><tr><th>Department</th><th>Parent</th><th>Head</th><th class="text-end">Employees</th><th>Status</th><th></th></tr></thead>
+                    <tbody>@foreach (var d in departments)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@d.Name @if (!string.IsNullOrEmpty(d.Code)) { <code class="small ms-1">@d.Code</code> }</td>
+                            <td class="small">@(d.ParentName ?? "—")</td>
+                            <td class="small">@(d.HeadName ?? "—")</td>
+                            <td class="text-end">@d.EmployeeCount</td>
+                            <td><span class="badge-status st-@d.IsActive.ToString().ToLowerInvariant()">@(d.IsActive ? "Active" : "Inactive")</span></td>
+                            <td class="text-end text-nowrap">
+                                <a class="btn btn-sm btn-soft" href="/org/structure/department/@d.Id">Edit</a>
+                                <form method="post" action="/org/structure/deletedepartment/@d.Id" asp-antiforgery="true" class="d-inline" data-confirm="Delete department @d.Name?" data-confirm-danger="1"><button class="btn btn-sm btn-outline-danger" type="submit" title="Delete"><i class="bi bi-trash"></i></button></form>
+                            </td>
+                        </tr>
+                    }</tbody>
+                </table></div>
+            }
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="designations">
+        <div class="card">
+            <div class="card-header">Designations
+                <button class="btn btn-sm btn-accent" data-bs-toggle="modal" data-bs-target="#designationModal"><i class="bi bi-plus-lg me-1"></i>Add designation</button></div>
+            @if (designations.Count == 0) { <div class="empty-state"><i class="bi bi-award"></i>No designations yet.</div> }
+            else
+            {
+                <div class="table-responsive"><table class="table table-hover">
+                    <thead><tr><th>Designation</th><th>Level</th><th class="text-end">Employees</th><th>Status</th><th></th></tr></thead>
+                    <tbody>@foreach (var d in designations)
+                    {
+                        <tr>
+                            <td><div class="fw-semibold">@d.Name</div><div class="small text-muted">@d.Description</div></td>
+                            <td>@(d.Level?.ToString() ?? "—")</td>
+                            <td class="text-end">@d.EmployeeCount</td>
+                            <td><span class="badge-status st-@d.IsActive.ToString().ToLowerInvariant()">@(d.IsActive ? "Active" : "Inactive")</span></td>
+                            <td class="text-end text-nowrap">
+                                <a class="btn btn-sm btn-soft" href="/org/structure/designation/@d.Id">Edit</a>
+                                <form method="post" action="/org/structure/deletedesignation/@d.Id" asp-antiforgery="true" class="d-inline" data-confirm="Delete designation @d.Name?" data-confirm-danger="1"><button class="btn btn-sm btn-outline-danger" type="submit" title="Delete"><i class="bi bi-trash"></i></button></form>
+                            </td>
+                        </tr>
+                    }</tbody>
+                </table></div>
+            }
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="settings">
+        <div class="row g-3">
+            <div class="col-lg-6">
+                <div class="card"><div class="card-header">Employee IDs &amp; defaults</div><div class="card-body">
+                    <form method="post" action="/org/structure/settings" asp-antiforgery="true" class="row g-3" novalidate>
+                        <div class="col-6"><label asp-for="@settings.EmployeeIdPrefix" class="form-label"></label><input asp-for="@settings.EmployeeIdPrefix" class="form-control text-uppercase" /><span asp-validation-for="@settings.EmployeeIdPrefix"></span></div>
+                        <div class="col-6"><label asp-for="@settings.EmployeeIdPadding" class="form-label"></label><input asp-for="@settings.EmployeeIdPadding" class="form-control" /></div>
+                        <div class="col-6"><label asp-for="@settings.NextEmployeeNumber" class="form-label"></label><input asp-for="@settings.NextEmployeeNumber" class="form-control" /></div>
+                        <div class="col-6 d-flex align-items-end"><div class="small text-muted">Next ID: <code>@(Model.EmployeeIdPrefix)@(Model.NextEmployeeNumber.ToString().PadLeft(Model.EmployeeIdPadding, '0'))</code></div></div>
+                        <div class="col-6"><label asp-for="@settings.DefaultNoticePeriodDays" class="form-label"></label><input asp-for="@settings.DefaultNoticePeriodDays" class="form-control" /></div>
+                        <div class="col-6"><label asp-for="@settings.DefaultProbationMonths" class="form-label"></label><input asp-for="@settings.DefaultProbationMonths" class="form-control" /></div>
+                        <div class="col-6"><label asp-for="@settings.OnTimePoints" class="form-label"></label><input asp-for="@settings.OnTimePoints" class="form-control" /></div>
+                        <div class="col-6"><label asp-for="@settings.LatePoints" class="form-label"></label><input asp-for="@settings.LatePoints" class="form-control" /></div>
+                        <div class="col-12"><button class="btn btn-accent" type="submit">Save settings</button></div>
+                    </form>
+                </div></div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card"><div class="card-header">Exit checklist template <span class="small text-muted fw-normal">copied to every approved exit</span></div>
+                    <ul class="list-group list-group-flush">
+                        @foreach (var item in checklist)
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent">
+                                <span>@item.Title <span class="badge text-bg-light border ms-1">@item.Owner</span></span>
+                                <form method="post" action="/org/structure/deletechecklistitem/@item.Id" asp-antiforgery="true"><button class="btn btn-sm btn-link text-danger" type="submit" title="Remove"><i class="bi bi-x-lg"></i></button></form>
+                            </li>
+                        }
+                        @if (checklist.Count == 0) { <li class="list-group-item text-muted small bg-transparent">No checklist items. Exits can be completed without a checklist.</li> }
+                    </ul>
+                    <div class="card-body border-top">
+                        <form method="post" action="/org/structure/addchecklistitem" asp-antiforgery="true" class="row g-2">
+                            <div class="col-7"><input name="title" class="form-control" placeholder="New item" maxlength="200" required aria-label="Checklist item" /></div>
+                            <div class="col-3"><input name="owner" class="form-control" placeholder="Owner" maxlength="50" required aria-label="Owner" /></div>
+                            <div class="col-2"><button class="btn btn-soft w-100" type="submit">Add</button></div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create modals (editing uses dedicated pages so validation messages show in place) -->
+<div class="modal fade" id="branchModal" tabindex="-1"><div class="modal-dialog modal-lg"><form class="modal-content" method="post" action="/org/structure/savebranch" asp-antiforgery="true" novalidate>
+    <div class="modal-header"><h5 class="modal-title">Add branch</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><partial name="_BranchFields" for="@branch" /></div>
+    <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Save branch</button></div>
+</form></div></div>
+
+<div class="modal fade" id="departmentModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" method="post" action="/org/structure/savedepartment" asp-antiforgery="true" novalidate>
+    <div class="modal-header"><h5 class="modal-title">Add department</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><partial name="_DepartmentFields" for="@department" /></div>
+    <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Save department</button></div>
+</form></div></div>
+
+<div class="modal fade" id="designationModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" method="post" action="/org/structure/savedesignation" asp-antiforgery="true" novalidate>
+    <div class="modal-header"><h5 class="modal-title">Add designation</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><partial name="_DesignationFields" for="@designation" /></div>
+    <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Save designation</button></div>
+</form></div></div>

@@ -1,0 +1,51 @@
+@model PlatformUserInput
+@{
+    var id = ViewBag.Id as int?;
+    var isNew = id is null;
+    ViewData["Title"] = isNew ? "Add platform user" : "Edit platform user";
+}
+<div class="page-head">
+    <div><h1>@ViewData["Title"]</h1>
+        <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/superadmin/users">Platform users</a></li><li class="breadcrumb-item active">@(isNew ? "New" : Model.FullName)</li></ol></nav></div>
+</div>
+<form asp-antiforgery="true" method="post" action="@(isNew ? "/superadmin/users/create" : $"/superadmin/users/edit/{id}")" novalidate>
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card"><div class="card-header">Account</div><div class="card-body row g-3">
+                <div class="col-12"><label asp-for="FullName" class="form-label"></label><input asp-for="FullName" class="form-control" /><span asp-validation-for="FullName"></span></div>
+                <div class="col-md-7"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control" /><span asp-validation-for="Email"></span></div>
+                <div class="col-md-5"><label asp-for="Phone" class="form-label"></label><input asp-for="Phone" class="form-control" /><span asp-validation-for="Phone"></span></div>
+                <div class="col-md-6"><label asp-for="Role" class="form-label"></label><select asp-for="Role" asp-items="Html.GetEnumSelectList<PlatformRole>()" class="form-select"></select></div>
+                <div class="col-md-6 d-flex align-items-end"><div class="form-check form-switch mb-2"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div></div>
+                <div class="col-12"><label asp-for="Password" class="form-label">@(isNew ? "Initial password" : "Reset password (leave blank to keep)")</label>
+                    <input asp-for="Password" class="form-control" autocomplete="new-password" /><div class="form-text">At least 10 characters. The user must change it at next sign-in.</div><span asp-validation-for="Password"></span></div>
+                <div class="col-12"><label asp-for="AllowedIps" class="form-label"></label><input asp-for="AllowedIps" class="form-control" placeholder="e.g. 203.0.113.10, 198.51.100.7" /><span asp-validation-for="AllowedIps"></span></div>
+            </div></div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card"><div class="card-header">Permissions</div><div class="card-body">
+                <p class="small text-muted">Each role grants a default set (shown as included). Tick extra permissions to grant them to this user only.</p>
+                @foreach (var role in Enum.GetValues<PlatformRole>())
+                {
+                    <div class="small mb-1" data-role-defaults="@role">
+                        <strong>@role:</strong> <span class="text-muted">@string.Join(", ", PlatformPermissions.ForRole(role).Select(p => PlatformPermissions.Descriptions[p]))</span>
+                    </div>
+                }
+                <hr />
+                @foreach (var (code, label) in PlatformPermissions.Descriptions)
+                {
+                    var included = PlatformPermissions.ForRole(Model.Role).Contains(code);
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="ExtraPermissions" value="@code" id="perm-@code" checked="@(included || Model.ExtraPermissions.Contains(code))" />
+                        <label class="form-check-label" for="perm-@code">@label <code class="small text-muted">@code</code></label>
+                    </div>
+                }
+            </div></div>
+        </div>
+    </div>
+    <div class="d-flex gap-2 justify-content-end mt-3">
+        <a href="/superadmin/users" class="btn btn-light border">Cancel</a>
+        <button type="submit" class="btn btn-accent">@(isNew ? "Add user" : "Save user")</button>
+    </div>
+</form>

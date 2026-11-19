@@ -1,0 +1,39 @@
+@model Codenexify.HRMS.Application.Documents.LetterTemplateInput
+@using Codenexify.HRMS.Domain.CoreHr
+@{
+    var id = ViewBag.Id as int?;
+    ViewData["Title"] = id is null ? "New letter template" : "Edit letter template";
+    var placeholders = (IReadOnlyList<Codenexify.HRMS.Application.Documents.PlaceholderInfo>)ViewBag.Placeholders;
+}
+<div class="page-head"><div><h1>@ViewData["Title"]</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/letters/templates">Letter templates</a></li><li class="breadcrumb-item active">@(Model.Name.Length > 0 ? Model.Name : "New")</li></ol></nav></div></div>
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card"><div class="card-body">
+            <form method="post" action="/org/letters/templates/edit/@id" asp-antiforgery="true" class="row g-3" novalidate>
+                <div asp-validation-summary="All" class="alert alert-danger py-2 small col-12"></div>
+                <div class="col-md-7"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /></div>
+                <div class="col-md-5"><label asp-for="Kind" class="form-label">Type</label><select asp-for="Kind" class="form-select" asp-items="Html.GetEnumSelectList<LetterKind>()"></select></div>
+                <div class="col-12"><label asp-for="Subject" class="form-label"></label><input asp-for="Subject" class="form-control" /></div>
+                <div class="col-12"><label asp-for="Body" class="form-label">Letter text</label>
+                    <textarea asp-for="Body" rows="18" class="form-control font-monospace small"></textarea>
+                    <div class="form-text">Leave a blank line between paragraphs. Use <code>**bold**</code> for emphasis and start a line with <code>- </code> for a bullet. The letterhead, reference, date and signature are added automatically.</div></div>
+                <div class="col-12"><div class="form-check form-switch"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div></div>
+                <div class="col-12 d-flex justify-content-end gap-2"><a href="/org/letters/templates" class="btn btn-light border">Cancel</a><button class="btn btn-accent" type="submit">Save template</button></div>
+            </form>
+        </div></div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card"><div class="card-header">Placeholders</div>
+            <div class="card-body small">
+                <p class="text-muted">Type these exactly; they are replaced with the employee's details when you issue the letter.</p>
+                <dl class="mb-0">
+                    @foreach (var p in placeholders)
+                    {
+                        <dt><code>@("{{" + p.Key + "}}")</code></dt><dd class="text-muted mb-1">@p.Description</dd>
+                    }
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>

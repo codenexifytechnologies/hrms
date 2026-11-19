@@ -1,0 +1,31 @@
+@model LeaveTypeInput
+@{
+    var id = ViewBag.Id as int?;
+    ViewData["Title"] = id is null ? "Add leave type" : $"Edit {Model.Name}";
+}
+<div class="page-head"><div><h1>@ViewData["Title"]</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/leave#types">Leave</a></li><li class="breadcrumb-item active">@(id is null ? "New type" : Model.Code)</li></ol></nav></div></div>
+<div class="card" style="max-width: 860px"><div class="card-body">
+    <form method="post" action="/org/leave/type/@id" asp-antiforgery="true" class="row g-3" novalidate>
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small col-12"></div>
+        <div class="col-md-6"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name"></span></div>
+        <div class="col-md-3"><label asp-for="Code" class="form-label"></label><input asp-for="Code" class="form-control text-uppercase" /><span asp-validation-for="Code"></span></div>
+        <div class="col-md-3"><label asp-for="Color" class="form-label"></label><input asp-for="Color" type="color" class="form-control form-control-color w-100" /></div>
+        <div class="form-section-title col-12 mb-0">Entitlement</div>
+        <div class="col-md-4"><label asp-for="AnnualQuota" class="form-label"></label><input asp-for="AnnualQuota" class="form-control" step="0.5" /><div class="form-text">0 with "unpaid" = unlimited (e.g. loss of pay).</div><span asp-validation-for="AnnualQuota"></span></div>
+        <div class="col-md-4"><label asp-for="AccrualMethod" class="form-label"></label>
+            <select asp-for="AccrualMethod" class="form-select"><option value="@AccrualMethod.AnnualUpfront">All at start of year (pro-rated for new joiners)</option><option value="@AccrualMethod.Monthly">Monthly (1/12 each month)</option></select></div>
+        <div class="col-md-4 d-flex align-items-end"><div class="form-check form-switch mb-2"><input asp-for="IsPaid" class="form-check-input" /><label asp-for="IsPaid" class="form-check-label"></label></div></div>
+        <div class="col-md-4"><label asp-for="CarryForwardLimit" class="form-label"></label><input asp-for="CarryForwardLimit" class="form-control" step="0.5" /><div class="form-text">0 = unused leave lapses at year end.</div></div>
+        <div class="col-md-4"><label asp-for="MaxEncashableDaysPerYear" class="form-label"></label><input asp-for="MaxEncashableDaysPerYear" class="form-control" step="0.5" /></div>
+        <div class="col-md-4"><label asp-for="MinNoticeDays" class="form-label"></label><input asp-for="MinNoticeDays" class="form-control" /><div class="form-text">Applies to employee requests.</div></div>
+        <div class="form-section-title col-12 mb-0">Rules</div>
+        <div class="col-md-4"><label asp-for="ApplicableGender" class="form-label"></label><select asp-for="ApplicableGender" asp-items="Html.GetEnumSelectList<Gender>()" class="form-select"><option value="">Everyone</option></select></div>
+        <div class="col-md-4"><label asp-for="SortOrder" class="form-label"></label><input asp-for="SortOrder" class="form-control" /></div>
+        <div class="col-md-4 d-flex align-items-end gap-4">
+            <div class="form-check form-switch mb-2"><input asp-for="AllowHalfDay" class="form-check-input" /><label asp-for="AllowHalfDay" class="form-check-label"></label></div>
+            <div class="form-check form-switch mb-2"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div>
+        </div>
+        <div class="col-12 d-flex justify-content-end gap-2"><a href="/org/leave#types" class="btn btn-light border">Cancel</a><button class="btn btn-accent" type="submit">Save leave type</button></div>
+    </form>
+</div></div>

@@ -1,0 +1,15 @@
+@model BranchInput
+<div class="row g-3">
+    <div class="col-md-8"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name"></span></div>
+    <div class="col-md-4"><label asp-for="Code" class="form-label"></label><input asp-for="Code" class="form-control text-uppercase" /><span asp-validation-for="Code"></span></div>
+    <div class="col-12"><label asp-for="AddressLine" class="form-label"></label><input asp-for="AddressLine" class="form-control" /></div>
+    <div class="col-md-4"><label asp-for="City" class="form-label"></label><input asp-for="City" class="form-control" /></div>
+    <div class="col-md-4"><label asp-for="State" class="form-label"></label><input asp-for="State" class="form-control" /></div>
+    <div class="col-md-4"><label asp-for="PostalCode" class="form-label"></label><input asp-for="PostalCode" class="form-control" /></div>
+    <div class="col-md-6"><label asp-for="Country" class="form-label"></label><input asp-for="Country" class="form-control" /><span asp-validation-for="Country"></span></div>
+    <div class="col-md-6"><label asp-for="Phone" class="form-label"></label><input asp-for="Phone" class="form-control" /><span asp-validation-for="Phone"></span></div>
+    <div class="col-12 d-flex gap-4">
+        <div class="form-check form-switch"><input asp-for="IsHeadOffice" class="form-check-input" /><label asp-for="IsHeadOffice" class="form-check-label"></label></div>
+        <div class="form-check form-switch"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div>
+    </div>
+</div>

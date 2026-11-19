@@ -1,0 +1,86 @@
+@model BillingSummary
+@using Codenexify.HRMS.Application.Billing
+@{
+    ViewData["Title"] = "Revenue";
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    string Money(decimal v) => "₹" + v.ToString("N0", inr);
+    var granularity = (string)ViewBag.Granularity;
+    var payments = (IReadOnlyList<PaymentRow>)ViewBag.Payments;
+    var overdue = (IReadOnlyList<InvoiceRow>)ViewBag.Overdue;
+    var series = Model.Revenue.Select(r => new { label = r.Label, values = new[] { r.Collected, r.Invoiced } });
+}
+<div class="page-head">
+    <div><h1>Revenue &amp; billing</h1><div class="text-muted small">Collections, invoicing and outstanding dues · financial year from April</div></div>
+    <a href="/superadmin/billing/invoices" class="btn btn-accent"><i class="bi bi-receipt-cutoff me-1"></i>Invoices</a>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-sm-6 col-xl-3"><div class="card tone-green"><div class="card-body kpi">
+        <div class="kpi-icon"><i class="bi bi-cash-coin"></i></div>
+        <div><div class="kpi-label">Collected this month</div><div class="kpi-value">@Money(Model.CollectedThisMonth)</div><div class="kpi-sub">net of refunds</div></div>
+    </div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card tone-blue"><div class="card-body kpi">
+        <div class="kpi-icon"><i class="bi bi-calendar3"></i></div>
+        <div><div class="kpi-label">Collected this financial year</div><div class="kpi-value">@Money(Model.CollectedThisYear)</div><div class="kpi-sub">@Money(Model.RefundedThisYear) refunded</div></div>
+    </div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card tone-violet"><div class="card-body kpi">
+        <div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div>
+        <div><div class="kpi-label">Outstanding</div><div class="kpi-value">@Money(Model.Outstanding)</div><div class="kpi-sub">all open invoices</div></div>
+    </div></div></div>
+    <div class="col-sm-6 col-xl-3"><a class="card tone-red text-decoration-none text-reset" href="/superadmin/billing/invoices?overdueOnly=true"><div class="card-body kpi">
+        <div class="kpi-icon"><i class="bi bi-exclamation-octagon"></i></div>
+        <div><div class="kpi-label">Overdue</div><div class="kpi-value">@Money(Model.Overdue)</div><div class="kpi-sub">@Model.OverdueCount invoice(s)</div></div>
+    </div></a></div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header">Collected vs invoiced
+        <div class="btn-group btn-group-sm" role="group" aria-label="Period">
+            @foreach (var (key, label) in new[] { ("month", "Monthly"), ("quarter", "Quarterly"), ("year", "Yearly") })
+            {
+                <a class="btn @(granularity == key ? "btn-accent" : "btn-light border")" href="/superadmin/billing?view=@key">@label</a>
+            }
+        </div>
+    </div>
+    <div class="card-body" style="height: 320px"><canvas data-chart="bar" data-source="revenueData" data-label="Collected|Invoiced"></canvas></div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card h-100"><div class="card-header">Recent payments</div>
+            @if (payments.Count == 0) { <div class="empty-state"><i class="bi bi-cash-stack"></i>No payments yet.</div> }
+            else
+            {
+                <div class="table-responsive"><table class="table table-hover small mb-0">
+                    <thead><tr><th>Date</th><th>Invoice</th><th>Customer</th><th>Method</th><th class="text-end">Amount</th><th>Status</th></tr></thead>
+                    <tbody>@foreach (var p in payments)
+                    {
+                        <tr><td>@(p.PaidAtUtc?.ToLocalTime().ToString("dd MMM yyyy") ?? "—")</td><td><a href="/superadmin/billing/invoices/@p.InvoiceId">@p.InvoiceNumber</a></td>
+                            <td>@p.OrganizationName</td><td>@p.Method</td><td class="text-end">@Money(p.Amount)</td><td><span class="badge-status st-@p.Status">@p.Status</span></td></tr>
+                    }</tbody>
+                </table></div>
+            }
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100"><div class="card-header">Overdue invoices</div>
+            @if (overdue.Count == 0) { <div class="empty-state"><i class="bi bi-check2-circle"></i>Nothing overdue.</div> }
+            else
+            {
+                <div class="table-responsive"><table class="table table-hover small mb-0">
+                    <thead><tr><th>Invoice</th><th>Customer</th><th>Due</th><th class="text-end">Balance</th></tr></thead>
+                    <tbody>@foreach (var i in overdue)
+                    {
+                        <tr><td><a href="/superadmin/billing/invoices/@i.Id">@i.Number</a></td><td>@i.OrganizationName</td><td class="text-danger">@i.DueDate.ToString("dd MMM yyyy")</td><td class="text-end">@Money(i.Balance)</td></tr>
+                    }</tbody>
+                </table></div>
+            }
+        </div>
+    </div>
+</div>
+
+<script type="application/json" id="revenueData">@Json.Serialize(series)</script>
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="~/js/charts.js" asp-append-version="true"></script>
+}

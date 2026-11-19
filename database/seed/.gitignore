@@ -1,0 +1,2 @@
+# Contains Control Center password hashes: generate it when needed, never commit it.
+110_SuperAdmins.sql

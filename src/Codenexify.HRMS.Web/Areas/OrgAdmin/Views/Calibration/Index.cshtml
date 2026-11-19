@@ -1,0 +1,86 @@
+@model Codenexify.HRMS.Application.Performance.CalibrationBoard
+@using Codenexify.HRMS.Application.Performance
+@{
+    var c = Model.Cycle;
+    ViewData["Title"] = $"Calibration: {c.Name}";
+    var departmentId = ViewBag.DepartmentId as int?;
+    var reviewerId = ViewBag.ReviewerId as int?;
+    var labels = c.RatingLabels.Split('|', StringSplitOptions.TrimEntries);
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+}
+<div class="page-head">
+    <div><h1>Calibration board</h1><div class="text-muted small"><a href="/org/reviews/@c.Id">@c.Name</a> · compare ratings across teams and move people where needed, with a reason</div></div>
+</div>
+
+@if (!Model.CanAdjust) { <div class="alert alert-secondary small"><i class="bi bi-lock me-1"></i>Results have been shared, so ratings can no longer change. The board is read-only.</div> }
+
+<div class="card mb-3"><div class="card-body">
+    <form method="get" action="/org/reviews/@c.Id/calibration" class="row g-2 align-items-end">
+        <div class="col-md-4"><label class="form-label small" for="cb-dept">Department</label>
+            <select class="form-select form-select-sm" id="cb-dept" name="departmentId" data-autosubmit><option value="">All</option>
+                @foreach (var d in Model.Departments) { <option value="@d.Id" selected="@(departmentId == d.Id)">@d.Name</option> }</select></div>
+        <div class="col-md-4"><label class="form-label small" for="cb-rev">Reviewer</label>
+            <select class="form-select form-select-sm" id="cb-rev" name="reviewerId" data-autosubmit><option value="">All</option>
+                @foreach (var r in Model.Reviewers) { <option value="@r.Id" selected="@(reviewerId == r.Id)">@r.Name</option> }</select></div>
+        <div class="col-md-4 small text-muted">@Model.Total rated@(Model.NotYetRated > 0 ? $" · {Model.NotYetRated} manager review(s) not submitted yet" : "")</div>
+    </form>
+</div></div>
+
+<div class="row g-3 mb-3">
+    @foreach (var col in Model.Columns)
+    {
+        var pct = Model.Percent(col);
+        var off = col.TargetPercent is decimal t && Math.Abs(pct - t) > 5;
+        <div class="col-md">
+            <div class="card h-100">
+                <div class="card-header">
+                    <div class="fw-semibold">@col.Rating · @col.Label</div>
+                    <div class="small @(off ? "text-danger" : "text-muted")">@col.Count (@pct.ToString("0.#")%)@(col.TargetPercent is decimal tg ? $" · target {tg:0.#}%" : "")</div>
+                    @if (col.TargetPercent is decimal tp)
+                    {
+                        <div class="progress mt-1" style="height: 5px" role="progressbar" aria-label="Share vs target" aria-valuenow="@pct" aria-valuemin="0" aria-valuemax="100">
+                            <div class="progress-bar @(off ? "bg-danger" : "")" style="width: @(Math.Min(100, pct).ToString(inv))%"></div></div>
+                    }
+                </div>
+                <ul class="list-group list-group-flush small">
+                    @foreach (var e in col.Entries)
+                    {
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between gap-1"><a class="fw-semibold" href="/org/reviews/r/@e.ReviewId">@e.EmployeeName</a>
+                                @if (e.Adjusted) { <span class="badge text-bg-info" title="@e.AdjustmentNote">was @e.ManagerRating</span> }</div>
+                            <div class="text-muted">@(e.Department ?? "—") · @(e.Reviewer ?? "HR")</div>
+                            @if (Model.CanAdjust)
+                            {
+                                <details class="mt-1"><summary class="text-primary">Move</summary>
+                                    <form method="post" action="/org/reviews/@c.Id/calibration/move" asp-antiforgery="true" class="mt-1">
+                                        <input type="hidden" name="reviewId" value="@e.ReviewId" />
+                                        @if (departmentId is int dd) { <input type="hidden" name="departmentId" value="@dd" /> }
+                                        @if (reviewerId is int rr) { <input type="hidden" name="reviewerId" value="@rr" /> }
+                                        <select class="form-select form-select-sm mb-1" name="rating" aria-label="New rating for @e.EmployeeName">
+                                            @for (var v = 5; v >= 1; v--) { <option value="@v" selected="@(v == e.Rating)">@v · @labels.ElementAtOrDefault(v - 1)</option> }</select>
+                                        <input class="form-control form-control-sm mb-1" name="note" maxlength="500" placeholder="Reason (required for a change)" aria-label="Reason" value="@e.AdjustmentNote" />
+                                        <button class="btn btn-sm btn-accent w-100" type="submit">Save</button>
+                                    </form>
+                                </details>
+                            }
+                        </li>
+                    }
+                    @if (col.Count == 0) { <li class="list-group-item text-muted">Nobody</li> }
+                </ul>
+            </div>
+        </div>
+    }
+</div>
+
+<div class="card" style="max-width: 760px"><div class="card-header">Target distribution</div><div class="card-body">
+    <form method="post" action="/org/reviews/@c.Id/calibration/targets" asp-antiforgery="true" class="row g-2 align-items-end">
+        @for (var v = 1; v <= 5; v++)
+        {
+            var t = Model.Columns.First(x => x.Rating == v).TargetPercent;
+            <div class="col"><label class="form-label small" for="tg-@v">@v · @labels.ElementAtOrDefault(v - 1)</label>
+                <div class="input-group input-group-sm"><input class="form-control" id="tg-@v" name="percents" value="@((t ?? 0).ToString("0.#", inv))" inputmode="decimal" /><span class="input-group-text">%</span></div></div>
+        }
+        <div class="col-auto"><button class="btn btn-sm btn-light border" type="submit">Save</button></div>
+        <div class="col-12 form-text">A guide, not a quota: the board flags columns more than 5 points away. All zero removes the targets; otherwise they must add up to 100.</div>
+    </form>
+</div></div>

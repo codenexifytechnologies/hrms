@@ -1,0 +1,17 @@
+@model Codenexify.HRMS.Application.Support.MaintenanceState
+@{
+    ViewData["Title"] = "Scheduled maintenance";
+    var ist = TimeZoneInfo.CreateCustomTimeZone("IST", TimeSpan.FromHours(5.5), "IST", "IST");
+}
+<div class="container py-5">
+    <div class="empty-state">
+        <i class="bi bi-tools"></i>
+        <h1 class="h2 fw-bold">We'll be right back</h1>
+        <p class="text-muted mb-1">@(Model.Message ?? "We are carrying out scheduled maintenance to improve the service.")</p>
+        @if (Model.UntilUtc is { } until)
+        {
+            <p class="text-muted">Expected back by <strong>@TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(until, DateTimeKind.Utc), ist).ToString("dd MMM yyyy, hh:mm tt") IST</strong>.</p>
+        }
+        <p class="small text-muted">Your data is safe. Please try again shortly.</p>
+    </div>
+</div>

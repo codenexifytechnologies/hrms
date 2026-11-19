@@ -1,0 +1,26 @@
+@model Codenexify.HRMS.Application.Performance.SkillProfile
+@using Codenexify.HRMS.Application.Performance
+@{
+    ViewData["Title"] = $"{Model.EmployeeName}: skills";
+    var catalog = (IReadOnlyList<SkillRow>)ViewBag.Catalog;
+    var listed = Model.Lines.Select(l => l.SkillId).ToHashSet();
+    ViewData["Mode"] = "assess";
+    ViewData["Action"] = $"/me/skills/people/{Model.EmployeeId}";
+}
+<div class="page-head">
+    <div><h1>@Model.EmployeeName</h1><div class="text-muted small"><a href="/me/skills">Skills</a>@(Model.Designation is null ? "" : $" · {Model.Designation}")</div></div>
+</div>
+<div class="card mb-3">@{ await Html.RenderPartialAsync("_SkillTable", Model, ViewData); }</div>
+@if (Model.CanAssess && catalog.Count > 0)
+{
+    <div class="card"><div class="card-header">Assess another skill</div><div class="card-body">
+        <form method="post" action="/me/skills/people/@Model.EmployeeId" asp-antiforgery="true" class="row g-2">
+            <div class="col-md-5"><select class="form-select" name="skillId" required aria-label="Skill"><option value="">Choose a skill…</option>
+                @foreach (var g in catalog.Where(s => !listed.Contains(s.Id)).GroupBy(s => s.Category)) { <optgroup label="@g.Key">@foreach (var s in g) { <option value="@s.Id">@s.Name</option> }</optgroup> }
+            </select></div>
+            <div class="col-md-3"><select class="form-select" name="level" aria-label="Level">@for (var i = 1; i <= 5; i++) { <option value="@i" selected="@(i == 3)">@i · @SkillService.LevelName(i)</option> }</select></div>
+            <div class="col-md-3"><input class="form-control" name="note" maxlength="500" placeholder="Note (optional)" aria-label="Note" /></div>
+            <div class="col-md-1"><button class="btn btn-accent w-100" type="submit">Save</button></div>
+        </form>
+    </div></div>
+}

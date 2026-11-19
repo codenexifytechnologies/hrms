@@ -1,0 +1,57 @@
+@model Codenexify.HRMS.Application.Support.TicketView
+@using Codenexify.HRMS.Domain.Support
+@{
+    var t = Model.Ticket;
+    ViewData["Title"] = $"#{t.Id} {t.Subject}";
+    var assignees = (List<SelectListItem>)ViewBag.Assignees;
+}
+<div class="page-head">
+    <div><h1 class="h3">#@t.Id · @t.Subject <span class="badge-status st-@t.Status align-middle">@t.Status</span></h1>
+        <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/superadmin/support">Support</a></li><li class="breadcrumb-item active">#@t.Id</li></ol></nav></div>
+</div>
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card mb-3"><div class="card-body"><partial name="_TicketThread" model="Model" /></div></div>
+        <div class="card"><div class="card-header">Reply</div><div class="card-body">
+            <form method="post" action="/superadmin/support/tickets/@t.Id/reply" asp-antiforgery="true">
+                <label class="visually-hidden" for="rb">Message</label>
+                <textarea id="rb" name="body" rows="5" maxlength="4000" class="form-control mb-2" required placeholder="Write to the customer, or add an internal note"></textarea>
+                <div class="d-flex flex-wrap gap-3 align-items-center">
+                    <div class="form-check"><input class="form-check-input" type="checkbox" id="ri" name="internalNote" value="true" /><label class="form-check-label small" for="ri">Internal note (not visible to the customer)</label></div>
+                    <div class="d-flex align-items-center gap-2 ms-auto">
+                        <label class="small text-muted" for="rs">Then set status</label>
+                        <select id="rs" name="status" class="form-select form-select-sm w-auto">
+                            <option value="">Waiting on customer (default)</option>
+                            <option value="InProgress">In progress</option>
+                            <option value="Resolved">Resolved</option>
+                        </select>
+                        <button class="btn btn-accent" type="submit"><i class="bi bi-send me-1"></i>Send</button>
+                    </div>
+                </div>
+            </form>
+        </div></div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card mb-3"><div class="card-header">Ticket</div><div class="card-body small">
+            <dl class="row mb-0">
+                <dt class="col-5">Organization</dt><dd class="col-7"><a href="/superadmin/organizations/details/@t.OrganizationId">@Model.OrganizationName</a></dd>
+                <dt class="col-5">Raised by</dt><dd class="col-7">@t.RaisedByName<div class="text-muted">@t.RaisedByEmail</div></dd>
+                <dt class="col-5">Category</dt><dd class="col-7">@t.Category</dd>
+                <dt class="col-5">Opened</dt><dd class="col-7">@t.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</dd>
+                <dt class="col-5">First response</dt><dd class="col-7">@(t.FirstResponseAtUtc is { } fr ? $"{fr.ToLocalTime():dd MMM, HH:mm} ({(fr - t.CreatedAtUtc).TotalHours:0.#} h)" : "Not yet")</dd>
+                @if (t.ResolvedAtUtc is { } r) { <dt class="col-5">Resolved</dt><dd class="col-7">@r.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</dd> }
+            </dl>
+        </div></div>
+        <div class="card"><div class="card-header">Triage</div><div class="card-body">
+            <form method="post" action="/superadmin/support/tickets/@t.Id/update" asp-antiforgery="true" class="d-grid gap-2">
+                <div><label class="form-label small" for="us">Status</label>
+                    <select id="us" name="status" class="form-select">@foreach (var s in Enum.GetValues<TicketStatus>()) { <option value="@s" selected="@(t.Status == s)">@s</option> }</select></div>
+                <div><label class="form-label small" for="up">Priority</label>
+                    <select id="up" name="priority" class="form-select">@foreach (var p in Enum.GetValues<TicketPriority>()) { <option value="@p" selected="@(t.Priority == p)">@p</option> }</select></div>
+                <div><label class="form-label small" for="ua">Assigned to</label>
+                    <select id="ua" name="assigneeId" class="form-select"><option value="">Unassigned</option>@foreach (var a in assignees) { <option value="@a.Value" selected="@a.Selected">@a.Text</option> }</select></div>
+                <button class="btn btn-soft" type="submit">Update</button>
+            </form>
+        </div></div>
+    </div>
+</div>

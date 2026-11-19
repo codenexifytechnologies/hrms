@@ -1,0 +1,41 @@
+@model Codenexify.HRMS.Web.Controllers.ForgotPasswordViewModel
+@{
+    var platform = (string?)ViewData["Portal"] == "platform";
+    ViewData["Title"] = "Forgot password";
+    ViewData["HideNav"] = true;
+    ViewData["AuthMode"] = platform ? "platform" : "company";
+    if (platform) { ViewData["BodyClass"] = "portal-platform"; }
+    Layout = "_PublicLayout";
+    var action = platform ? "/superadmin/account/forgot-password" : "/forgot-password";
+    var back = platform ? "/superadmin/account/login" : "/login" + (string.IsNullOrEmpty(Model.CompanyCode) ? "" : "?company=" + Uri.EscapeDataString(Model.CompanyCode));
+}
+@section Styles { <link rel="stylesheet" href="~/css/auth.css" asp-append-version="true" /> }
+<div class="ax-wrap">
+    <partial name="_AuthAside" />
+    <div class="ax-panel">
+        <div class="ax-card">
+            <span class="ax-eyebrow">@(platform ? "Control Center" : "Account help")</span>
+            <h1 class="ax-title">Forgot your password?</h1>
+            <p class="ax-sub">@(platform ? "Enter your staff email. We'll send a link to choose a new password." : "Enter your company code and work email. We'll send a link to choose a new password.")</p>
+            <form method="post" action="@action" asp-antiforgery="true" novalidate>
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+                @if (!platform)
+                {
+                    <div class="ax-field">
+                        <label asp-for="CompanyCode" class="form-label"></label>
+                        <div class="ax-input"><i class="bi bi-buildings"></i><input asp-for="CompanyCode" class="form-control" autocomplete="organization" placeholder="e.g. acme" data-val="true" data-val-required="Enter your company code." /></div>
+                        <span asp-validation-for="CompanyCode" class="small text-danger"></span>
+                    </div>
+                }
+                <div class="ax-field">
+                    <label asp-for="Email" class="form-label"></label>
+                    <div class="ax-input"><i class="bi bi-envelope"></i><input asp-for="Email" class="form-control" autocomplete="username" placeholder="you@company.com" /></div>
+                    <span asp-validation-for="Email" class="small text-danger"></span>
+                </div>
+                <button type="submit" class="btn ax-submit w-100 mt-2"><i class="bi bi-send me-2"></i>Email me a reset link</button>
+            </form>
+            <p class="ax-foot-note"><a href="@back"><i class="bi bi-arrow-left me-1"></i>Back to sign in</a></p>
+        </div>
+    </div>
+</div>
+@section Scripts { <script src="~/js/auth.js" asp-append-version="true"></script> }

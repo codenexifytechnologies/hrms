@@ -1,0 +1,52 @@
+@model TodayStatus
+@inject Codenexify.HRMS.Application.Strength.IOfficeLocationService Locations
+@inject Codenexify.HRMS.Application.Subscriptions.IFeatureAccessService FeatureAccess
+@inject Codenexify.HRMS.Application.Time.IAttendanceService AttendanceSettings
+@{
+    string Hm(int m) => $"{m / 60}h {m % 60:00}m";
+    // Location is requested from the device only when the organization switched GPS attendance on.
+    var features = await FeatureAccess.GetEnabledFeaturesAsync(User.GetOrganizationId()!.Value);
+    var mode = features.Contains(FeatureCodes.GpsAttendance) ? await Locations.ModeAsync() : Codenexify.HRMS.Domain.Strength.GeoAttendanceMode.Off;
+    var enforce = mode == Codenexify.HRMS.Domain.Strength.GeoAttendanceMode.Enforce && features.Contains(FeatureCodes.GeoFencing);
+    var selfie = await AttendanceSettings.SelfieRequiredAsync();
+}
+<div class="card mb-3">
+    <div class="card-header">Today · @Model.Date.ToString("ddd, dd MMM") <partial name="_AttendanceStatus" model="Model.Status" /></div>
+    <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+            <div class="small text-muted">@(Model.ShiftName is null ? "No shift" : $"{Model.ShiftName} shift · {Model.ShiftStart:HH\\:mm}–{Model.ShiftEnd:HH\\:mm}")@(Model.HolidayName is null ? "" : $" · Holiday: {Model.HolidayName}")@(Model.IsWorkingDay || Model.HolidayName is not null ? "" : " · Weekly off")</div>
+            <div class="fs-3 fw-bold">@Hm(Model.WorkedMinutes)</div>
+            <div class="small text-muted">
+                @if (Model.Punches.Count == 0) { <span>No punches yet</span> }
+                else { @string.Join(" · ", Model.Punches.Select(p => $"{(p.Direction == PunchDirection.In ? "In" : "Out")} {p.LocalTime:HH:mm}")) }
+            </div>
+        </div>
+        <form method="post" action="/me/attendance/punch" asp-antiforgery="true" class="text-end" data-geo-punch="@(mode != Codenexify.HRMS.Domain.Strength.GeoAttendanceMode.Off ? "1" : null)" data-geo-required="@(enforce ? "1" : "0")"
+              data-selfie-punch="@(selfie ? "1" : null)">
+            <input type="hidden" name="latitude" /><input type="hidden" name="longitude" /><input type="hidden" name="accuracy" /><input type="hidden" name="selfie" />
+            <button class="btn btn-lg @(Model.IsClockedIn ? "btn-outline-danger" : "btn-accent") px-4" type="submit">
+                <i class="bi @(Model.IsClockedIn ? "bi-box-arrow-right" : "bi-box-arrow-in-right") me-1"></i>@(Model.IsClockedIn ? "Clock out" : "Clock in")
+            </button>
+            @if (mode != Codenexify.HRMS.Domain.Strength.GeoAttendanceMode.Off)
+            {
+                <div class="small text-muted mt-1" data-geo-status><i class="bi bi-geo-alt me-1"></i>@(enforce ? "Clock-in needs your location (office geo-fence)." : "Your location is recorded with each clock-in/out.")</div>
+            }
+            @if (selfie)
+            {
+                <div class="small text-muted mt-1"><i class="bi bi-camera me-1"></i>A photo is taken with each clock-in/out and visible to HR.</div>
+            }
+        </form>
+        @if (selfie)
+        {
+            <div class="modal fade" id="selfieModal" tabindex="-1" aria-labelledby="selfieTitle" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+                <div class="modal-header"><h2 class="modal-title fs-6" id="selfieTitle">Clock-in photo</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                <div class="modal-body text-center">
+                    <video class="rounded w-100 bg-dark" autoplay playsinline muted data-selfie-video></video>
+                    <div class="small text-muted mt-2" data-selfie-status>Starting the camera…</div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-accent" data-selfie-capture disabled><i class="bi bi-camera me-1"></i>Take photo &amp; continue</button></div>
+            </div></div></div>
+        }
+    </div>
+</div>

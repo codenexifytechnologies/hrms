@@ -1,0 +1,93 @@
+@model Codenexify.HRMS.Application.Common.PagedResult<Codenexify.HRMS.Application.Engagement.PostView>
+@using Codenexify.HRMS.Domain.Engagement
+@{
+    ViewData["Title"] = "Social wall";
+    var kind = ViewBag.Kind as PostKind?;
+    var canModerate = (bool)ViewBag.CanModerate;
+    var badges = (IReadOnlyList<string>)ViewBag.Badges;
+    var colleagues = (IReadOnlyList<Codenexify.HRMS.Application.Common.LookupOption>)ViewBag.Colleagues;
+}
+<div class="page-head">
+    <div><h1>Social wall</h1><div class="text-muted small">Share news, thank colleagues and ask the team</div></div>
+</div>
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card mb-3">
+            <div class="card-header p-0 border-bottom-0">
+                <ul class="nav nav-tabs px-3 pt-2 w-100" role="tablist">
+                    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#c-post" type="button"><i class="bi bi-pencil me-1"></i>Post</button></li>
+                    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#c-praise" type="button"><i class="bi bi-award me-1"></i>Praise</button></li>
+                    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#c-poll" type="button"><i class="bi bi-bar-chart me-1"></i>Poll</button></li>
+                    @if (canModerate) { <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#c-ann" type="button"><i class="bi bi-megaphone me-1"></i>Announcement</button></li> }
+                </ul>
+            </div>
+            <div class="card-body tab-content">
+                <div class="tab-pane fade show active" id="c-post">
+                    <form method="post" action="/me/wall/post" asp-antiforgery="true">
+                        <label class="visually-hidden" for="pb">What's on your mind?</label>
+                        <textarea id="pb" name="post.Body" rows="3" maxlength="2000" class="form-control mb-2" placeholder="Share an update with everyone…" required></textarea>
+                        <div class="d-flex justify-content-between align-items-center"><span class="small text-muted">Visible to everyone in the organization.</span><button class="btn btn-accent" type="submit">Post</button></div>
+                    </form>
+                </div>
+                <div class="tab-pane fade" id="c-praise">
+                    <form method="post" action="/me/wall/praise" asp-antiforgery="true" class="row g-2">
+                        <div class="col-md-7"><label class="form-label small" for="pr-who">Colleagues (hold Ctrl to pick several)</label>
+                            <select id="pr-who" name="praise.EmployeeIds" class="form-select" multiple size="5" required>
+                                @foreach (var c in colleagues) { <option value="@c.Id">@c.Name@(c.Hint is null ? "" : $" — {c.Hint}")</option> }
+                            </select></div>
+                        <div class="col-md-5"><label class="form-label small" for="pr-badge">Badge</label>
+                            <select id="pr-badge" name="praise.Badge" class="form-select">@foreach (var b in badges) { <option>@b</option> }</select></div>
+                        <div class="col-12"><label class="form-label small" for="pr-body">Why?</label><textarea id="pr-body" name="praise.Body" rows="2" maxlength="1000" class="form-control" required placeholder="Thanks for staying late to close the payroll on time!"></textarea></div>
+                        <div class="col-12 text-end"><button class="btn btn-accent" type="submit"><i class="bi bi-award me-1"></i>Give praise</button></div>
+                    </form>
+                </div>
+                <div class="tab-pane fade" id="c-poll">
+                    <form method="post" action="/me/wall/poll" asp-antiforgery="true" class="row g-2">
+                        <div class="col-12"><label class="form-label small" for="po-q">Question</label><input id="po-q" name="poll.Question" maxlength="500" class="form-control" required /></div>
+                        @for (var i = 0; i < 6; i++)
+                        {
+                            <div class="col-md-6"><label class="visually-hidden" for="po-o@(i)">Option @(i + 1)</label><input id="po-o@(i)" name="poll.Options[@(i)]" maxlength="150" class="form-control form-control-sm" placeholder="Option @(i + 1)@(i < 2 ? "" : " (optional)")" required="@(i < 2)" /></div>
+                        }
+                        <div class="col-md-4"><label class="form-label small" for="po-d">Open for (days)</label><input id="po-d" name="poll.Days" type="number" min="1" max="30" value="3" class="form-control form-control-sm" /></div>
+                        <div class="col-md-8 d-flex align-items-end justify-content-end"><button class="btn btn-accent" type="submit">Publish poll</button></div>
+                    </form>
+                </div>
+                @if (canModerate)
+                {
+                    <div class="tab-pane fade" id="c-ann">
+                        <form method="post" action="/me/wall/announce" asp-antiforgery="true" class="row g-2">
+                            <div class="col-12"><label class="form-label small" for="an-t">Title</label><input id="an-t" name="announcement.Title" maxlength="150" class="form-control" required /></div>
+                            <div class="col-12"><label class="form-label small" for="an-b">Message</label><textarea id="an-b" name="announcement.Body" rows="3" maxlength="2000" class="form-control" required></textarea></div>
+                            <div class="col-md-4"><label class="form-label small" for="an-p">Pin for (days, 0 = no)</label><input id="an-p" name="announcement.PinDays" type="number" min="0" max="60" value="7" class="form-control form-control-sm" /></div>
+                            <div class="col-md-8 d-flex align-items-end gap-3">
+                                <div class="form-check"><input class="form-check-input" type="checkbox" id="an-n" name="announcement.Notify" value="true" checked /><label class="form-check-label small" for="an-n">Notify everyone</label></div>
+                                <div class="form-check"><input class="form-check-input" type="checkbox" id="an-c" name="announcement.AllowComments" value="true" checked /><label class="form-check-label small" for="an-c">Allow comments</label></div>
+                                <button class="btn btn-accent ms-auto" type="submit">Publish</button>
+                            </div>
+                        </form>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mb-3" role="group" aria-label="Filter posts">
+            <a class="btn btn-sm @(kind is null ? "btn-accent" : "btn-light border")" href="/me/wall">All</a>
+            @foreach (var (k, label) in new[] { (PostKind.Announcement, "Announcements"), (PostKind.Praise, "Praise"), (PostKind.Poll, "Polls"), (PostKind.Post, "Posts") })
+            {
+                <a class="btn btn-sm @(kind == k ? "btn-accent" : "btn-light border")" href="/me/wall?kind=@k">@label</a>
+            }
+        </div>
+
+        @if (Model.Items.Count == 0)
+        {
+            <div class="card"><div class="empty-state"><i class="bi bi-chat-square-heart"></i>Nothing here yet. Be the first to post!</div></div>
+        }
+        @foreach (var post in Model.Items) { <partial name="_PostCard" model="post" /> }
+        @if (Model.TotalPages > 1) { <div class="card"><partial name="_Pager" model="Model.ToPager()" /></div> }
+    </div>
+    <div class="col-lg-4">
+        <div class="card"><div class="card-header">Community guidelines</div>
+            <div class="card-body small text-muted">Be kind and professional. Everyone in the organization can see posts. Don't share salaries, personal documents, Aadhaar or bank details here. HR can remove posts that break the rules.</div>
+        </div>
+    </div>
+</div>

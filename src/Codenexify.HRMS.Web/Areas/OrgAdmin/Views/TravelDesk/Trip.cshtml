@@ -1,0 +1,55 @@
+@model Codenexify.HRMS.Application.Strength.TravelView
+@using Codenexify.HRMS.Domain.Strength
+@{
+    var t = Model.Request;
+    ViewData["Title"] = $"{t.FromCity} → {t.ToCity}";
+    ViewData["TicketUrl"] = $"/org/travel/{t.Id}/ticket";
+    var today = DateOnly.FromDateTime(DateTime.Today);
+}
+<div class="page-head"><div><h1>@t.FromCity → @t.ToCity</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/travel">Travel desk</a></li><li class="breadcrumb-item active">@Model.EmployeeName</li></ol></nav></div></div>
+<div class="row g-3">
+    <div class="col-lg-7"><partial name="_TravelDetails" model="Model" /></div>
+    <div class="col-lg-5">
+        @if (Model.CanDecide)
+        {
+            <div class="card mb-3 tone-amber"><div class="card-header">Approve</div><div class="card-body">
+                <p class="small text-muted">No active manager can approve this trip, so the travel desk decides.</p>
+                <form method="post" action="/org/travel/@t.Id/decide" asp-antiforgery="true">
+                    <label class="form-label small" for="dn">Note (required to reject)</label><input id="dn" name="note" maxlength="500" class="form-control mb-2" />
+                    <div class="d-flex justify-content-between"><button class="btn btn-outline-danger" type="submit" name="approve" value="false">Reject</button>
+                        <button class="btn btn-accent" type="submit" name="approve" value="true">Approve</button></div>
+                </form>
+            </div></div>
+        }
+        @if (Model.CanBook)
+        {
+            <div class="card mb-3"><div class="card-header">@(t.Status == TravelStatus.Booked ? "Update booking" : "Book")</div><div class="card-body">
+                <form method="post" action="/org/travel/@t.Id/book" asp-antiforgery="true" enctype="multipart/form-data">
+                    <label class="form-label small" for="bd">Booking details</label>
+                    <textarea id="bd" name="details" rows="4" maxlength="2000" required class="form-control mb-2" placeholder="PNR / flight or train number, timings, hotel name and confirmation number…">@t.BookingDetails</textarea>
+                    <div class="row g-2 mb-2">
+                        <div class="col-5"><label class="form-label small" for="bc">Cost (₹)</label><input id="bc" name="bookedCost" type="number" min="0" step="0.01" value="@t.BookedCost" class="form-control" /></div>
+                        <div class="col-7"><label class="form-label small" for="bt">Ticket (PDF/PNG/JPG, 5 MB)</label><input id="bt" name="ticket" type="file" accept=".pdf,.png,.jpg,.jpeg" class="form-control" /></div>
+                    </div>
+                    <div class="text-end"><button class="btn btn-accent" type="submit">Save booking</button></div>
+                </form>
+            </div></div>
+        }
+        @if (t.Status is TravelStatus.Approved or TravelStatus.Booked or TravelStatus.Completed)
+        {
+            <div class="card mb-3"><div class="card-header">Advance paid</div><div class="card-body">
+                <form method="post" action="/org/travel/@t.Id/advance" asp-antiforgery="true" class="row g-2 align-items-end">
+                    <div class="col-5"><label class="form-label small" for="aa">Amount (₹)</label><input id="aa" name="amount" type="number" min="1" step="0.01" required value="@(t.AdvancePaid ?? t.AdvanceRequested)" class="form-control" /></div>
+                    <div class="col-4"><label class="form-label small" for="ap">Paid on</label><input id="ap" name="paidOn" type="date" required max="@today.ToString("yyyy-MM-dd")" value="@((t.AdvancePaidOn ?? today).ToString("yyyy-MM-dd"))" class="form-control" /></div>
+                    <div class="col-3"><button class="btn btn-soft w-100" type="submit">Save</button></div>
+                </form>
+                <div class="form-text">Pay the advance outside the system (bank transfer or cash) and record it here; it's adjusted when the employee claims expenses.</div>
+            </div></div>
+        }
+        @if (t.Status == TravelStatus.Booked && (t.ReturnOn ?? t.DepartOn) <= today)
+        {
+            <form method="post" action="/org/travel/@t.Id/complete" asp-antiforgery="true"><button class="btn btn-light border w-100" type="submit">Close trip and ask for the expense claim</button></form>
+        }
+    </div>
+</div>

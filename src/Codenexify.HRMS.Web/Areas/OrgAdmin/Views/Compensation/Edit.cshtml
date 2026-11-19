@@ -1,0 +1,44 @@
+@model Codenexify.HRMS.Application.Performance.CompensationCycleInput
+@using Codenexify.HRMS.Application.CoreHr
+@using Codenexify.HRMS.Application.Performance
+@using Codenexify.HRMS.Web
+@{
+    var id = ViewBag.Id as int?;
+    ViewData["Title"] = id is null ? "New salary-revision cycle" : "Edit " + Model.Name;
+    var departments = (IReadOnlyList<LookupItem>)ViewBag.Departments;
+    var reviewCycles = (IReadOnlyList<ReviewCycleRow>)ViewBag.ReviewCycles;
+}
+<div class="page-head"><div><h1>@ViewData["Title"]</h1><div class="text-muted small"><a href="/org/compensation">Salary revisions</a></div></div></div>
+
+<form method="post" action="@(id is null ? "/org/compensation/new" : $"/org/compensation/{id}/edit")" asp-antiforgery="true" novalidate style="max-width: 900px">
+    <div asp-validation-summary="All" class="alert alert-danger py-2 small"></div>
+    <div class="card mb-3"><div class="card-body row g-3">
+        <div class="col-md-6"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" placeholder="e.g. Annual increment 2026" /></div>
+        <div class="col-md-3"><label asp-for="EffectiveOn" class="form-label"></label><input asp-for="EffectiveOn" type="date" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="BudgetPercent" class="form-label"></label><input asp-for="BudgetPercent" class="form-control" inputmode="decimal" /></div>
+        <div class="col-md-6"><label asp-for="ReviewCycleId" class="form-label"></label>
+            <select asp-for="ReviewCycleId" class="form-select"><option value="">— No ratings —</option>
+                @foreach (var r in reviewCycles) { <option value="@r.Id" selected="@(Model.ReviewCycleId == r.Id)">@r.Name</option> }</select></div>
+        <div class="col-md-3"><label asp-for="PlanningDueOn" class="form-label"></label><input asp-for="PlanningDueOn" type="date" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="JoinedOnOrBefore" class="form-label">Joined on or before</label><input asp-for="JoinedOnOrBefore" type="date" class="form-control" /></div>
+        <div class="col-md-6"><label asp-for="DepartmentId" class="form-label"></label>
+            <select asp-for="DepartmentId" class="form-select"><option value="">All departments</option>
+                @foreach (var d in departments) { <option value="@d.Id" selected="@(Model.DepartmentId == d.Id)">@d.Name</option> }</select></div>
+        <div class="col-12 form-text mt-0">Everyone current with a salary set up is included (within the joining date and department). Each person's raise is planned by their reporting manager; HR plans for people without one.</div>
+    </div></div>
+    <div class="card mb-3"><div class="card-header">Raise guidelines by rating (% of current annual gross)</div><div class="card-body">
+        <div class="table-responsive"><table class="table table-sm align-middle mb-0" style="max-width: 520px">
+            <thead><tr><th>Rating</th><th>Minimum %</th><th>Maximum %</th></tr></thead>
+            <tbody>
+            @for (var i = 0; i < Model.Guidelines.Count; i++)
+            {
+                <tr><td>@CompUi.Rating(Model.Guidelines[i].Rating)<input type="hidden" name="Guidelines[@i].Rating" value="@Model.Guidelines[i].Rating" /></td>
+                    <td><input class="form-control form-control-sm" name="Guidelines[@i].MinPercent" value="@Model.Guidelines[i].MinPercent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)" inputmode="decimal" aria-label="Minimum % for @CompUi.Rating(Model.Guidelines[i].Rating)" /></td>
+                    <td><input class="form-control form-control-sm" name="Guidelines[@i].MaxPercent" value="@Model.Guidelines[i].MaxPercent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)" inputmode="decimal" aria-label="Maximum % for @CompUi.Rating(Model.Guidelines[i].Rating)" /></td></tr>
+            }
+            </tbody>
+        </table></div>
+        <div class="form-text">Raises outside the range need a note from whoever plans them. Set your own ranges; there are no defaults.</div>
+    </div></div>
+    <div class="d-flex justify-content-end gap-2"><a class="btn btn-light border" href="@(id is null ? "/org/compensation" : $"/org/compensation/{id}")">Cancel</a><button class="btn btn-accent" type="submit">Save</button></div>
+</form>

@@ -1,0 +1,43 @@
+@{
+    ViewData["Title"] = "Sign in with a mobile code";
+    ViewData["HideNav"] = true;
+    var company = ViewBag.Company as string;
+    var mobile = ViewBag.Mobile as string;
+    var sent = ViewBag.Sent is true;
+}
+@section Styles { <link rel="stylesheet" href="~/css/auth.css" asp-append-version="true" /> }
+<div class="ax-wrap">
+    <partial name="_AuthAside" />
+    <div class="ax-panel">
+        <div class="ax-card">
+            <span class="ax-eyebrow">Mobile code</span>
+            <h1 class="ax-title">@(sent ? "Enter your code" : "Sign in with your mobile")</h1>
+            <p class="ax-sub">@(sent ? $"If this number belongs to an account in {company}, a 6-digit code is on its way. It's valid for 5 minutes." : "We'll text a 6-digit code to the mobile number on your HR record.")</p>
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+            @if (!sent)
+            {
+                <form method="post" action="/login/otp/send" asp-antiforgery="true">
+                    <div class="ax-field"><label class="form-label" for="oc">Company code</label>
+                        <div class="ax-input"><i class="bi bi-buildings"></i><input id="oc" name="company" value="@company" required class="form-control" autocomplete="organization" placeholder="e.g. acme" /></div></div>
+                    <div class="ax-field"><label class="form-label" for="om">Mobile number</label>
+                        <div class="ax-input"><i class="bi bi-phone"></i><input id="om" name="mobile" value="@mobile" required inputmode="tel" maxlength="15" class="form-control" placeholder="98XXXXXXXX" autocomplete="tel" /></div></div>
+                    <button class="btn ax-submit w-100" type="submit">Send code<i class="bi bi-send ms-2"></i></button>
+                </form>
+            }
+            else
+            {
+                <form method="post" action="/login/otp" asp-antiforgery="true" autocomplete="off">
+                    <input type="hidden" name="company" value="@company" /><input type="hidden" name="mobile" value="@mobile" />
+                    <div class="ax-field"><label class="form-label" for="ocd">6-digit code</label>
+                        <div class="ax-input"><i class="bi bi-shield-check"></i><input id="ocd" name="code" required inputmode="numeric" pattern="[0-9]{6}" maxlength="6" class="form-control fs-5 fw-semibold" style="letter-spacing:.5em" autocomplete="one-time-code" autofocus /></div></div>
+                    <button class="btn ax-submit w-100" type="submit">Sign in<i class="bi bi-arrow-right ms-2"></i></button>
+                </form>
+                <form method="post" action="/login/otp/send" asp-antiforgery="true" class="text-center mt-2">
+                    <input type="hidden" name="company" value="@company" /><input type="hidden" name="mobile" value="@mobile" />
+                    <button class="btn btn-link btn-sm" type="submit">Send a new code</button></form>
+            }
+            <p class="ax-foot-note"><a href="/login@(string.IsNullOrEmpty(company) ? "" : $"?company={Uri.EscapeDataString(company)}")"><i class="bi bi-arrow-left me-1"></i>Back to password sign-in</a></p>
+        </div>
+    </div>
+</div>
+@section Scripts { <script src="~/js/auth.js" asp-append-version="true"></script> }

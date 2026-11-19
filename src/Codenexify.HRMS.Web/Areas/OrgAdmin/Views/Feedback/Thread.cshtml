@@ -1,0 +1,41 @@
+@model Codenexify.HRMS.Application.Strength.FeedbackView
+@using Codenexify.HRMS.Domain.Strength
+@{
+    var t = Model.Thread;
+    ViewData["Title"] = t.Subject;
+}
+<div class="page-head"><div><h1>@t.Subject</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/feedback">Feedback</a></li><li class="breadcrumb-item active">@t.Category</li></ol></nav></div>
+    <span class="badge-status st-@(t.Status == FeedbackStatus.Closed ? "Inactive" : t.Status == FeedbackStatus.Answered ? "Issued" : "PendingVerification") fs-6">@t.Status</span></div>
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card"><div class="card-body">
+            @foreach (var m in Model.Messages)
+            {
+                <div class="d-flex @(m.FromHr ? "justify-content-end" : "") mb-3">
+                    <div class="p-3 rounded-3 @(m.FromHr ? "bg-primary-subtle" : "bg-body-tertiary")" style="max-width:85%">
+                        <div class="small fw-semibold mb-1">@(m.FromHr ? m.AuthorName ?? "HR" : "Anonymous") <span class="text-muted fw-normal">· @m.SentOn.ToString("dd MMM yyyy")</span></div>
+                        <div class="text-break" style="white-space:pre-line">@m.Body</div>
+                    </div>
+                </div>
+            }
+            @if (t.Status != FeedbackStatus.Closed)
+            {
+                <form method="post" action="/org/feedback/@t.Id" asp-antiforgery="true" class="border-top pt-3">
+                    <label class="form-label small" for="fr">Reply</label>
+                    <textarea id="fr" name="body" rows="3" maxlength="4000" class="form-control" placeholder="Your reply is shown to the sender with your name."></textarea>
+                    <div class="d-flex justify-content-between mt-2">
+                        <button class="btn btn-light border" type="submit" name="close" value="true" data-confirm="Close this conversation? The sender can't follow up any more.">Close conversation</button>
+                        <button class="btn btn-accent" type="submit">Send reply</button>
+                    </div>
+                </form>
+            }
+        </div></div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card"><div class="card-body small text-muted">
+            <p><i class="bi bi-shield-lock me-1"></i>Anonymous feedback is stored without the sender's account, and only the day it was sent — never the time.</p>
+            <p class="mb-0">The sender checks for replies with a private code that only they have. If they lose it, they can't reopen this conversation.</p>
+        </div></div>
+    </div>
+</div>

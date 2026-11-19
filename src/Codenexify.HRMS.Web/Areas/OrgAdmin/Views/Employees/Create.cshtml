@@ -1,0 +1,25 @@
+@model EmployeeCreateInput
+@{
+    ViewData["Title"] = "Add employee";
+    var employment = Model.Employment;
+}
+<div class="page-head">
+    <div><h1>Add employee</h1>
+        <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/employees">Employees</a></li><li class="breadcrumb-item active">New</li></ol></nav></div>
+    <span class="badge text-bg-light border fs-6">Employee ID <code>@ViewBag.NextCode</code></span>
+</div>
+<form method="post" action="/org/employees/create" asp-antiforgery="true" novalidate>
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+    <div class="card mb-3" style="max-width: 980px"><div class="card-header">Basic &amp; employment details</div><div class="card-body">
+        <partial name="_EmploymentFields" for="Employment" />
+    </div></div>
+    <div class="card" style="max-width: 980px"><div class="card-header">Self-service access</div><div class="card-body row g-3 align-items-end">
+        <div class="col-md-6"><div class="form-check form-switch"><input asp-for="CreateLogin" class="form-check-input" /><label asp-for="CreateLogin" class="form-check-label"></label></div>
+            <div class="form-text">Creates a login with the work email and the <strong>Employee</strong> role. They must change the password at first sign-in.</div></div>
+        <div class="col-md-6"><label asp-for="InitialPassword" class="form-label"></label><input asp-for="InitialPassword" class="form-control" autocomplete="new-password" /><span asp-validation-for="InitialPassword"></span></div>
+    </div></div>
+    <div class="d-flex gap-2 justify-content-end mt-3" style="max-width: 980px">
+        <a href="/org/employees" class="btn btn-light border">Cancel</a>
+        <button type="submit" class="btn btn-accent">Add employee</button>
+    </div>
+</form>

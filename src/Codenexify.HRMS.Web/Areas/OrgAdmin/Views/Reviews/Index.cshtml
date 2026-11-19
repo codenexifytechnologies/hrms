@@ -1,0 +1,45 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Performance.ReviewCycleRow>
+@using Codenexify.HRMS.Application.Performance
+@using Codenexify.HRMS.Domain.Performance
+@using Codenexify.HRMS.Web
+@{
+    ViewData["Title"] = "Performance reviews";
+    var toWrite = ((IReadOnlyList<ReviewRow>)ViewBag.ToWrite).Where(r => r.Status is ReviewStatus.SelfReview or ReviewStatus.ManagerReview).ToList();
+}
+<div class="page-head">
+    <div><h1>Performance reviews</h1><div class="text-muted small">Review cycles: self-review, manager review, calibration and sharing results</div></div>
+    <a class="btn btn-accent" href="/org/reviews/new"><i class="bi bi-plus-lg me-1"></i>New cycle</a>
+</div>
+
+@if (toWrite.Count > 0)
+{
+    <div class="alert alert-warning small"><i class="bi bi-person-exclamation me-1"></i>@toWrite.Count employee(s) have no manager, so HR writes their review:
+        @foreach (var r in toWrite.Take(8)) { <a class="ms-1" href="/org/reviews/r/@r.Id">@r.EmployeeName</a> }@(toWrite.Count > 8 ? " …" : "")</div>
+}
+
+<div class="card">
+    @if (Model.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-clipboard-data"></i>No review cycles yet. Create one: it comes with a starter form you can edit before launching.
+            <div class="mt-2"><a class="btn btn-sm btn-accent" href="/org/reviews/new">Create the first cycle</a></div></div>
+    }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+            <thead><tr><th>Cycle</th><th>Period</th><th class="text-end">Employees</th><th>Progress</th><th>Status</th></tr></thead>
+            <tbody>@foreach (var c in Model)
+            {
+                var done = c.Submitted + c.Released + c.Acknowledged;
+                <tr><td><a class="fw-semibold" href="/org/reviews/@c.Id">@c.Name</a></td>
+                    <td class="small">@c.PeriodStart.ToString("dd MMM yyyy") – @c.PeriodEnd.ToString("dd MMM yyyy")</td>
+                    <td class="text-end">@c.Total</td>
+                    <td class="small" style="min-width: 12rem">@if (c.Total > 0)
+                        {
+                            <div class="progress" style="height: 6px" role="progressbar" aria-label="Manager reviews done" aria-valuenow="@done" aria-valuemin="0" aria-valuemax="@c.Total"><div class="progress-bar" style="width: @(done * 100 / c.Total)%"></div></div>
+                            <div class="text-muted mt-1">@done of @c.Total manager reviews done · @c.SelfPending self pending</div>
+                        }</td>
+                    <td><span class="badge @GoalUi.Css(c.Status)">@c.Status</span></td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>

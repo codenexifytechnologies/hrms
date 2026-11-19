@@ -1,0 +1,48 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Benefits.BenefitPlanRow>
+@using Codenexify.HRMS.Domain.Benefits
+@using Codenexify.HRMS.Web
+@{
+    ViewData["Title"] = "Perks & benefits";
+    var active = Model.Where(p => p.IsActive).ToList();
+}
+<div class="page-head">
+    <div><h1>Perks &amp; benefits</h1><div class="text-muted small">Insurance, allowances and other perks: who is eligible, who is enrolled, and what it costs</div></div>
+    <a class="btn btn-accent" href="/org/benefits/new"><i class="bi bi-plus-lg me-1"></i>New plan</a>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-sm-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-muted small">Active plans</div><div class="fs-4 fw-semibold">@active.Count</div></div></div></div>
+    <div class="col-sm-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-muted small">Company cost / month</div><div class="fs-4 fw-semibold">@BenefitUi.Money(active.Sum(p => p.MonthlyEmployerCost))</div></div></div></div>
+    <div class="col-sm-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-muted small">Employee contributions / month</div><div class="fs-4 fw-semibold">@BenefitUi.Money(active.Sum(p => p.MonthlyEmployeeContributions))</div></div></div></div>
+    <div class="col-sm-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-muted small">Allowances paid / month</div><div class="fs-4 fw-semibold">@BenefitUi.Money(active.Sum(p => p.MonthlyAllowances))</div></div></div></div>
+</div>
+
+<div class="card">
+    @if (Model.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-gift"></i>No benefit plans yet. Add your group health policy, meal allowance or any other perk.
+            <div class="mt-2"><a class="btn btn-sm btn-accent" href="/org/benefits/new">Add the first plan</a></div></div>
+    }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+            <thead><tr><th>Plan</th><th>Enrolment</th><th class="text-end">Members</th><th class="text-end">Company / month</th><th class="text-end">Employees pay / month</th><th class="text-end">Allowances / month</th><th>Status</th></tr></thead>
+            <tbody>
+            @foreach (var p in Model)
+            {
+                <tr class="@(p.IsActive ? null : "text-muted")">
+                    <td><a class="fw-semibold" href="/org/benefits/@p.Id"><i class="bi @BenefitUi.Icon(p.Category) me-1"></i>@p.Name</a><div class="small text-muted">@BenefitUi.Label(p.Category)</div></td>
+                    <td class="small">@(p.Mode == BenefitEnrollmentMode.Automatic ? "Automatic" : "Employees opt in")</td>
+                    <td class="text-end">@p.Members</td>
+                    <td class="text-end">@BenefitUi.Money(p.MonthlyEmployerCost)</td>
+                    <td class="text-end">@BenefitUi.Money(p.MonthlyEmployeeContributions)</td>
+                    <td class="text-end">@BenefitUi.Money(p.MonthlyAllowances)</td>
+                    <td>@if (p.IsActive) { <span class="badge text-bg-success">Active</span> } else { <span class="badge text-bg-secondary">Discontinued</span> }</td>
+                </tr>
+            }
+            </tbody>
+        </table></div>
+    }
+</div>
+<p class="small text-muted mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>Employee contributions are deducted and allowances paid automatically in payroll for every month a membership is active.
+    Automatic plans enrol eligible employees every hour; employees see their benefits under <em>My benefits</em>.</p>

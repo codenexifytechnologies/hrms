@@ -1,0 +1,12 @@
+@model Codenexify.HRMS.Application.Strength.OnboardingPlanView
+@{
+    ViewData["Title"] = $"Onboarding · {Model.EmployeeName}";
+    ViewData["BasePath"] = "/me/onboarding";
+    var done = Model.Tasks.Count(t => t.CompletedAtUtc is not null);
+}
+<div class="page-head"><div><h1>Onboarding · @Model.EmployeeName</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/me/onboarding">Onboarding</a></li><li class="breadcrumb-item active">Checklist</li></ol></nav></div></div>
+<div class="card"><div class="card-header d-flex justify-content-between"><span>Joins @Model.DateOfJoining.ToString("dd MMM yyyy") · manager @(Model.Manager ?? "—") · buddy @(Model.Buddy ?? "—")</span>
+    <span class="small text-muted">@done of @Model.Tasks.Count done</span></div>
+    <partial name="_OnboardingTasks" model="Model" />
+</div>

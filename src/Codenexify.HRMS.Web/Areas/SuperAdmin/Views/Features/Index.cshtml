@@ -1,0 +1,36 @@
+@model IReadOnlyList<Codenexify.HRMS.Domain.Platform.Feature>
+@{
+    ViewData["Title"] = "Features & modules";
+    var canManage = User.HasPermission(PlatformPermissions.FeaturesManage);
+}
+<div class="page-head">
+    <div><h1>Features &amp; modules</h1><div class="text-muted small">Globally disabling a feature switches it off for every organization, regardless of plan or add-on.</div></div>
+</div>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead><tr><th>Feature</th><th>Code</th><th>Module group</th><th>Tier</th><th>Global status</th>@if (canManage) { <th></th> }</tr></thead>
+            <tbody>
+            @foreach (var f in Model)
+            {
+                <tr>
+                    <td><div class="fw-semibold">@f.Name</div><div class="small text-muted text-truncate-2">@f.Description</div></td>
+                    <td><code>@f.Code</code></td>
+                    <td class="small">@f.ModuleGroup</td>
+                    <td><span class="badge text-bg-light border">@f.Tier</span></td>
+                    <td><span class="badge-status st-@f.IsGloballyEnabled.ToString().ToLowerInvariant()">@(f.IsGloballyEnabled ? "Enabled" : "Disabled")</span></td>
+                    @if (canManage)
+                    {
+                        <td class="text-end">
+                            <form asp-antiforgery="true" method="post" action="/superadmin/features/toggle/@f.Id" data-confirm="@(f.IsGloballyEnabled ? $"Disable {f.Name} for ALL organizations?" : $"Enable {f.Name} platform-wide?")" data-confirm-danger="@(f.IsGloballyEnabled ? "1" : null)">
+                                <input type="hidden" name="enabled" value="@(!f.IsGloballyEnabled ? "true" : "false")" />
+                                <button class="btn btn-sm @(f.IsGloballyEnabled ? "btn-outline-danger" : "btn-soft")" type="submit">@(f.IsGloballyEnabled ? "Disable" : "Enable")</button>
+                            </form>
+                        </td>
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

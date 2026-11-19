@@ -1,0 +1,120 @@
+@model Codenexify.HRMS.Application.Performance.WorkflowRuleInput
+@using Codenexify.HRMS.Application.CoreHr
+@using Codenexify.HRMS.Application.Performance
+@using Codenexify.HRMS.Domain.CoreHr
+@using Codenexify.HRMS.Domain.Performance
+@using Codenexify.HRMS.Web
+@{
+    var id = ViewBag.Id as int?;
+    ViewData["Title"] = id is null ? "New automation rule" : Model.Name;
+    var branches = (IReadOnlyList<LookupItem>)ViewBag.Branches;
+    var departments = (IReadOnlyList<LookupItem>)ViewBag.Departments;
+    var choices = (WorkflowChoices)ViewBag.Choices;
+    var runs = ViewBag.Runs as IReadOnlyList<WorkflowRunRow>;
+    var formAction = id is null ? "/org/workflows/new" : $"/org/workflows/{id}";
+}
+<div class="page-head">
+    <div><h1>@ViewData["Title"]</h1><div class="text-muted small"><a href="/org/workflows">Automation</a>@(id is null ? "" : " / " + WorkflowUi.Describe(Model.Trigger, Model.DaysOffset))</div></div>
+    @if (id is not null)
+    {
+        <div class="d-flex gap-2">
+            <form method="post" action="/org/workflows/@id/run" asp-antiforgery="true" data-confirm="Run this rule now for everyone it matches today? Employees it already ran for are skipped.">
+                <button class="btn btn-light border" type="submit"><i class="bi bi-play-fill me-1"></i>Run now</button></form>
+            <form method="post" action="/org/workflows/@id/delete" asp-antiforgery="true" data-confirm-danger="Delete this rule? Tasks it already created stay.">
+                <button class="btn btn-outline-danger" type="submit"><i class="bi bi-trash"></i></button></form>
+        </div>
+    }
+</div>
+
+<form method="post" action="@formAction" asp-antiforgery="true" novalidate style="max-width: 1040px">
+    <div asp-validation-summary="All" class="alert alert-danger py-2 small"></div>
+
+    <div class="card mb-3"><div class="card-header">When</div><div class="card-body row g-3">
+        <div class="col-md-6"><label asp-for="Name" class="form-label">Rule name</label><input asp-for="Name" class="form-control" placeholder="e.g. Laptop set-up reminder" /></div>
+        <div class="col-md-4"><label asp-for="Trigger" class="form-label"></label>
+            <select asp-for="Trigger" class="form-select">
+                @foreach (var t in Enum.GetValues<WorkflowTrigger>()) { <option value="@t" selected="@(Model.Trigger == t)">@WorkflowUi.Label(t)</option> }
+            </select></div>
+        <div class="col-md-2"><label asp-for="DaysOffset" class="form-label"></label><input asp-for="DaysOffset" class="form-control" inputmode="numeric" /></div>
+        <div class="col-12 form-text mt-1">"Days before" applies to joining, probation end and last day (0 = on the day). It is ignored for "an employee is added" and "a promotion takes effect".</div>
+        <div class="col-md-4"><label asp-for="DepartmentId" class="form-label"></label>
+            <select asp-for="DepartmentId" class="form-select"><option value="">Any department</option>
+                @foreach (var d in departments) { <option value="@d.Id" selected="@(Model.DepartmentId == d.Id)">@d.Name</option> }</select></div>
+        <div class="col-md-4"><label asp-for="BranchId" class="form-label"></label>
+            <select asp-for="BranchId" class="form-select"><option value="">Any branch</option>
+                @foreach (var b in branches) { <option value="@b.Id" selected="@(Model.BranchId == b.Id)">@b.Name</option> }</select></div>
+        <div class="col-md-4"><label asp-for="EmploymentType" class="form-label"></label>
+            <select asp-for="EmploymentType" class="form-select"><option value="">Any type</option>
+                @foreach (var t in Enum.GetValues<EmploymentType>()) { <option value="@t" selected="@(Model.EmploymentType == t)">@BenefitUi.Label(t)</option> }</select></div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header">Then do</div><div class="card-body">
+        <p class="small text-muted mb-3">Tick each action to use. In titles and messages you can write <code>{Employee}</code>, <code>{Date}</code> (the joining, probation-end or last day), <code>{Department}</code> and <code>{Manager}</code>.</p>
+        @for (var i = 0; i < Model.Actions.Count; i++)
+        {
+            var a = Model.Actions[i];
+            <div class="border rounded p-3 mb-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-1"><div class="form-check mb-2"><input asp-for="Actions[i].Use" class="form-check-input" /><label asp-for="Actions[i].Use" class="form-check-label">Use</label></div></div>
+                    <div class="col-md-3"><label asp-for="Actions[i].Type" class="form-label small">Action</label>
+                        <select asp-for="Actions[i].Type" class="form-select form-select-sm">
+                            @foreach (var t in Enum.GetValues<WorkflowActionType>()) { <option value="@t" selected="@(a.Type == t)">@WorkflowUi.Label(t)</option> }
+                        </select></div>
+                    <div class="col-md-3"><label asp-for="Actions[i].Recipient" class="form-label small">To (notifications and tasks)</label>
+                        <select asp-for="Actions[i].Recipient" class="form-select form-select-sm">
+                            @foreach (var r in Enum.GetValues<WorkflowRecipient>()) { <option value="@r" selected="@(a.Recipient == r)">@WorkflowUi.Label(r)</option> }
+                        </select></div>
+                    <div class="col-md-3"><label asp-for="Actions[i].UserId" class="form-label small">Specific person</label>
+                        <select asp-for="Actions[i].UserId" class="form-select form-select-sm"><option value="">—</option>
+                            @foreach (var u in choices.Users) { <option value="@u.Id" selected="@(a.UserId == u.Id)">@u.Name</option> }</select></div>
+                    <div class="col-md-2"><label asp-for="Actions[i].DueInDays" class="form-label small">Task due in (days)</label><input asp-for="Actions[i].DueInDays" class="form-control form-control-sm" inputmode="numeric" /></div>
+                    <div class="col-md-5"><label asp-for="Actions[i].Title" class="form-label small">Title</label><input asp-for="Actions[i].Title" class="form-control form-control-sm" placeholder="e.g. Set up a laptop for {Employee}" /></div>
+                    <div class="col-md-7"><label asp-for="Actions[i].Message" class="form-label small">Message / details</label><input asp-for="Actions[i].Message" class="form-control form-control-sm" placeholder="{Employee} joins {Department} on {Date}." /></div>
+                    <div class="col-md-6"><label asp-for="Actions[i].TargetId" class="form-label small">Onboarding template or benefit plan</label>
+                        <select asp-for="Actions[i].TargetId" class="form-select form-select-sm"><option value="">—</option>
+                            @if (choices.Templates.Count > 0)
+                            {
+                                <optgroup label="Onboarding templates (for 'Start onboarding')">
+                                    @foreach (var t in choices.Templates) { <option value="@t.Id" selected="@(a.Type == WorkflowActionType.StartOnboarding && a.TargetId == t.Id)">@t.Name</option> }
+                                </optgroup>
+                            }
+                            @if (choices.BenefitPlans.Count > 0)
+                            {
+                                <optgroup label="Benefit plans (for 'Enrol in a benefit plan')">
+                                    @foreach (var p in choices.BenefitPlans) { <option value="@p.Id" selected="@(a.Type == WorkflowActionType.EnrolBenefit && a.TargetId == p.Id)">@p.Name</option> }
+                                </optgroup>
+                            }
+                        </select>
+                        <div class="form-text">Only templates without buddy tasks are listed: a buddy has to be picked for each person.</div></div>
+                </div>
+            </div>
+        }
+        <p class="small text-muted mb-0">Need more? Save, then edit the rule: a fresh blank row appears each time (up to @WorkflowService.MaxActions actions).</p>
+    </div></div>
+
+    <div class="d-flex justify-content-between align-items-center">
+        <div class="form-check form-switch"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div>
+        <div><a class="btn btn-light border me-2" href="/org/workflows">Cancel</a><button class="btn btn-accent" type="submit">Save rule</button></div>
+    </div>
+</form>
+
+@if (runs is not null)
+{
+    <div class="card mt-4" style="max-width: 1040px"><div class="card-header">Run history <span class="text-muted small">(latest 100)</span></div>
+        @if (runs.Count == 0)
+        {
+            <div class="empty-state"><i class="bi bi-clock-history"></i>The rule hasn't acted for anyone yet.</div>
+        }
+        else
+        {
+            <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+                <thead><tr><th>When</th><th>Employee</th><th>Result</th></tr></thead>
+                <tbody>@foreach (var r in runs)
+                {
+                    <tr><td class="small text-nowrap">@r.RanAtUtc.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</td><td>@r.EmployeeName</td>
+                        <td class="small">@if (r.Succeeded) { <i class="bi bi-check-circle text-success me-1"></i>@(r.Detail ?? "All actions done") } else { <i class="bi bi-exclamation-triangle text-warning me-1"></i>@r.Detail }</td></tr>
+                }</tbody>
+            </table></div>
+        }
+    </div>
+}

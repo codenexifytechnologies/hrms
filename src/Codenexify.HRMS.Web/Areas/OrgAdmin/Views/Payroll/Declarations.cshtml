@@ -1,0 +1,42 @@
+@model PagedResult<Codenexify.HRMS.Domain.Payroll.TaxDeclaration>
+@using Codenexify.HRMS.Domain.Payroll
+@{
+    ViewData["Title"] = "Tax declarations";
+    var fy = (int)ViewBag.Fy;
+    var status = ViewBag.Status as DeclarationStatus?;
+    var manage = User.HasPermission(TenantPermissions.PayrollManage);
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    string M(decimal v) => v == 0 ? "—" : "₹" + v.ToString("N0", inr);
+}
+<div class="page-head"><div><h1>Tax declarations · FY @fy-@((fy + 1) % 100)</h1><div class="text-muted small">Submitted declarations drive TDS. Verify proofs (uploaded as employee documents) before approving.</div></div>
+    <form method="get"><select name="fy" class="form-select" data-autosubmit aria-label="Financial year">@for (var y = fy + 1; y >= fy - 3; y--) { <option value="@y" selected="@(y == fy)">FY @y-@((y + 1) % 100)</option> }</select></form></div>
+<partial name="_PayrollNav" />
+<div class="filter-chips mb-3">
+    <a class="chip @(status is null ? "active" : "")" href="/org/payroll/declarations?fy=@fy">All</a>
+    @foreach (var s in Enum.GetValues<DeclarationStatus>()) { <a class="chip @(status == s ? "active" : "")" href="/org/payroll/declarations?fy=@fy&status=@s">@s</a> }
+</div>
+<div class="card">
+    @if (Model.Items.Count == 0) { <div class="empty-state"><i class="bi bi-file-earmark-text"></i>No declarations. Employees without one are taxed under the new regime.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover small align-middle">
+            <thead><tr><th>Employee</th><th>Regime</th><th class="text-end">80C</th><th class="text-end">80D</th><th class="text-end">NPS</th><th class="text-end">Home loan</th><th class="text-end">Rent / month</th><th class="text-end">Prev. employer</th><th>Status</th>@if (manage) { <th></th> }</tr></thead>
+            <tbody>@foreach (var d in Model.Items)
+            {
+                <tr><td class="fw-semibold">@d.Employee.FullName<div class="text-muted fw-normal">@d.Employee.EmployeeCode</div></td><td>@d.Regime</td>
+                    <td class="text-end">@M(d.Section80C)</td><td class="text-end">@M(d.Section80D)</td><td class="text-end">@M(d.Section80CCD1B)</td><td class="text-end">@M(d.HomeLoanInterest)</td>
+                    <td class="text-end">@M(d.MonthlyRentPaid)@(d.MetroCity && d.MonthlyRentPaid > 0 ? " (metro)" : "")</td><td class="text-end">@M(d.PreviousEmployerIncome)</td>
+                    <td><span class="badge-status st-@(d.Status switch { DeclarationStatus.Draft => "Inactive", DeclarationStatus.Submitted => "PendingVerification", _ => "Active" })">@d.Status</span></td>
+                    @if (manage)
+                    {
+                        <td class="text-end text-nowrap">
+                            @if (d.Status == DeclarationStatus.Submitted) { <form method="post" action="/org/payroll/declarations/@d.Id/approve" asp-antiforgery="true" class="d-inline"><button class="btn btn-sm btn-soft" type="submit">Approve</button></form> }
+                            @if (d.Status != DeclarationStatus.Draft) { <form method="post" action="/org/payroll/declarations/@d.Id/reopen" asp-antiforgery="true" class="d-inline" data-confirm="Reopen so the employee can edit it?"><button class="btn btn-sm btn-light border" type="submit">Reopen</button></form> }
+                        </td>
+                    }
+                </tr>
+            }</tbody>
+        </table></div>
+    }
+    <partial name="_Pager" model="Model.ToPager()" />
+</div>

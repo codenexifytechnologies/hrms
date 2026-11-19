@@ -1,0 +1,67 @@
+@model Codenexify.HRMS.Application.Strength.SurveyToTake
+@using Codenexify.HRMS.Domain.Strength
+@{ ViewData["Title"] = Model.Title; }
+<div class="page-head"><div><h1>@Model.Title</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/me/surveys">Surveys</a></li><li class="breadcrumb-item active">Answer</li></ol></nav></div></div>
+<div class="row justify-content-center"><div class="col-xl-8">
+    <div class="alert @(Model.IsAnonymous ? "alert-success" : "alert-info") small">
+        @if (Model.IsAnonymous)
+        {
+            <i class="bi bi-incognito me-1"></i><span>This survey is <strong>anonymous</strong>. Your answers are stored without your name or account — only the date — and results are shown to HR only in aggregate once enough people have answered.</span>
+        }
+        else
+        {
+            <i class="bi bi-person me-1"></i><span>This survey is <strong>not anonymous</strong>: HR will see your name with your answers.</span>
+        }
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.Description)) { <p class="text-muted" style="white-space:pre-line">@Model.Description</p> }
+    <form method="post" action="/me/surveys/@Model.Id" asp-antiforgery="true">
+        @foreach (var (q, n) in Model.Questions.Select((q, n) => (q, n + 1)))
+        {
+            var name = $"q_{q.Id}";
+            <div class="card mb-3"><div class="card-body">
+                <fieldset>
+                    <legend class="fs-6 fw-semibold mb-2">@n. @q.Text @if (q.Required) { <span class="text-danger" aria-label="required">*</span> }</legend>
+                    @switch (q.Type)
+                    {
+                        case QuestionType.Rating:
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                <span class="small text-muted">Poor</span>
+                                @for (var v = 1; v <= 5; v++)
+                                {
+                                    <input type="radio" class="btn-check" name="@name" id="@(name)_@(v)" value="@v" required="@q.Required" />
+                                    <label class="btn btn-outline-secondary" for="@(name)_@(v)">@v</label>
+                                }
+                                <span class="small text-muted">Great</span>
+                            </div>
+                            break;
+                        case QuestionType.Enps:
+                            <div class="d-flex flex-wrap gap-1 align-items-center">
+                                @for (var v = 0; v <= 10; v++)
+                                {
+                                    <input type="radio" class="btn-check" name="@name" id="@(name)_@(v)" value="@v" required="@q.Required" />
+                                    <label class="btn btn-sm btn-outline-secondary" for="@(name)_@(v)">@v</label>
+                                }
+                            </div>
+                            <div class="d-flex justify-content-between small text-muted mt-1" style="max-width:32rem"><span>Not at all likely</span><span>Extremely likely</span></div>
+                            break;
+                        case QuestionType.Choice:
+                            @foreach (var (o, k) in (q.Options ?? "").Split('\n').Select((o, k) => (o, k)))
+                            {
+                                <div class="form-check"><input class="form-check-input" type="radio" name="@name" id="@(name)_@(k)" value="@o" required="@q.Required" /><label class="form-check-label" for="@(name)_@(k)">@o</label></div>
+                            }
+                            break;
+                        default:
+                            <label class="visually-hidden" for="@name">Your answer</label>
+                            <textarea id="@name" name="@name" rows="3" maxlength="2000" class="form-control" required="@q.Required"></textarea>
+                            break;
+                    }
+                </fieldset>
+            </div></div>
+        }
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <span class="small text-muted">You can answer once. Open until @Model.ClosesAtUtc?.ToLocalTime().ToString("dd MMM, HH:mm").</span>
+            <button class="btn btn-accent" type="submit">Submit</button>
+        </div>
+    </form>
+</div></div>

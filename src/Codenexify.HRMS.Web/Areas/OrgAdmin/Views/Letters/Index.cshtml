@@ -1,0 +1,69 @@
+@model Codenexify.HRMS.Application.Common.PagedResult<Codenexify.HRMS.Application.Documents.LetterRow>
+@{
+    ViewData["Title"] = "Letters";
+    int.TryParse(Context.Request.Query["highlight"], out var highlight);
+    var esign = ViewBag.ESign is true;
+    var sigs = (IReadOnlyDictionary<int, Codenexify.HRMS.Application.Strength.SignatureRow>)ViewBag.Signatures;
+}
+<div class="page-head"><div><h1>Letters</h1><div class="text-muted small">Every letter issued, with its reference number and PDF</div></div></div>
+<partial name="_LettersNav" />
+<div class="card">
+    <div class="card-body border-bottom">
+        <form method="get" action="/org/letters" class="row g-2">
+            <div class="col-md-6"><label class="visually-hidden" for="ls">Search</label><input id="ls" name="search" value="@ViewBag.Search" class="form-control" placeholder="Reference, subject, employee name or ID" /></div>
+            <div class="col-md-2"><button class="btn btn-soft w-100" type="submit">Search</button></div>
+        </form>
+    </div>
+    @if (Model.Items.Count == 0) { <div class="empty-state"><i class="bi bi-envelope-paper"></i>No letters issued yet. Open an employee's profile and choose <strong>Issue letter</strong>.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+            <thead><tr><th>Reference</th><th>Employee</th><th>Letter</th><th>Issued</th><th>Shared</th><th></th></tr></thead>
+            <tbody>@foreach (var l in Model.Items)
+            {
+                <tr class="@(l.Id == highlight ? "table-success" : "")">
+                    <td class="small"><code>@l.Number</code></td>
+                    <td><a href="/org/employees/details/@l.EmployeeId">@l.EmployeeName</a><div class="small text-muted">@l.EmployeeCode</div></td>
+                    <td>@l.Subject<div class="small text-muted">@l.Kind</div>
+                        @if (l.RevokedAtUtc is not null) { <div class="small text-danger">Revoked: @l.RevokedReason</div> }
+                        @if (esign && sigs.TryGetValue(l.Id, out var sig)) { <div class="small"><i class="bi bi-pen me-1"></i>@(sig.Status switch { Codenexify.HRMS.Domain.Strength.SignatureStatus.Signed => $"Signed {sig.SignedAtUtc?.ToLocalTime():dd MMM yyyy}", Codenexify.HRMS.Domain.Strength.SignatureStatus.Pending => "Waiting for signature", var s => s.ToString() })</div> }</td>
+                    <td class="small">@l.IssuedOn.ToString("dd MMM yyyy")<div class="text-muted">by @l.IssuedByName</div></td>
+                    <td class="small">@(l.RevokedAtUtc is not null ? "—" : l.Shared ? "Yes" : "No")</td>
+                    <td class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-soft" href="/org/letters/@l.Id/download?inline=true" target="_blank" rel="noopener"><i class="bi bi-eye me-1"></i>View</a>
+                        <a class="btn btn-sm btn-soft" href="/org/letters/@l.Id/download"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
+                        @if (esign && l.RevokedAtUtc is null && !(sigs.TryGetValue(l.Id, out var cur) && cur.Status is Codenexify.HRMS.Domain.Strength.SignatureStatus.Pending or Codenexify.HRMS.Domain.Strength.SignatureStatus.Signed))
+                        {
+                            <button class="btn btn-sm btn-soft" type="button" data-bs-toggle="modal" data-bs-target="#signModal" data-set-action="/org/letters/@l.Id/sign-request" data-set-number="@l.Number"><i class="bi bi-pen me-1"></i>Request signature</button>
+                        }
+                        @if (l.RevokedAtUtc is null)
+                        {
+                            <button class="btn btn-sm btn-link text-danger" type="button" data-bs-toggle="modal" data-bs-target="#revokeModal" data-set-action="/org/letters/@l.Id/revoke" data-set-number="@l.Number">Revoke</button>
+                        }
+                    </td>
+                </tr>
+            }</tbody>
+        </table></div>
+    }
+    <partial name="_Pager" model="Model.ToPager()" />
+</div>
+
+@if (esign)
+{
+    <div class="modal fade" id="signModal" tabindex="-1" aria-labelledby="signTitle" aria-hidden="true">
+        <div class="modal-dialog"><form class="modal-content" method="post" asp-antiforgery="true" data-bind-action>
+            <div class="modal-header"><h5 class="modal-title" id="signTitle">Request signature · <span data-bind="number"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body"><label class="form-label" for="sm">Message to the employee (optional)</label><input id="sm" name="message" maxlength="500" class="form-control" placeholder="e.g. Please sign by Friday" />
+                <div class="form-text">The employee reads the letter in HRMS, confirms with a code emailed to their login address and types their name. A signed copy with an acceptance certificate is added to their documents.</div></div>
+            <div class="modal-footer"><button type="button" class="btn btn-light border" data-bs-dismiss="modal">Close</button><button class="btn btn-accent" type="submit">Send request</button></div>
+        </form></div>
+    </div>
+}
+<div class="modal fade" id="revokeModal" tabindex="-1" aria-labelledby="revokeTitle" aria-hidden="true">
+    <div class="modal-dialog"><form class="modal-content" method="post" asp-antiforgery="true" data-bind-action>
+        <div class="modal-header"><h5 class="modal-title" id="revokeTitle">Revoke letter <span data-bind="number"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body"><label class="form-label" for="rv">Reason</label><input id="rv" name="reason" maxlength="300" class="form-control" required />
+            <div class="form-text">The PDF stays on HR's record but is removed from the employee's documents. The reference number is never reused.</div></div>
+        <div class="modal-footer"><button type="button" class="btn btn-light border" data-bs-dismiss="modal">Close</button><button class="btn btn-danger" type="submit">Revoke</button></div>
+    </form></div>
+</div>

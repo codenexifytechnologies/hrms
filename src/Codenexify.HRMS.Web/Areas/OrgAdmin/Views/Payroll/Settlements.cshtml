@@ -1,0 +1,28 @@
+@model IReadOnlyList<(int EmployeeId, string Name, string Code, DateOnly? Lwd, Codenexify.HRMS.Domain.Payroll.FullAndFinalSettlement? Settlement)>
+@using Codenexify.HRMS.Domain.Payroll
+@{
+    ViewData["Title"] = "Full & final settlements";
+    var manage = User.HasPermission(TenantPermissions.PayrollManage);
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+}
+<div class="page-head"><div><h1>Full &amp; final settlements</h1><div class="text-muted small">Employees serving notice or exited. The final month's salary is paid in the regular payroll run.</div></div></div>
+<partial name="_PayrollNav" />
+<div class="card">
+    @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-door-open"></i>No employees are leaving.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover align-middle">
+            <thead><tr><th>Employee</th><th>Last working day</th><th>Settlement</th><th class="text-end">Net</th><th></th></tr></thead>
+            <tbody>@foreach (var r in Model)
+            {
+                <tr><td class="fw-semibold">@r.Name <span class="small text-muted fw-normal">@r.Code</span></td><td>@(r.Lwd?.ToString("dd MMM yyyy") ?? "—")</td>
+                    <td>@if (r.Settlement is { } s) { <span class="badge-status st-@(s.Status switch { SettlementStatus.Draft => "PendingVerification", SettlementStatus.Approved => "Trial", _ => "Active" })">@s.Status</span> } else { <span class="text-muted small">Not prepared</span> }</td>
+                    <td class="text-end">@(r.Settlement is { } st ? "₹" + st.NetAmount.ToString("N0", inr) : "")</td>
+                    <td class="text-end">
+                        @if (r.Settlement is { } x) { <a class="btn btn-sm btn-soft" href="/org/payroll/settlement/@x.Id">Open</a> }
+                        else if (manage) { <form method="post" action="/org/payroll/settlements/prepare/@r.EmployeeId" asp-antiforgery="true"><button class="btn btn-sm btn-accent" type="submit">Prepare</button></form> }
+                    </td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>

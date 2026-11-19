@@ -1,0 +1,149 @@
+@model Codenexify.HRMS.Application.Performance.GoalView
+@using Codenexify.HRMS.Domain.Performance
+@using Codenexify.HRMS.Web
+@{
+    var g = Model.Goal;
+    ViewData["Title"] = g.Title;
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+}
+<div class="page-head">
+    <div><h1>@g.Title</h1>
+        <div class="text-muted small"><a href="/me/goals">Goals</a> /
+            @(g.Level switch { GoalLevel.Company => "Company goal", GoalLevel.Department => $"{Model.DepartmentName} department goal", _ => $"{Model.OwnerName}'s goal" })
+            · @g.StartsOn.ToString("dd MMM yyyy") – @g.DueOn.ToString("dd MMM yyyy")</div></div>
+    @if (Model.CanEdit)
+    {
+        <div class="d-flex gap-2">
+            <a class="btn btn-light border" href="/me/goals/@g.Id/edit"><i class="bi bi-pencil me-1"></i>Edit</a>
+            <form method="post" action="/me/goals/@g.Id/delete" asp-antiforgery="true" data-confirm="Delete this goal and its key results and check-ins?" data-confirm-danger>
+                <button class="btn btn-outline-danger" type="submit"><i class="bi bi-trash3"></i><span class="visually-hidden">Delete</span></button>
+            </form>
+        </div>
+    }
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card mb-3"><div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="badge @GoalUi.StatusCss(g.Status)">@GoalUi.Label(g.Status)</span>
+                <span class="fs-4 fw-semibold">@g.Progress.ToString("0.#")%</span>
+            </div>
+            <div class="progress mb-3" style="height: 10px" role="progressbar" aria-label="Goal progress" aria-valuenow="@g.Progress" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar @GoalUi.BarCss(g.Status)" style="width: @(g.Progress.ToString(inv))%"></div>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(g.Description)) { <p class="mb-2" style="white-space: pre-line">@g.Description</p> }
+            @if (Model.Parent is { } p) { <div class="small"><i class="bi bi-diagram-3 me-1 text-muted"></i>Supports <a href="/me/goals/@p.Id">@p.Title</a></div> }
+            <div class="small text-muted mt-1">Set by @g.CreatedByName</div>
+        </div></div>
+
+        <div class="card mb-3">
+            <div class="card-header">Key results</div>
+            @if (Model.KeyResults.Count == 0)
+            {
+                <div class="card-body small text-muted">No key results. Progress is updated directly at each check-in@(Model.CanEdit ? "; add key results to measure it automatically" : "").</div>
+            }
+            else
+            {
+                <ul class="list-group list-group-flush">
+                    @foreach (var kr in Model.KeyResults)
+                    {
+                        var k = kr.KeyResult;
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between gap-2">
+                                <div><div class="fw-semibold">@k.Title</div>
+                                    <div class="small text-muted">@GoalUi.Value(k, k.CurrentValue)@(k.Type == KeyResultType.Milestone ? "" : $" of {GoalUi.Value(k, k.TargetValue)} (from {GoalUi.Value(k, k.StartValue)})")</div></div>
+                                <div class="text-end"><div class="fw-semibold">@kr.Progress.ToString("0.#")%</div>
+                                    @if (Model.CanEdit)
+                                    {
+                                        <form method="post" action="/me/goals/key-results/@k.Id/remove" asp-antiforgery="true" data-confirm="Remove this key result?">
+                                            <input type="hidden" name="goalId" value="@g.Id" /><button class="btn btn-link btn-sm p-0 text-danger" type="submit">Remove</button>
+                                        </form>
+                                    }</div>
+                            </div>
+                            <div class="progress mt-2" style="height: 5px" role="progressbar" aria-label="@k.Title" aria-valuenow="@kr.Progress" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width: @(kr.Progress.ToString(inv))%"></div></div>
+                        </li>
+                    }
+                </ul>
+            }
+            @if (Model.CanEdit && Model.KeyResults.Count < 10)
+            {
+                <div class="card-footer">
+                    <form method="post" action="/me/goals/@g.Id/key-results" asp-antiforgery="true" class="row g-2 align-items-end">
+                        <div class="col-md-5"><label class="form-label small" for="kr-title">Add a key result</label><input class="form-control form-control-sm" id="kr-title" name="keyResult.Title" maxlength="200" required placeholder="e.g. Onboarding survey score" /></div>
+                        <div class="col-md-3"><label class="form-label small" for="kr-type">Measured as</label>
+                            <select class="form-select form-select-sm" id="kr-type" name="keyResult.Type">
+                                @foreach (var t in Enum.GetValues<KeyResultType>()) { <option value="@t">@GoalUi.Label(t)</option> }
+                            </select></div>
+                        <div class="col-4 col-md-1"><label class="form-label small" for="kr-start">From</label><input class="form-control form-control-sm" id="kr-start" name="keyResult.StartValue" value="0" inputmode="decimal" /></div>
+                        <div class="col-4 col-md-1"><label class="form-label small" for="kr-target">To</label><input class="form-control form-control-sm" id="kr-target" name="keyResult.TargetValue" value="100" inputmode="decimal" /></div>
+                        <div class="col-4 col-md-2"><button class="btn btn-sm btn-accent w-100" type="submit">Add</button></div>
+                        <div class="col-12 form-text mt-0">For a milestone, From/To are ignored. To reduce something (e.g. bugs from 40 to 10), put the higher number in From.</div>
+                    </form>
+                </div>
+            }
+        </div>
+
+        @if (Model.Children.Count > 0)
+        {
+            <div class="card mb-3"><div class="card-header">Goals supporting this one</div>
+                <ul class="list-group list-group-flush">
+                    @foreach (var c in Model.Children)
+                    {
+                        <li class="list-group-item d-flex justify-content-between"><a href="/me/goals/@c.Id">@c.Title</a>
+                            <span class="small text-muted">@(c.OwnerName ?? c.DepartmentName ?? "Company") · @c.Progress.ToString("0.#")%</span></li>
+                    }
+                </ul></div>
+        }
+    </div>
+
+    <div class="col-lg-4">
+        @if (Model.CanEdit)
+        {
+            <div class="card mb-3"><div class="card-header">Check in</div><div class="card-body">
+                <form method="post" action="/me/goals/@g.Id/check-in" asp-antiforgery="true">
+                    @foreach (var kr in Model.KeyResults)
+                    {
+                        var k = kr.KeyResult;
+                        <div class="mb-2"><label class="form-label small" for="v-@k.Id">@k.Title</label>
+                            @if (k.Type == KeyResultType.Milestone)
+                            {
+                                <select class="form-select form-select-sm" id="v-@k.Id" name="checkIn.Values[@k.Id]">
+                                    <option value="0" selected="@(k.CurrentValue < 1)">Not done</option><option value="1" selected="@(k.CurrentValue >= 1)">Done</option>
+                                </select>
+                            }
+                            else
+                            {
+                                <input class="form-control form-control-sm" id="v-@k.Id" name="checkIn.Values[@k.Id]" value="@k.CurrentValue.ToString("0.##", inv)" inputmode="decimal" />
+                            }
+                        </div>
+                    }
+                    @if (Model.KeyResults.Count == 0)
+                    {
+                        <div class="mb-2"><label class="form-label small" for="ci-progress">Progress (%)</label><input class="form-control form-control-sm" id="ci-progress" name="checkIn.Progress" type="number" min="0" max="100" step="1" value="@g.Progress.ToString("0", inv)" /></div>
+                    }
+                    <div class="mb-2"><label class="form-label small" for="ci-status">Status</label>
+                        <select class="form-select form-select-sm" id="ci-status" name="checkIn.Status">
+                            @foreach (var s in Enum.GetValues<GoalStatus>()) { <option value="@s" selected="@(g.Status == s || (g.Status == GoalStatus.NotStarted && s == GoalStatus.OnTrack))">@GoalUi.Label(s)</option> }
+                        </select></div>
+                    <div class="mb-2"><label class="form-label small" for="ci-note">Note</label><textarea class="form-control form-control-sm" id="ci-note" name="checkIn.Note" rows="2" maxlength="1000" placeholder="What changed, any blockers?"></textarea></div>
+                    <button class="btn btn-sm btn-accent w-100" type="submit">Save check-in</button>
+                </form>
+            </div></div>
+        }
+        <div class="card"><div class="card-header">History</div>
+            @if (Model.CheckIns.Count == 0) { <div class="card-body small text-muted">No check-ins yet.</div> }
+            else
+            {
+                <ul class="list-group list-group-flush small">
+                    @foreach (var c in Model.CheckIns)
+                    {
+                        <li class="list-group-item"><div class="d-flex justify-content-between"><span class="badge @GoalUi.StatusCss(c.Status)">@GoalUi.Label(c.Status)</span><span class="fw-semibold">@c.Progress.ToString("0.#")%</span></div>
+                            @if (c.Note is not null) { <div class="mt-1">@c.Note</div> }
+                            <div class="text-muted mt-1">@c.ByName · @c.AtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</div></li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+</div>

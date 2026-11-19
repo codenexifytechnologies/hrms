@@ -1,0 +1,11 @@
+@{
+    ViewData["Title"] = "Sign out to continue";
+    ViewData["HideNav"] = true;
+    Layout = "_PublicLayout";
+}
+<div class="container py-5 text-center" style="max-width: 560px">
+    <i class="bi bi-person-lock display-4 text-muted"></i>
+    <h1 class="h4 mt-3">You're signed in to an account</h1>
+    <p class="text-muted">Welcome links are for new hires who don't have an account yet. Open the link in a private window, or sign out first.</p>
+    <form method="post" action="/logout" asp-antiforgery="true"><button class="btn btn-light border" type="submit">Sign out</button></form>
+</div>

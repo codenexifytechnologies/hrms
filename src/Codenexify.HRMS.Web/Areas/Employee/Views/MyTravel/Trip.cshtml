@@ -1,0 +1,28 @@
+@model Codenexify.HRMS.Application.Strength.TravelView
+@{
+    var t = Model.Request;
+    ViewData["Title"] = $"{t.FromCity} → {t.ToCity}";
+    ViewData["TicketUrl"] = $"/me/travel/{t.Id}/ticket";
+}
+<div class="page-head"><div><h1>@t.FromCity → @t.ToCity</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/me/travel">Travel</a></li><li class="breadcrumb-item active">Trip</li></ol></nav></div>
+    @if (Model.CanCancel)
+    {
+        <form method="post" action="/me/travel/@t.Id/cancel" asp-antiforgery="true"><button class="btn btn-outline-danger" type="submit" data-confirm="Cancel this trip? The travel desk is told if it was already booked." data-confirm-danger="1">Cancel trip</button></form>
+    }
+</div>
+<div class="row g-3">
+    <div class="col-lg-7"><partial name="_TravelDetails" model="Model" /></div>
+    @if (Model.CanDecide)
+    {
+        <div class="col-lg-5">
+            <div class="card tone-amber"><div class="card-header">Your decision</div><div class="card-body">
+                <form method="post" action="/me/travel/@t.Id/decide" asp-antiforgery="true">
+                    <label class="form-label small" for="dn">Note (required to reject)</label><input id="dn" name="note" maxlength="500" class="form-control mb-2" />
+                    <div class="d-flex justify-content-between"><button class="btn btn-outline-danger" type="submit" name="approve" value="false">Reject</button>
+                        <button class="btn btn-accent" type="submit" name="approve" value="true">Approve</button></div>
+                </form>
+            </div></div>
+        </div>
+    }
+</div>

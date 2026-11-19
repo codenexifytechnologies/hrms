@@ -1,0 +1,51 @@
+@model PagedResult<TenantUserRow>
+@{
+    ViewData["Title"] = "Users";
+    var active = ViewBag.Active as bool?;
+    var canManage = User.HasPermission(TenantPermissions.UsersManage);
+}
+<div class="page-head">
+    <div><h1>Users</h1><div class="text-muted small">People who can sign in to your organization</div></div>
+    @if (canManage) { <a href="/org/users/create" class="btn btn-accent"><i class="bi bi-person-plus me-1"></i>Add user</a> }
+</div>
+<div class="card">
+    <div class="card-header">
+        <form method="get" class="d-flex flex-wrap gap-2 w-100">
+            <div class="input-group" style="max-width: 360px">
+                <span class="input-group-text bg-transparent"><i class="bi bi-search"></i></span>
+                <input type="search" name="search" value="@ViewBag.Search" class="form-control" placeholder="Search name or email" />
+            </div>
+            <select name="active" class="form-select" style="max-width: 180px" data-autosubmit>
+                <option value="">All statuses</option>
+                <option value="true" selected="@(active == true)">Active</option>
+                <option value="false" selected="@(active == false)">Disabled</option>
+            </select>
+            <button class="btn btn-light border" type="submit">Filter</button>
+        </form>
+    </div>
+    @if (Model.Items.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-people"></i>No users found.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead><tr><th>Name</th><th>Roles</th><th>Status</th><th>Last sign-in</th>@if (canManage) { <th></th> }</tr></thead>
+                <tbody>
+                @foreach (var u in Model.Items)
+                {
+                    <tr>
+                        <td><div class="fw-semibold">@u.FullName @if (u.IsOwner) { <span class="badge text-bg-dark ms-1">Owner</span> }</div><div class="small text-muted">@u.Email</div></td>
+                        <td class="small">@u.Roles</td>
+                        <td><span class="badge-status st-@u.IsActive.ToString().ToLowerInvariant()">@(u.IsActive ? "Active" : "Disabled")</span></td>
+                        <td class="small text-muted">@(u.LastLoginAtUtc?.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "Never")</td>
+                        @if (canManage) { <td class="text-end"><a href="/org/users/edit/@u.Id" class="btn btn-sm btn-soft">Edit</a></td> }
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+    <partial name="_Pager" model="Model.ToPager()" />
+</div>

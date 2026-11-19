@@ -1,0 +1,67 @@
+@using Codenexify.HRMS.Application.Support
+@model LegalPageInput
+@{
+    ViewData["Title"] = "Edit " + Model.Title;
+    var slug = (string)ViewBag.Slug;
+    var version = (int)ViewBag.Version;
+    var placeholders = (IReadOnlyDictionary<string, string>)ViewBag.Placeholders;
+    var missing = (IReadOnlyList<(string Placeholder, string WhereToSet)>)ViewBag.Missing;
+    var missingSet = missing.Select(m => m.Placeholder).ToHashSet();
+    var preview = ViewBag.Preview as string;
+}
+<div class="page-head">
+    <div><h1>@Model.Title</h1><div class="text-muted small"><a href="/superadmin/legal">Legal pages</a> / <a href="/@slug" target="_blank" rel="noopener">/@slug</a> · current version v@(version)</div></div>
+</div>
+
+<form method="post" action="" asp-antiforgery="true" novalidate>
+    <div asp-validation-summary="All" class="alert alert-danger py-2 small"></div>
+    <div class="row g-3">
+        <div class="col-xl-8">
+            <div class="card mb-3"><div class="card-body row g-3">
+                <div class="col-md-7"><label asp-for="Title" class="form-label"></label><input asp-for="Title" class="form-control" /></div>
+                <div class="col-md-5"><label asp-for="EffectiveOn" class="form-label"></label><input asp-for="EffectiveOn" type="date" class="form-control" /></div>
+                <div class="col-12"><label asp-for="Summary" class="form-label">Summary (shown under the title and to search engines)</label><input asp-for="Summary" class="form-control" /></div>
+                <div class="col-12"><label asp-for="Body" class="form-label">Text</label>
+                    <textarea asp-for="Body" class="form-control font-monospace" rows="26" spellcheck="true" style="font-size: .85rem"></textarea></div>
+                <div class="col-12 d-flex flex-wrap gap-4">
+                    <div class="form-check form-switch"><input asp-for="IsPublished" class="form-check-input" /><label asp-for="IsPublished" class="form-check-label"></label></div>
+                    <div class="form-check"><input asp-for="IsReviewed" class="form-check-input" /><label asp-for="IsReviewed" class="form-check-label"></label></div>
+                    <div class="form-check"><input asp-for="NewVersion" class="form-check-input" /><label asp-for="NewVersion" class="form-check-label"></label></div>
+                </div>
+                <div class="col-12 form-text">Tick <em>new version</em> for changes customers should know about, and set <em>Effective from</em> to the day they apply.
+                    New sign-ups record the terms and privacy versions they accepted. Tell existing customers about material changes (for example with an announcement).</div>
+            </div>
+            <div class="card-footer d-flex justify-content-between">
+                <button class="btn btn-outline-secondary" type="submit" name="preview" value="1"><i class="bi bi-eye me-1"></i>Preview</button>
+                <button class="btn btn-accent" type="submit"><i class="bi bi-check2 me-1"></i>Save</button>
+            </div></div>
+
+            @if (preview is not null)
+            {
+                <div class="card mb-3"><div class="card-header"><i class="bi bi-eye me-1"></i>Preview (not saved)</div>
+                    <div class="card-body legal-preview">@Html.Raw(preview)</div></div>
+            }
+        </div>
+        <div class="col-xl-4">
+            <div class="card mb-3"><div class="card-header">Formatting</div><div class="card-body small">
+                <div><code>## Heading</code>, <code>### Sub-heading</code></div>
+                <div><code>- list item</code></div>
+                <div><code>**bold**</code></div>
+                <div><code>[link text](https://…)</code>, <code>(mailto:…)</code> or <code>(/privacy)</code></div>
+                <div>A blank line starts a new paragraph. HTML is shown as text.</div>
+            </div></div>
+            <div class="card"><div class="card-header">Placeholders</div><div class="card-body small">
+                <p class="text-muted">Filled in automatically when the page is shown.</p>
+                <ul class="list-unstyled mb-0">
+                    @foreach (var p in placeholders)
+                    {
+                        var tag = "{{" + p.Key + "}}";
+                        <li class="mb-1"><code class="user-select-all">@tag</code>
+                            @if (missingSet.Contains(tag)) { <span class="badge text-bg-warning ms-1">not set</span> }
+                            <div class="text-muted">@p.Value</div></li>
+                    }
+                </ul>
+            </div></div>
+        </div>
+    </div>
+</form>

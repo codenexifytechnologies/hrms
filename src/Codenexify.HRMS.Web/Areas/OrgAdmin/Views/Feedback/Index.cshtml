@@ -1,0 +1,27 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Strength.FeedbackRow>
+@using Codenexify.HRMS.Domain.Strength
+@{
+    ViewData["Title"] = "Anonymous feedback";
+    var all = (bool)ViewBag.All;
+    string Css(FeedbackStatus s) => s switch { FeedbackStatus.Open => "PendingVerification", FeedbackStatus.Answered => "Issued", _ => "Inactive" };
+}
+<div class="page-head"><div><h1>Anonymous feedback</h1><div class="text-muted small">Senders can't be identified; they read your replies with a private code</div></div>
+    <div class="btn-group">
+        <a class="btn btn-sm @(all ? "btn-light border" : "btn-soft")" href="/org/feedback">Open</a>
+        <a class="btn btn-sm @(all ? "btn-soft" : "btn-light border")" href="/org/feedback?all=true">All</a>
+    </div></div>
+<div class="card">
+    @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-chat-square-heart"></i>@(all ? "No feedback received yet." : "Nothing waiting.")</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+            <thead><tr><th>Subject</th><th>Category</th><th>Received</th><th>Messages</th><th>Status</th></tr></thead>
+            <tbody>@foreach (var f in Model)
+            {
+                <tr><td><a class="fw-semibold" href="/org/feedback/@f.Id">@f.Subject</a>@if (f.AwaitingHr && f.Status != FeedbackStatus.Closed) { <span class="badge bg-warning-subtle text-warning-emphasis ms-1">needs reply</span> }</td>
+                    <td class="small">@f.Category</td><td class="small">@f.CreatedOn.ToString("dd MMM yyyy")</td><td>@f.Messages</td>
+                    <td><span class="badge-status st-@Css(f.Status)">@f.Status</span></td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>

@@ -1,0 +1,146 @@
+@model Codenexify.HRMS.Application.Organizations.OrganizationRegistrationInput
+@{
+    ViewData["Title"] = "Register your company";
+    ViewData["HideNav"] = true;
+    ViewData["AuthMode"] = "register";
+    var plans = (IReadOnlyList<Codenexify.HRMS.Application.Subscriptions.PlanSummary>)ViewBag.PlanList;
+    var featured = plans.Count > 1 ? plans[plans.Count / 2].Id : 0;
+    var chosen = Model.PlanId != 0 && plans.Any(p => p.Id == Model.PlanId) ? Model.PlanId : featured;
+    var trialDays = plans.Count == 0 ? 0 : plans.Max(p => p.TrialDays);
+}
+@section Styles { <link rel="stylesheet" href="~/css/auth.css" asp-append-version="true" /> }
+<div class="ax-wrap ax-wide">
+    <partial name="_AuthAside" />
+    <div class="ax-panel">
+        <div class="ax-card">
+            <span class="ax-eyebrow">@(trialDays > 0 ? $"{trialDays}-day free trial · no card needed" : "Get started")</span>
+            <h1 class="ax-title">Create your company workspace</h1>
+            <p class="ax-sub">Three quick steps. You can change any of this later.</p>
+            @if (User.IsTenant())
+            {
+                <div class="alert alert-warning small d-flex flex-wrap align-items-center gap-2">
+                    <span><i class="bi bi-person-check me-1"></i>You're signed in to a company workspace. Sign out to register a new company.</span>
+                    <form method="post" action="/logout" asp-antiforgery="true" class="ms-auto"><button class="btn btn-sm btn-outline-secondary" type="submit">Sign out</button></form>
+                </div>
+            }
+            <div class="ax-steps" aria-hidden="true">
+                <div class="ax-step-pill"><div class="ax-step-bar"></div><div class="ax-step-name"><i class="bi bi-circle"></i>Company</div></div>
+                <div class="ax-step-pill"><div class="ax-step-bar"></div><div class="ax-step-name"><i class="bi bi-circle"></i>Plan</div></div>
+                <div class="ax-step-pill"><div class="ax-step-bar"></div><div class="ax-step-name"><i class="bi bi-circle"></i>Administrator</div></div>
+            </div>
+            <form asp-antiforgery="true" method="post" action="/register" novalidate data-ax-wizard>
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+
+                <fieldset class="ax-pane">
+                    <legend class="visually-hidden">Company</legend>
+                    <div class="row g-3">
+                        <div class="col-md-6 ax-field mb-0">
+                            <label asp-for="CompanyName" class="form-label"></label>
+                            <div class="ax-input"><i class="bi bi-building"></i><input asp-for="CompanyName" class="form-control" data-code-source placeholder="Acme Pvt Ltd" /></div>
+                            <span asp-validation-for="CompanyName" class="small"></span>
+                        </div>
+                        <div class="col-md-6 ax-field mb-0">
+                            <label asp-for="Code" class="form-label"></label>
+                            <div class="ax-input"><i class="bi bi-at"></i><input asp-for="Code" class="form-control" data-code-check="/register/check-code" autocomplete="off" placeholder="acme" /></div>
+                            <div id="codeStatus" class="ax-code-status"></div>
+                            <span asp-validation-for="Code" class="small"></span>
+                        </div>
+                        <div class="col-md-6 ax-field mb-0">
+                            <label asp-for="CompanyEmail" class="form-label"></label>
+                            <div class="ax-input"><i class="bi bi-envelope"></i><input asp-for="CompanyEmail" class="form-control" placeholder="hr@acme.com" /></div>
+                            <span asp-validation-for="CompanyEmail" class="small"></span>
+                        </div>
+                        <div class="col-md-6 ax-field mb-0">
+                            <label asp-for="Phone" class="form-label"></label>
+                            <div class="ax-input"><i class="bi bi-telephone"></i><input asp-for="Phone" class="form-control" /></div>
+                            <span asp-validation-for="Phone" class="small"></span>
+                        </div>
+                        <div class="col-md-4 ax-field mb-0">
+                            <label asp-for="Industry" class="form-label"></label>
+                            <div class="ax-input"><i class="bi bi-briefcase"></i><input asp-for="Industry" class="form-control" /></div>
+                        </div>
+                        <div class="col-md-4 ax-field mb-0">
+                            <label asp-for="City" class="form-label"></label>
+                            <div class="ax-input"><i class="bi bi-geo-alt"></i><input asp-for="City" class="form-control" /></div>
+                        </div>
+                        <div class="col-md-4 ax-field mb-0">
+                            <label asp-for="State" class="form-label"></label>
+                            <div class="ax-input"><i class="bi bi-map"></i><input asp-for="State" class="form-control" /></div>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="ax-pane">
+                    <legend class="form-label fw-semibold fs-6 mb-2">Choose a plan</legend>
+                    @if (plans.Count == 0) { <div class="alert alert-light border small">Plans will be published soon.</div> }
+                    <div class="ax-plans">
+                        @foreach (var p in plans)
+                        {
+                            <label class="ax-plan">
+                                <input type="radio" name="PlanId" value="@p.Id" checked="@(p.Id == chosen)" data-val="true" data-val-required="Choose a plan." />
+                                <span class="ax-plan-body">
+                                    <span class="ax-plan-name">@p.Name<i class="bi bi-check-circle-fill"></i></span>
+                                    <span class="ax-plan-price d-block">₹@p.MonthlyPrice.ToString("N0")<small>@(p.IsPerEmployeePricing ? " / employee" : "") / month</small></span>
+                                    <span class="ax-plan-meta d-block">@p.EffectiveFeatureCount modules · up to @p.MaxEmployees.ToString("N0") employees@(p.Id == featured ? " · most popular" : "")</span>
+                                </span>
+                            </label>
+                        }
+                    </div>
+                    <span asp-validation-for="PlanId" class="small"></span>
+                    <div class="mt-3">
+                        <span class="form-label fw-semibold d-block mb-2">Billing cycle</span>
+                        <div class="ax-seg" role="radiogroup" aria-label="Billing cycle">
+                            @foreach (var c in Enum.GetValues<BillingCycle>())
+                            {
+                                <label><input type="radio" name="BillingCycle" value="@c" checked="@(Model.BillingCycle == c)" /><span>@c</span></label>
+                            }
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="ax-pane">
+                    <legend class="visually-hidden">Administrator account</legend>
+                    <div class="row g-3">
+                        <div class="col-md-6 ax-field mb-0">
+                            <label asp-for="AdminName" class="form-label"></label>
+                            <div class="ax-input"><i class="bi bi-person"></i><input asp-for="AdminName" class="form-control" autocomplete="name" /></div>
+                            <span asp-validation-for="AdminName" class="small"></span>
+                        </div>
+                        <div class="col-md-6 ax-field mb-0">
+                            <label asp-for="AdminEmail" class="form-label"></label>
+                            <div class="ax-input"><i class="bi bi-envelope"></i><input asp-for="AdminEmail" class="form-control" autocomplete="email" /></div>
+                            <span asp-validation-for="AdminEmail" class="small"></span>
+                        </div>
+                        <div class="col-md-6 ax-field mb-0">
+                            <label asp-for="AdminPassword" class="form-label"></label>
+                            <div class="ax-input"><i class="bi bi-lock"></i><input asp-for="AdminPassword" class="form-control" autocomplete="new-password" />
+                                <button type="button" class="ax-eye" data-ax-eye aria-label="Show password" aria-pressed="false"><i class="bi bi-eye"></i></button></div>
+                            <div class="ax-meter" data-ax-meter="AdminPassword" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+                            <div class="ax-meter-text" aria-live="polite"></div>
+                            <span asp-validation-for="AdminPassword" class="small"></span>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-center">
+                            <p class="small text-muted mb-0"><i class="bi bi-shield-check me-1 text-success"></i>You'll sign in with the company code, this email and password. You can add HR colleagues and employees after.</p>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input asp-for="AcceptTerms" class="form-check-input" data-val="true" data-val-mustbetrue="Please accept the Terms of Service and Privacy Policy." />
+                                <label asp-for="AcceptTerms" class="form-check-label small">I agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and
+                                    <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>, and confirm I'm authorised to accept them for this company.</label>
+                            </div>
+                            <span asp-validation-for="AcceptTerms" class="small text-danger"></span>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <div class="ax-nav">
+                    <button type="button" class="ax-back" data-ax-back hidden><i class="bi bi-arrow-left me-1"></i>Back</button>
+                    <a href="/login" class="small ms-auto me-2">Already registered? Sign in</a>
+                    <button type="button" class="btn ax-submit" data-ax-next hidden>Continue<i class="bi bi-arrow-right ms-2"></i></button>
+                    <button type="submit" class="btn ax-submit" data-ax-submit><i class="bi bi-rocket-takeoff me-2"></i>Create workspace</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@section Scripts { <script src="~/js/auth.js" asp-append-version="true"></script> }

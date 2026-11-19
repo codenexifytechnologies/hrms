@@ -1,0 +1,18 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Performance.PipRow>
+@using Codenexify.HRMS.Domain.Performance
+@using Codenexify.HRMS.Web
+@{
+    ViewData["Title"] = "Improvement plans";
+    var status = ViewBag.Status as PipStatus?;
+}
+<div class="page-head">
+    <div><h1>Improvement plans</h1><div class="text-muted small">Drafts from managers wait here for HR to start them</div></div>
+    <a class="btn btn-accent" href="/me/pips/new"><i class="bi bi-plus-lg me-1"></i>New plan</a>
+</div>
+<div class="card">
+    <div class="card-body border-bottom d-flex flex-wrap gap-1">
+        <a class="btn btn-sm @(status is null ? "btn-soft" : "btn-light border")" href="/org/pips">All</a>
+        @foreach (var s in Enum.GetValues<PipStatus>()) { <a class="btn btn-sm @(status == s ? "btn-soft" : "btn-light border")" href="/org/pips?status=@s">@GoalUi.Label(s)</a> }
+    </div>
+    <partial name="_PipTable" model="Model" />
+</div>

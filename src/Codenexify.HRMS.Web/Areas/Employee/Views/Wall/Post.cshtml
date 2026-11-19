@@ -1,0 +1,8 @@
+@model Codenexify.HRMS.Application.Engagement.PostView
+@{
+    ViewData["Title"] = Model.Title ?? $"Post by {Model.AuthorName}";
+    ViewData["ReturnUrl"] = $"/me/wall/post/{Model.Id}";
+}
+<div class="page-head"><div><h1 class="h3">@ViewData["Title"]</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/me/wall">Social wall</a></li><li class="breadcrumb-item active">Post</li></ol></nav></div></div>
+<div style="max-width: 760px"><partial name="_PostCard" model="Model" view-data="ViewData" /></div>

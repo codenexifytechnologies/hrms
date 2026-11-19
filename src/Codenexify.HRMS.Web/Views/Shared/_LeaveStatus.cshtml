@@ -1,0 +1,2 @@
+@model Codenexify.HRMS.Domain.Time.LeaveStatus
+<span class="badge-status st-@(Model switch { Codenexify.HRMS.Domain.Time.LeaveStatus.Pending => "PendingVerification", Codenexify.HRMS.Domain.Time.LeaveStatus.Approved => "Active", Codenexify.HRMS.Domain.Time.LeaveStatus.Rejected => "Expired", _ => "Inactive" })">@Model</span>

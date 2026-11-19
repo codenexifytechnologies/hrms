@@ -1,0 +1,31 @@
+@model PagerModel
+@{
+    string Link(int page)
+    {
+        var q = Context.Request.Query.Where(kv => !string.Equals(kv.Key, "page", StringComparison.OrdinalIgnoreCase))
+            .SelectMany(kv => kv.Value.Select(v => $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(v ?? "")}"))
+            .Append($"page={page}");
+        return Context.Request.Path + "?" + string.Join("&", q);
+    }
+    var start = Math.Max(1, Model.Page - 2);
+    var end = Math.Min(Model.TotalPages, Model.Page + 2);
+}
+@if (Model.TotalCount > 0)
+{
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 px-3 py-2 border-top">
+        <span class="small text-muted">@Model.TotalCount.ToString("N0") record(s) · page @Model.Page of @Math.Max(1, Model.TotalPages)</span>
+        @if (Model.TotalPages > 1)
+        {
+            <nav aria-label="Pagination">
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item @(Model.Page <= 1 ? "disabled" : "")"><a class="page-link" href="@Link(Model.Page - 1)" aria-label="Previous">&laquo;</a></li>
+                    @for (var p = start; p <= end; p++)
+                    {
+                        <li class="page-item @(p == Model.Page ? "active" : "")"><a class="page-link" href="@Link(p)">@p</a></li>
+                    }
+                    <li class="page-item @(Model.Page >= Model.TotalPages ? "disabled" : "")"><a class="page-link" href="@Link(Model.Page + 1)" aria-label="Next">&raquo;</a></li>
+                </ul>
+            </nav>
+        }
+    </div>
+}

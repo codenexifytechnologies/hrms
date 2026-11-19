@@ -1,0 +1,12 @@
+@model OrgChartNode
+<li>
+    <div class="org-node">
+        <a href="/org/employees/details/@Model.Id" class="fw-semibold">@Model.Name</a>
+        <div class="small text-muted">@(Model.Designation ?? "—")@(Model.Department is null ? "" : " · " + Model.Department)</div>
+        @if (Model.Reports.Count > 0) { <span class="badge text-bg-light border mt-1">@Model.Reports.Count report(s)</span> }
+    </div>
+    @if (Model.Reports.Count > 0)
+    {
+        <ul>@foreach (var child in Model.Reports) { <partial name="_OrgNode" model="child" /> }</ul>
+    }
+</li>

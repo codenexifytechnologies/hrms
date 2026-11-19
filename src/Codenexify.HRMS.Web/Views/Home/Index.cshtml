@@ -1,0 +1,293 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Subscriptions.PlanSummary>
+@{
+    ViewData["Title"] = "HR, payroll & people experience in one place";
+    var featured = Model.Count > 1 ? Model[Model.Count / 2].Id : 0;
+    // Every number on this page comes from the live plan catalogue (Control Center → Plans).
+    var modules = Model.Count == 0 ? 0 : Model.Max(p => p.EffectiveFeatureCount);
+    var trialDays = Model.Count == 0 ? 0 : Model.Max(p => p.TrialDays);
+    var maxEmployees = Model.Count == 0 ? 0 : Model.Max(p => p.MaxEmployees);
+    var startPrice = Model.Count == 0 ? 0 : Model.Min(p => p.MonthlyPrice);
+    // Every module per plan, grouped by category (Control Center → Plans decides what each plan includes).
+    var catalog = (Codenexify.HRMS.Application.Subscriptions.PlanModuleCatalog)ViewBag.Modules;
+    IReadOnlySet<int> Has(int planId) => catalog.PlanModuleIds.TryGetValue(planId, out var s) ? s : new HashSet<int>();
+    // Within each category: modules of the cheapest plan first, then the ones each higher plan adds.
+    int FirstPlan(int moduleId) { for (var k = 0; k < Model.Count; k++) if (Has(Model[k].Id).Contains(moduleId)) return k; return Model.Count; }
+    var groups = catalog.Modules.OrderBy(m => FirstPlan(m.Id)).ThenBy(m => m.SortOrder).GroupBy(m => m.ModuleGroup).ToList();
+    string GroupIcon(string g) => g switch
+    {
+        "Core HR" => "bi-person-vcard", "Time & Attendance" => "bi-fingerprint", "Payroll & Expense" => "bi-cash-coin",
+        "Self-Service" => "bi-phone", "Employee Experience" => "bi-stars", "Business Performance" => "bi-bullseye",
+        "Employee Performance" => "bi-graph-up-arrow", _ => "bi-grid"
+    };
+}
+@section Styles {
+    <link rel="stylesheet" href="~/css/home.css" asp-append-version="true" />
+}
+
+<section class="hx-hero">
+    <div class="hx-glow hx-glow-a" aria-hidden="true"></div>
+    <div class="hx-glow hx-glow-b" aria-hidden="true"></div>
+    <div class="hx-grid" aria-hidden="true"></div>
+    <div class="container position-relative">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-6">
+                <span class="hx-pill hx-rise" style="--d:0s"><span class="hx-pill-dot"></span>Built for Indian businesses · PF · ESI · PT · TDS ready</span>
+                <h1 class="hx-title hx-rise" style="--d:.1s">One platform for
+                    <span class="hx-rotator" data-rotate="HR|payroll|attendance|leave|engagement" aria-live="polite"><span class="hx-word">HR</span></span>and your whole team.</h1>
+                <p class="hx-lead hx-rise" style="--d:.2s">Core HR, attendance with geo-fencing, leave, payroll with Indian statutory compliance, self-service and engagement — configured for how your company works.</p>
+                <div class="d-flex flex-wrap gap-2 mt-4 hx-rise" style="--d:.3s">
+                    <a href="/register" class="btn btn-lg hx-btn-primary px-4">Start free trial<i class="bi bi-arrow-right ms-2"></i></a>
+                    <a href="/login" class="btn btn-lg hx-btn-ghost px-4">Sign in to your company</a>
+                </div>
+                @if (trialDays > 0)
+                {
+                    <p class="hx-note hx-rise" style="--d:.4s"><i class="bi bi-shield-check me-1"></i>@trialDays-day free trial · no card needed to start</p>
+                }
+            </div>
+            <div class="col-lg-6">
+                <div class="hx-stage" aria-hidden="true">
+                    <div class="hx-orbit">
+                        <svg class="hx-mark" viewBox="120 80 820 864"><path class="hx-hex" d="M832 327 512 142 192 327v370l320 185 320-185" fill="none" stroke="#fff" stroke-width="80" stroke-linecap="round" stroke-linejoin="round" pathLength="100"/><path class="hx-link" d="M512 512h328" stroke="#5B8CFF" stroke-width="48" pathLength="100"/><circle cx="512" cy="512" r="72" fill="#fff"/><circle class="hx-node" cx="840" cy="512" r="72" fill="#5B8CFF"/></svg>
+                    </div>
+                    <div class="hx-card hx-card-clock">
+                        <div class="hx-card-head"><span class="hx-ico"><i class="bi bi-geo-alt-fill"></i></span>Clock-in</div>
+                        <div class="hx-ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.5" class="hx-ring-bg"/><circle cx="18" cy="18" r="15.5" class="hx-ring-fg" pathLength="100"/></svg><i class="bi bi-fingerprint"></i></div>
+                        <div class="hx-card-sub">Inside the office geo-fence</div>
+                    </div>
+                    <div class="hx-card hx-card-payroll">
+                        <div class="hx-card-head"><span class="hx-ico"><i class="bi bi-cash-coin"></i></span>Payroll run</div>
+                        <ul class="hx-checks">
+                            <li style="--i:0">Attendance &amp; LOP</li>
+                            <li style="--i:1">PF · ESI · PT</li>
+                            <li style="--i:2">TDS projection</li>
+                            <li style="--i:3">Payslips published</li>
+                        </ul>
+                    </div>
+                    <div class="hx-card hx-card-toast">
+                        <span class="hx-ico hx-ico-ok"><i class="bi bi-check2"></i></span>
+                        <div><div class="fw-semibold">Leave approved</div><div class="hx-card-sub">Your manager approved your request</div></div>
+                    </div>
+                    <div class="hx-card hx-card-chip"><i class="bi bi-pen me-1"></i>Offer letter signed</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <svg class="hx-wave" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0 40c240 40 480 40 720 10s480-40 720 0v40H0z"/></svg>
+</section>
+
+<section class="hx-marquee" aria-label="Modules">
+    <div class="hx-marquee-track">
+        @for (var copy = 0; copy < 2; copy++)
+        {
+            <div class="hx-marquee-group" aria-hidden="@(copy == 1 ? "true" : null)">
+                @foreach (var (icon, name) in new[] { ("bi-person-vcard", "Core HR"), ("bi-fingerprint", "Attendance"), ("bi-geo-alt", "Geo-fencing"), ("bi-calendar2-heart", "Leave"), ("bi-cash-coin", "Payroll"), ("bi-bank", "PF & ESI"), ("bi-percent", "TDS"), ("bi-receipt", "Expenses"), ("bi-envelope-paper", "Letters"), ("bi-pen", "E-sign"), ("bi-laptop", "Assets"), ("bi-airplane", "Travel desk"), ("bi-person-plus", "Onboarding"), ("bi-clipboard-check", "Surveys"), ("bi-chat-square-heart", "Social wall"), ("bi-graph-up", "Analytics") })
+                {
+                    <span class="hx-chip"><i class="bi @icon"></i>@name</span>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+<section class="container hx-section">
+    <div class="text-center mb-5" data-reveal>
+        <span class="hx-kicker">Everything in one place</span>
+        <h2 class="hx-h2">Stop juggling spreadsheets and five different tools</h2>
+    </div>
+    <div class="row g-4">
+        @foreach (var (icon, title, text, i) in new[] {
+            ("bi-person-vcard", "Core HR", "Employee records, documents, letters with e-signature, onboarding and exits.", 0),
+            ("bi-fingerprint", "Time & attendance", "Web and mobile clock-in with GPS geo-fencing and selfie check, shifts and overtime.", 1),
+            ("bi-calendar2-heart", "Leave", "Policies, accruals, approvals and a holiday calendar your people can see.", 2),
+            ("bi-cash-coin", "Payroll & compliance", "PF, ESI, PT, LWF and TDS with effective-dated rules, payslips, ECR and Form 16.", 3),
+            ("bi-people", "Self-service", "Payslips, leave, expenses, travel and profile updates — on the web and the app.", 4),
+            ("bi-stars", "Engagement & insights", "Social wall, pulse surveys, anonymous feedback and people analytics.", 5) })
+        {
+            <div class="col-md-6 col-lg-4" data-reveal style="--i:@i">
+                <div class="hx-feature">
+                    <span class="hx-feature-ico"><i class="bi @icon"></i></span>
+                    <h3>@title</h3>
+                    <p>@text</p>
+                </div>
+            </div>
+        }
+    </div>
+</section>
+
+<section class="hx-band">
+    <div class="container">
+        <div class="row g-4 text-center">
+            @if (modules > 0) { <div class="col-6 col-md-3" data-reveal style="--i:0"><div class="hx-stat"><span data-count="@modules">@modules</span></div><div class="hx-stat-label">modules in the top plan</div></div> }
+            @if (trialDays > 0) { <div class="col-6 col-md-3" data-reveal style="--i:1"><div class="hx-stat"><span data-count="@trialDays">@trialDays</span>-day</div><div class="hx-stat-label">free trial</div></div> }
+            @if (maxEmployees > 0) { <div class="col-6 col-md-3" data-reveal style="--i:2"><div class="hx-stat"><span data-count="@maxEmployees">@maxEmployees.ToString("N0")</span></div><div class="hx-stat-label">employees on the largest plan</div></div> }
+            @if (startPrice > 0) { <div class="col-6 col-md-3" data-reveal style="--i:3"><div class="hx-stat">₹<span data-count="@((int)startPrice)">@startPrice.ToString("N0")</span></div><div class="hx-stat-label">per employee a month, from</div></div> }
+        </div>
+    </div>
+</section>
+
+<section class="container hx-section">
+    <div class="text-center mb-5" data-reveal>
+        <span class="hx-kicker">Up and running in a day</span>
+        <h2 class="hx-h2">Three steps from sign-up to first payroll</h2>
+    </div>
+    <div class="hx-steps" data-reveal>
+        <div class="hx-steps-line" aria-hidden="true"></div>
+        @foreach (var (n, icon, title, text) in new[] {
+            (1, "bi-building-add", "Register your company", "Pick a plan and start the free trial. Leave types, shifts, payroll components and letter templates are set up for you."),
+            (2, "bi-people", "Add your people", "Add employees with their salary and manager. Each one gets a login to their own self-service home."),
+            (3, "bi-rocket-takeoff", "Run your month", "Attendance and leave flow in, payroll runs with statutory deductions, and payslips reach everyone.") })
+        {
+            <div class="hx-step" style="--i:@(n - 1)">
+                <div class="hx-step-num"><i class="bi @icon"></i><span>@n</span></div>
+                <h3>@title</h3>
+                <p>@text</p>
+            </div>
+        }
+    </div>
+</section>
+
+<section class="container hx-section pt-0">
+    <div class="row g-4">
+        @foreach (var (icon, who, points, i) in new[] {
+            ("bi-briefcase", "For HR & payroll", new[] { "One record per employee, from offer to exit", "Payroll with PF, ESI, PT and TDS built in", "Reports, analytics and an audit trail" }, 0),
+            ("bi-diagram-3", "For managers", new[] { "Approve leave, overtime, expenses and travel", "Onboarding tasks for new team members", "Reminders before probation ends" }, 1),
+            ("bi-person-heart", "For employees", new[] { "Clock in from the phone, see payslips", "Apply for leave and claim expenses", "Surveys, praise and anonymous feedback" }, 2) })
+        {
+            <div class="col-lg-4" data-reveal style="--i:@i">
+                <div class="hx-role">
+                    <div class="hx-role-head"><span class="hx-feature-ico"><i class="bi @icon"></i></span><h3>@who</h3></div>
+                    <ul>@foreach (var p in points) { <li><i class="bi bi-check2-circle"></i>@p</li> }</ul>
+                </div>
+            </div>
+        }
+    </div>
+</section>
+
+<section class="container hx-section pt-0" id="pricing">
+    <div class="text-center mb-5" data-reveal>
+        <span class="hx-kicker">Pricing</span>
+        <h2 class="hx-h2">Plans that grow with you</h2>
+        <p class="text-muted">Every higher plan includes everything in the plans before it.</p>
+    </div>
+    @if (Model.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-box"></i>Plans will be published soon.</div>
+    }
+    else
+    {
+        <div class="row g-4 justify-content-center align-items-start">
+            @foreach (var (p, i) in Model.Select((p, i) => (p, i)))
+            {
+                var mine = Has(p.Id);
+                var previous = i > 0 ? Has(Model[i - 1].Id) : new HashSet<int>();
+                var added = mine.Count(id => !previous.Contains(id));
+                <div class="col-md-6 col-lg-4" data-reveal style="--i:@i">
+                    <div class="card plan-card hx-plan @(p.Id == featured ? "featured" : "")">
+                        <div class="card-body p-4 d-flex flex-column">
+                            @if (p.Id == featured) { <span class="hx-popular align-self-start mb-2">Most popular</span> }
+                            <h4 class="fw-bold mb-1">@p.Name</h4>
+                            <div class="plan-price">₹@p.MonthlyPrice.ToString("N0")<span class="fs-6 text-muted fw-normal">@(p.IsPerEmployeePricing ? " / employee" : "") / month</span></div>
+                            <div class="small text-muted mb-3">or ₹@p.YearlyPrice.ToString("N0") billed yearly</div>
+                            <ul class="list-unstyled small hx-plan-points">
+                                <li class="mb-2"><i class="bi bi-check2-circle text-success me-2"></i>@(i > 0 ? $"Everything in {Model[i - 1].Name}, plus {added} more modules" : $"{mine.Count} modules included")</li>
+                                <li class="mb-2"><i class="bi bi-check2-circle text-success me-2"></i>Up to @p.MaxEmployees.ToString("N0") employees</li>
+                                <li class="mb-2"><i class="bi bi-check2-circle text-success me-2"></i>@p.MaxBranches branch(es), @p.StorageLimitGb GB storage</li>
+                                @if (p.TrialDays > 0) { <li class="mb-2"><i class="bi bi-check2-circle text-success me-2"></i>@p.TrialDays-day free trial</li> }
+                            </ul>
+                            <a href="/register?plan=@p.Id" class="btn @(p.Id == featured ? "btn-accent" : "btn-soft") w-100 mb-3">Start with @p.Name</a>
+                            <details class="hx-modules">
+                                <summary><span>See all @mine.Count modules</span><i class="bi bi-chevron-down"></i></summary>
+                                <div class="hx-modules-body">
+                                    @foreach (var g in groups)
+                                    {
+                                        var inGroup = g.Where(m => mine.Contains(m.Id)).ToList();
+                                        if (inGroup.Count == 0) { continue; }
+                                        <div class="hx-mod-group">
+                                            <div class="hx-mod-group-name"><i class="bi @GroupIcon(g.Key)"></i>@g.Key<span>@inGroup.Count</span></div>
+                                            <ul>
+                                                @foreach (var m in inGroup)
+                                                {
+                                                    <li title="@m.Description"><i class="bi bi-check2"></i>@m.Name@if (i > 0 && !previous.Contains(m.Id)) { <span class="hx-new">New</span> }</li>
+                                                }
+                                            </ul>
+                                        </div>
+                                    }
+                                </div>
+                            </details>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+        <div class="text-center mt-4" data-reveal><a href="#compare" class="hx-compare-link">Compare every module plan by plan<i class="bi bi-arrow-down ms-1"></i></a></div>
+    }
+</section>
+
+@if (Model.Count > 0 && groups.Count > 0)
+{
+    <section class="container hx-section pt-0" id="compare">
+        <div class="text-center mb-4" data-reveal>
+            <span class="hx-kicker">Compare plans</span>
+            <h2 class="hx-h2">Every module, category by category</h2>
+            <p class="text-muted">Hover a module to see what it does.</p>
+        </div>
+        <div class="hx-compare" data-reveal>
+            <div class="table-responsive">
+                <table class="table hx-compare-table mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="hx-compare-first">Module</th>
+                            @foreach (var p in Model)
+                            {
+                                <th scope="col" class="text-center @(p.Id == featured ? "is-featured" : "")">@p.Name<div class="hx-compare-price">₹@p.MonthlyPrice.ToString("N0")@(p.IsPerEmployeePricing ? "/emp" : "")/mo</div></th>
+                            }
+                        </tr>
+                    </thead>
+                    @foreach (var g in groups)
+                    {
+                        <tbody>
+                            <tr class="hx-compare-group"><th scope="rowgroup" colspan="@(Model.Count + 1)"><i class="bi @GroupIcon(g.Key) me-2"></i>@g.Key</th></tr>
+                            @foreach (var m in g)
+                            {
+                                <tr>
+                                    <th scope="row" class="hx-compare-first"><span class="fw-semibold">@m.Name</span>@if (!string.IsNullOrWhiteSpace(m.Description)) { <div class="hx-compare-desc">@m.Description</div> }</th>
+                                    @foreach (var p in Model)
+                                    {
+                                        <td class="text-center @(p.Id == featured ? "is-featured" : "")">@if (Has(p.Id).Contains(m.Id)) { <i class="bi bi-check-circle-fill hx-yes" aria-label="Included"></i> } else { <i class="bi bi-dash hx-no" aria-label="Not included"></i> }</td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    }
+                    <tfoot>
+                        <tr>
+                            <td class="hx-compare-first"></td>
+                            @foreach (var p in Model)
+                            {
+                                <td class="text-center @(p.Id == featured ? "is-featured" : "")"><a href="/register?plan=@p.Id" class="btn btn-sm @(p.Id == featured ? "btn-accent" : "btn-soft")">Start</a></td>
+                            }
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </section>
+}
+
+<section class="container hx-section pt-0">
+    <div class="hx-cta" data-reveal>
+        <div class="hx-glow hx-glow-c" aria-hidden="true"></div>
+        <div class="position-relative">
+            <h2>Ready to run HR the simple way?</h2>
+            <p>Set up your company in minutes@(trialDays > 0 ? $" and try every feature of your plan free for {trialDays} days" : "").</p>
+            <div class="d-flex flex-wrap justify-content-center gap-2">
+                <a href="/register" class="btn btn-lg hx-btn-primary px-4">Start free trial<i class="bi bi-arrow-right ms-2"></i></a>
+                <a href="mailto:@AppConfig["Platform:SupportEmail"]" class="btn btn-lg hx-btn-ghost px-4">Talk to us</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script src="~/js/home.js" asp-append-version="true"></script>
+}

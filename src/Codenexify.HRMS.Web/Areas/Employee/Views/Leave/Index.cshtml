@@ -1,0 +1,83 @@
+@model IReadOnlyList<LeaveRequestRow>
+@{
+    ViewData["Title"] = "My leave";
+    var year = (int)ViewBag.Year;
+    var today = (DateOnly)ViewBag.Today;
+    var balances = (IReadOnlyList<BalanceRow>)ViewBag.Balances;
+    var holidays = (IReadOnlyList<Holiday>)ViewBag.Holidays;
+    var application = new LeaveApplyInput { FromDate = today.AddDays(1), ToDate = today.AddDays(1) };
+}
+<div class="page-head">
+    <div><h1>My leave</h1><div class="text-muted small">Balances, requests and holidays for @year</div></div>
+    <div class="d-flex gap-2">
+        <form method="get"><select name="year" class="form-select" data-autosubmit aria-label="Year">@for (var y = today.Year + 1; y >= today.Year - 2; y--) { <option value="@y" selected="@(y == year)">@y</option> }</select></form>
+        <button class="btn btn-accent" data-bs-toggle="modal" data-bs-target="#applyModal"><i class="bi bi-plus-lg me-1"></i>Apply leave</button>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    @foreach (var b in balances)
+    {
+        <div class="col-sm-6 col-xl-3"><div class="card h-100"><div class="card-body">
+            <div class="d-flex justify-content-between align-items-start"><div class="fw-semibold">@b.LeaveType</div><span class="badge" style="background:@b.Color">@b.Code</span></div>
+            @if (b.IsPaid)
+            {
+                <div class="fs-2 fw-bold mt-1">@b.Available.ToString("0.#") <span class="fs-6 text-muted fw-normal">days available</span></div>
+                <div class="small text-muted">@(b.Opening > 0 ? $"{b.Opening:0.#} carried · " : "")@b.Accrued.ToString("0.#") accrued@(b.Adjusted != 0 ? $" · {b.Adjusted:+0.#;-0.#} adjusted" : "") · @b.Used.ToString("0.#") used@(b.Encashed > 0 ? $" · {b.Encashed:0.#} encashed" : "")</div>
+                @if (b.Pending > 0) { <div class="small text-warning">@b.Pending.ToString("0.#") day(s) awaiting approval</div> }
+            }
+            else
+            {
+                <div class="fs-2 fw-bold mt-1">@b.Used.ToString("0.#") <span class="fs-6 text-muted fw-normal">days taken</span></div>
+                <div class="small text-muted">Unpaid — no balance limit</div>
+            }
+        </div></div></div>
+    }
+    @if (balances.Count == 0) { <div class="col-12"><div class="card"><div class="empty-state">No leave types apply to you yet.</div></div></div> }
+</div>
+
+<div class="row g-3">
+    <div class="col-xl-8">
+        <div class="card"><div class="card-header">My requests</div>
+            @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-calendar2"></i>No leave requests in @year.</div> }
+            else
+            {
+                <div class="table-responsive"><table class="table table-hover">
+                    <thead><tr><th>Leave</th><th>Dates</th><th class="text-end">Days</th><th>Status</th><th></th></tr></thead>
+                    <tbody>@foreach (var r in Model)
+                    {
+                        <tr>
+                            <td><span class="badge" style="background:@r.Color">@r.LeaveType</span><div class="small text-muted text-truncate-2">@r.Reason</div></td>
+                            <td class="small text-nowrap">@(r.From == r.To ? r.From.ToString("ddd, dd MMM") : $"{r.From:dd MMM} – {r.To:dd MMM}")@(r.IsHalfDay ? (r.Session == HalfDaySession.FirstHalf ? " (1st half)" : " (2nd half)") : "")</td>
+                            <td class="text-end">@r.Days.ToString("0.#")</td>
+                            <td><partial name="_LeaveStatus" model="r.Status" />@if (!string.IsNullOrEmpty(r.DecisionNotes)) { <div class="small text-muted fst-italic">@r.DecisionNotes</div> }</td>
+                            <td class="text-end">@if (r.Status == LeaveStatus.Pending || (r.Status == LeaveStatus.Approved && r.From > today))
+                            {
+                                <form method="post" action="/me/leave/cancel/@r.Id" asp-antiforgery="true" data-confirm="Cancel this leave request?"><button class="btn btn-sm btn-light border" type="submit">Cancel</button></form>
+                            }</td>
+                        </tr>
+                    }</tbody>
+                </table></div>
+            }
+        </div>
+    </div>
+    <div class="col-xl-4">
+        <div class="card"><div class="card-header">Holidays @year</div>
+            @if (holidays.Count == 0) { <div class="card-body text-muted small">No holidays published.</div> }
+            <ul class="list-group list-group-flush">@foreach (var h in holidays)
+            {
+                <li class="list-group-item bg-transparent d-flex justify-content-between small @(h.Date < today ? "text-muted" : "")">
+                    <span>@h.Name @if (h.IsOptional) { <span class="badge text-bg-light border">Optional</span> }</span><span class="text-nowrap">@h.Date.ToString("ddd, dd MMM")</span></li>
+            }</ul>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="applyModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" method="post" action="/me/leave/apply" asp-antiforgery="true" novalidate data-leave-preview="/me/leave/preview">
+    <div class="modal-header"><h5 class="modal-title">Apply for leave</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body row g-3">
+        <partial name="_LeaveApplyFields" for="@application" view-data="ViewData" />
+        <div class="col-12 small" data-leave-days></div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Submit request</button></div>
+</form></div></div>

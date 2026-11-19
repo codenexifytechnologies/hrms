@@ -1,0 +1,28 @@
+@model Codenexify.HRMS.Application.Payroll.ExpenseClaimView
+@using Codenexify.HRMS.Domain.Payroll
+@{
+    var c = Model.Claim;
+    var mode = (string)ViewBag.Mode;
+    ViewData["Title"] = c.Title;
+    ViewData["ReceiptBase"] = "/me/expenses/receipt";
+}
+<div class="page-head"><div><h1 class="h3">@c.Title</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/me/expenses">Expenses</a></li><li class="breadcrumb-item active">Claim #@c.Id</li></ol></nav></div>
+    @if (mode == "mine" && c.Status is ExpenseStatus.Submitted or ExpenseStatus.ManagerApproved)
+    {
+        <form method="post" action="/me/expenses/@c.Id/cancel" asp-antiforgery="true" data-confirm="Cancel this claim?"><button class="btn btn-light border" type="submit">Cancel claim</button></form>
+    }
+</div>
+<partial name="_ExpenseClaim" model="Model" view-data="ViewData" />
+@if (mode == "manager" && c.Status == ExpenseStatus.Submitted)
+{
+    <div class="card" style="max-width: 760px"><div class="card-header">Your review</div><div class="card-body">
+        <form method="post" action="/me/expenses/review/@c.Id" asp-antiforgery="true" class="row g-2">
+            <div class="col-12"><label class="form-label small" for="mn">Note (required when rejecting)</label><input id="mn" name="notes" maxlength="500" class="form-control" /></div>
+            <div class="col-12 d-flex gap-2 justify-content-end">
+                <button class="btn btn-outline-danger" type="submit" name="approve" value="false">Reject</button>
+                <button class="btn btn-accent" type="submit" name="approve" value="true"><i class="bi bi-check2 me-1"></i>Approve and send to finance</button>
+            </div>
+        </form>
+    </div></div>
+}

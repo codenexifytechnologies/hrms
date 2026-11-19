@@ -1,0 +1,7 @@
+@model DesignationInput
+<div class="row g-3">
+    <div class="col-md-8"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name"></span></div>
+    <div class="col-md-4"><label asp-for="Level" class="form-label"></label><input asp-for="Level" class="form-control" /><span asp-validation-for="Level"></span></div>
+    <div class="col-12"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="2"></textarea></div>
+    <div class="col-12"><div class="form-check form-switch"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div></div>
+</div>

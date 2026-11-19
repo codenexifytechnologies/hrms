@@ -1,0 +1,70 @@
+@model Codenexify.HRMS.Application.Billing.PlatformSettingsInput
+@{
+    ViewData["Title"] = "Billing & email settings";
+    var states = (List<string>)ViewBag.States;
+    var webhookUrl = $"{Context.Request.Scheme}://{Context.Request.Host}/webhooks/razorpay";
+}
+<div class="page-head"><div><h1>Billing &amp; email settings</h1><div class="text-muted small">Supplier details printed on invoices, payment gateway and outgoing email</div></div></div>
+<form method="post" action="/superadmin/billing/settings" asp-antiforgery="true" novalidate style="max-width: 1000px">
+    <div asp-validation-summary="All" class="alert alert-danger py-2 small"></div>
+    <div class="card mb-3"><div class="card-header">Supplier (your company)</div><div class="card-body row g-3">
+        <div class="col-md-6"><label asp-for="LegalName" class="form-label"></label><input asp-for="LegalName" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="Gstin" class="form-label"></label><input asp-for="Gstin" class="form-control text-uppercase" /></div>
+        <div class="col-md-3"><label asp-for="Pan" class="form-label"></label><input asp-for="Pan" class="form-control text-uppercase" /></div>
+        <div class="col-md-6"><label asp-for="AddressLine" class="form-label"></label><input asp-for="AddressLine" class="form-control" /></div>
+        <div class="col-md-2"><label asp-for="City" class="form-label"></label><input asp-for="City" class="form-control" /></div>
+        <div class="col-md-2"><label asp-for="State" class="form-label"></label>
+            <select asp-for="State" class="form-select">@foreach (var s in states) { <option value="@s" selected="@(s == Model.State)">@s</option> }</select></div>
+        <div class="col-md-2"><label asp-for="PostalCode" class="form-label"></label><input asp-for="PostalCode" class="form-control" /></div>
+        <div class="col-md-4"><label asp-for="BillingEmail" class="form-label"></label><input asp-for="BillingEmail" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="Phone" class="form-label"></label><input asp-for="Phone" class="form-control" /></div>
+        <div class="col-12"><label asp-for="BankDetails" class="form-label"></label><textarea asp-for="BankDetails" class="form-control" rows="2" placeholder="Bank, account name, account number, IFSC, UPI ID"></textarea></div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header">Invoicing &amp; GST</div><div class="card-body row g-3">
+        <div class="col-md-2"><label asp-for="InvoicePrefix" class="form-label"></label><input asp-for="InvoicePrefix" class="form-control text-uppercase" /></div>
+        <div class="col-md-2"><label asp-for="CreditNotePrefix" class="form-label"></label><input asp-for="CreditNotePrefix" class="form-control text-uppercase" /></div>
+        <div class="col-md-2"><label asp-for="SacCode" class="form-label"></label><input asp-for="SacCode" class="form-control" /></div>
+        <div class="col-md-2"><label asp-for="GstRate" class="form-label"></label><input asp-for="GstRate" class="form-control" step="0.01" /></div>
+        <div class="col-md-2"><label asp-for="InvoiceDueDays" class="form-label"></label><input asp-for="InvoiceDueDays" class="form-control" /></div>
+        <div class="col-md-2"><label asp-for="RenewalInvoiceDaysBefore" class="form-label small"></label><input asp-for="RenewalInvoiceDaysBefore" class="form-control" /></div>
+        <div class="col-md-6"><label asp-for="ReminderSchedule" class="form-label"></label><input asp-for="ReminderSchedule" class="form-control" /></div>
+        <div class="col-12 small text-muted">Numbers run per financial year, e.g. <code>@(Model.InvoicePrefix)/26-27/00001</code>. Confirm the SAC code and GST rate with your tax advisor; changes apply to new invoices only.</div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header">Online payments — Razorpay</div><div class="card-body row g-3">
+        <div class="col-12"><div class="form-check form-switch"><input asp-for="RazorpayEnabled" class="form-check-input" /><label asp-for="RazorpayEnabled" class="form-check-label"></label></div></div>
+        <div class="col-md-4"><label asp-for="RazorpayKeyId" class="form-label"></label><input asp-for="RazorpayKeyId" class="form-control" autocomplete="off" /></div>
+        <div class="col-md-4"><label asp-for="RazorpayKeySecret" class="form-label"></label><input asp-for="RazorpayKeySecret" type="password" class="form-control" autocomplete="new-password" placeholder="@(Model.HasRazorpaySecret ? "•••••• saved" : "Not set")" /></div>
+        <div class="col-md-4"><label asp-for="RazorpayWebhookSecret" class="form-label"></label><input asp-for="RazorpayWebhookSecret" type="password" class="form-control" autocomplete="new-password" placeholder="@(Model.HasWebhookSecret ? "•••••• saved" : "Not set")" /></div>
+        <div class="col-12 small text-muted">In the Razorpay dashboard add a webhook to <code>@webhookUrl</code> for <em>payment.captured</em> and <em>payment.failed</em>, using the webhook secret above. Secrets are stored encrypted and never shown again.</div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header">Outgoing email — SMTP</div><div class="card-body row g-3">
+        <div class="col-12"><div class="form-check form-switch"><input asp-for="SmtpEnabled" class="form-check-input" /><label asp-for="SmtpEnabled" class="form-check-label"></label></div></div>
+        <div class="col-md-5"><label asp-for="SmtpHost" class="form-label"></label><input asp-for="SmtpHost" class="form-control" /></div>
+        <div class="col-md-2"><label asp-for="SmtpPort" class="form-label"></label><input asp-for="SmtpPort" class="form-control" /></div>
+        <div class="col-md-3 d-flex align-items-end"><div class="form-check form-switch mb-2"><input asp-for="SmtpUseSsl" class="form-check-input" /><label asp-for="SmtpUseSsl" class="form-check-label"></label></div></div>
+        <div class="col-md-4"><label asp-for="SmtpUsername" class="form-label"></label><input asp-for="SmtpUsername" class="form-control" autocomplete="off" /></div>
+        <div class="col-md-4"><label asp-for="SmtpPassword" class="form-label"></label><input asp-for="SmtpPassword" type="password" class="form-control" autocomplete="new-password" placeholder="@(Model.HasSmtpPassword ? "•••••• saved" : "Not set")" /></div>
+        <div class="col-md-4"></div>
+        <div class="col-md-4"><label asp-for="SmtpFromEmail" class="form-label"></label><input asp-for="SmtpFromEmail" class="form-control" /></div>
+        <div class="col-md-4"><label asp-for="SmtpFromName" class="form-label"></label><input asp-for="SmtpFromName" class="form-control" /></div>
+        <div class="col-12 small text-muted">Invoices, payment reminders and trial-ending notices are emailed to the organization's registered email. Every attempt is logged.</div>
+    </div></div>
+    <div class="card mb-3"><div class="card-header">Single sign-on — Google &amp; Microsoft</div><div class="card-body row g-3">
+        <div class="col-md-6"><label asp-for="GoogleClientId" class="form-label"></label><input asp-for="GoogleClientId" class="form-control" autocomplete="off" /></div>
+        <div class="col-md-6"><label asp-for="GoogleClientSecret" class="form-label"></label><input asp-for="GoogleClientSecret" type="password" class="form-control" autocomplete="new-password" placeholder="@(Model.HasGoogleSecret ? "•••••• saved" : "Not set")" /></div>
+        <div class="col-md-6"><label asp-for="MicrosoftClientId" class="form-label"></label><input asp-for="MicrosoftClientId" class="form-control" autocomplete="off" /></div>
+        <div class="col-md-6"><label asp-for="MicrosoftClientSecret" class="form-label"></label><input asp-for="MicrosoftClientSecret" type="password" class="form-control" autocomplete="new-password" placeholder="@(Model.HasMicrosoftSecret ? "•••••• saved" : "Not set")" /></div>
+        <div class="col-12 small text-muted">Register one web app with each provider (Microsoft: multi-tenant, “accounts in any organizational directory”). Redirect URIs: <code>@(Context.Request.Scheme)://@(Context.Request.Host)/sso/google/callback</code> and <code>@(Context.Request.Scheme)://@(Context.Request.Host)/sso/microsoft/callback</code>. Organizations switch SSO on and list their email domains under Users → Sign-in options.</div>
+    </div></div>
+    <div class="card mb-3"><div class="card-header">SMS one-time codes — MSG91</div><div class="card-body row g-3">
+        <div class="col-12"><div class="form-check form-switch"><input asp-for="SmsEnabled" class="form-check-input" /><label asp-for="SmsEnabled" class="form-check-label"></label></div></div>
+        <div class="col-md-4"><label asp-for="Msg91AuthKey" class="form-label"></label><input asp-for="Msg91AuthKey" type="password" class="form-control" autocomplete="new-password" placeholder="@(Model.HasMsg91Key ? "•••••• saved" : "Not set")" /></div>
+        <div class="col-md-4"><label asp-for="Msg91TemplateId" class="form-label"></label><input asp-for="Msg91TemplateId" class="form-control" /></div>
+        <div class="col-md-4"><label asp-for="Msg91OtpVariable" class="form-label"></label><input asp-for="Msg91OtpVariable" class="form-control" /></div>
+        <div class="col-12 small text-muted">Indian SMS needs a DLT-registered sender and template, e.g. “Your Codenexify HRMS sign-in code is ##otp##. Valid for 5 minutes.” Used for mobile OTP sign-in.</div>
+    </div></div>
+    <div class="d-flex justify-content-end"><button class="btn btn-accent" type="submit">Save settings</button></div>
+</form>

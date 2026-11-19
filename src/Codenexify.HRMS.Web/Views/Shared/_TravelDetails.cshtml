@@ -1,0 +1,33 @@
+@model Codenexify.HRMS.Application.Strength.TravelView
+@using Codenexify.HRMS.Domain.Strength
+@{
+    var t = Model.Request;
+    var ticketUrl = (string)ViewData["TicketUrl"]!;
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    string Money(decimal? v) => v is null ? "—" : "₹" + v.Value.ToString("N0", inr);
+}
+<div class="card mb-3"><div class="card-body">
+    <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+        <div class="fs-5 fw-semibold">@t.FromCity <i class="bi bi-arrow-right mx-1"></i> @t.ToCity</div>
+        <span class="badge-status st-@Codenexify.HRMS.Web.TravelCss.Of(t.Status) fs-6">@t.Status</span>
+    </div>
+    <dl class="row small mb-0">
+        <dt class="col-sm-4 text-muted fw-normal">Traveller</dt><dd class="col-sm-8">@Model.EmployeeName (@Model.EmployeeCode)</dd>
+        <dt class="col-sm-4 text-muted fw-normal">Purpose</dt><dd class="col-sm-8">@t.Purpose</dd>
+        <dt class="col-sm-4 text-muted fw-normal">Dates</dt><dd class="col-sm-8">@t.DepartOn.ToString("ddd, dd MMM yyyy")@(t.ReturnOn is { } r ? $" → {r:ddd, dd MMM yyyy}" : " (one way)")</dd>
+        <dt class="col-sm-4 text-muted fw-normal">Mode</dt><dd class="col-sm-8">@t.Mode@(t.NeedsAccommodation ? " · hotel needed" : "")</dd>
+        <dt class="col-sm-4 text-muted fw-normal">Estimated cost</dt><dd class="col-sm-8">@Money(t.EstimatedCost)</dd>
+        <dt class="col-sm-4 text-muted fw-normal">Advance</dt><dd class="col-sm-8">requested @Money(t.AdvanceRequested)@(t.AdvancePaid is { } p ? $" · paid {Money(p)} on {t.AdvancePaidOn:dd MMM yyyy}" : "")</dd>
+        @if (t.Notes is not null) { <dt class="col-sm-4 text-muted fw-normal">Notes</dt><dd class="col-sm-8" style="white-space:pre-line">@t.Notes</dd> }
+        <dt class="col-sm-4 text-muted fw-normal">Approval</dt>
+        <dd class="col-sm-8">@(t.DecidedBy is null ? (Model.Approver is null ? "Travel desk" : $"Waiting for {Model.Approver}") : $"{t.Status switch { TravelStatus.Rejected => "Rejected", _ => "Approved" }} by {t.DecidedBy} on {t.DecidedAtUtc?.ToLocalTime():dd MMM}")@(t.DecisionNote is null ? "" : $" — {t.DecisionNote}")</dd>
+    </dl>
+</div></div>
+@if (t.BookingDetails is not null)
+{
+    <div class="card mb-3 tone-green"><div class="card-header">Booking</div><div class="card-body">
+        <div style="white-space:pre-line">@t.BookingDetails</div>
+        <div class="small text-muted mt-2">By @t.BookedBy on @t.BookedAtUtc?.ToLocalTime().ToString("dd MMM yyyy")@(t.BookedCost is { } c ? $" · cost {Money(c)}" : "")</div>
+        @if (t.TicketStorageKey is not null) { <a class="btn btn-sm btn-light border mt-2" href="@ticketUrl"><i class="bi bi-ticket-perforated me-1"></i>@t.TicketFileName</a> }
+    </div></div>
+}

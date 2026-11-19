@@ -1,0 +1,101 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Strength.OfficeLocationRow>
+@using Codenexify.HRMS.Application.Strength
+@using Codenexify.HRMS.Domain.Strength
+@{
+    ViewData["Title"] = "Office locations & GPS attendance";
+    var mode = (GeoAttendanceMode)ViewBag.Mode;
+    var canEnforce = (bool)ViewBag.CanEnforce;
+    var multiple = (bool)ViewBag.Multiple;
+    var branches = (IReadOnlyList<Codenexify.HRMS.Application.CoreHr.LookupItem>)ViewBag.Branches;
+    var exempt = (IReadOnlyList<Codenexify.HRMS.Application.CoreHr.LookupItem>)ViewBag.Exempt;
+    var people = (IReadOnlyList<Codenexify.HRMS.Application.CoreHr.LookupItem>)ViewBag.Employees;
+    var punches = (IReadOnlyList<GeoPunchRow>)ViewBag.Punches;
+    var date = (DateOnly)ViewBag.Date;
+    string Css(PunchLocationStatus s) => s switch { PunchLocationStatus.Inside => "Active", PunchLocationStatus.Outside => "Expired", PunchLocationStatus.Exempt => "Trial", _ => "Inactive" };
+}
+<div class="page-head"><div><h1>Office locations &amp; GPS attendance</h1><div class="text-muted small">Location-stamped clock-ins, with an optional office geo-fence</div></div></div>
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card mb-3"><div class="card-header">GPS attendance</div><div class="card-body">
+            <form method="post" action="/org/attendance/locations/mode" asp-antiforgery="true">
+                <div class="form-check"><input class="form-check-input" type="radio" name="mode" id="m0" value="Off" checked="@(mode == GeoAttendanceMode.Off)" /><label class="form-check-label" for="m0"><strong>Off</strong> — no location is requested or stored</label></div>
+                <div class="form-check"><input class="form-check-input" type="radio" name="mode" id="m1" value="Record" checked="@(mode == GeoAttendanceMode.Record)" /><label class="form-check-label" for="m1"><strong>Record</strong> — store the location with each punch, never block</label></div>
+                <div class="form-check"><input class="form-check-input" type="radio" name="mode" id="m2" value="Enforce" checked="@(mode == GeoAttendanceMode.Enforce)" disabled="@(!canEnforce)" /><label class="form-check-label" for="m2"><strong>Enforce geo-fence</strong> — clock-ins must be within an office radius@(canEnforce ? "" : " (not in your plan)")</label></div>
+                <button class="btn btn-accent btn-sm mt-2" type="submit">Save</button>
+            </form>
+            <p class="small text-muted mt-3 mb-0">Employees are told their location is recorded, and the browser asks their permission. Locations are captured only at the moment of a punch — never tracked in between.</p>
+        </div></div>
+
+        <div class="card mb-3"><div class="card-header">Add an office location</div><div class="card-body">
+            <form method="post" action="/org/attendance/locations/save" asp-antiforgery="true" class="row g-2" data-geo-fill>
+                <div class="col-12"><label class="form-label small" for="ln">Name</label><input id="ln" name="location.Name" maxlength="100" class="form-control" required placeholder="e.g. Pune HQ" /></div>
+                <div class="col-12"><label class="form-label small" for="lb">Branch (optional)</label>
+                    <select id="lb" name="location.BranchId" class="form-select"><option value="">—</option>@foreach (var b in branches) { <option value="@b.Id">@b.Name</option> }</select></div>
+                <div class="col-6"><label class="form-label small" for="lat">Latitude</label><input id="lat" name="location.Latitude" type="number" step="0.000001" min="-90" max="90" class="form-control" required data-geo-lat /></div>
+                <div class="col-6"><label class="form-label small" for="lng">Longitude</label><input id="lng" name="location.Longitude" type="number" step="0.000001" min="-180" max="180" class="form-control" required data-geo-lng /></div>
+                <div class="col-6"><label class="form-label small" for="lr">Radius (m)</label><input id="lr" name="location.RadiusMeters" type="number" min="30" max="5000" value="200" class="form-control" /></div>
+                <div class="col-6 d-flex align-items-end"><button class="btn btn-light border w-100" type="button" data-geo-here><i class="bi bi-crosshair me-1"></i>Use my location</button></div>
+                <input type="hidden" name="location.IsActive" value="true" />
+                <div class="col-12 text-end"><button class="btn btn-accent" type="submit">Add location</button></div>
+            </form>
+            <p class="small text-muted mt-2 mb-0">Tip: stand in the office and press “Use my location”, or copy coordinates from a maps app. 150–300 m suits most buildings.@(multiple ? "" : " Your plan includes one active location.")</p>
+        </div></div>
+
+        <div class="card"><div class="card-header">Exempt from the geo-fence</div><div class="card-body">
+            <p class="small text-muted">Field and remote staff can clock in anywhere (their location is still recorded when GPS attendance is on).</p>
+            @foreach (var e in exempt)
+            {
+                <form method="post" action="/org/attendance/locations/exempt" asp-antiforgery="true" class="d-flex justify-content-between align-items-center border-bottom py-1">
+                    <span class="small">@e.Name</span><input type="hidden" name="employeeId" value="@e.Id" /><input type="hidden" name="exempt" value="false" />
+                    <button class="btn btn-sm btn-link text-danger" type="submit">Remove</button></form>
+            }
+            <form method="post" action="/org/attendance/locations/exempt" asp-antiforgery="true" class="d-flex gap-2 mt-2">
+                <label class="visually-hidden" for="xe">Employee</label>
+                <select id="xe" name="employeeId" class="form-select form-select-sm" required><option value="">Choose…</option>@foreach (var p in people) { <option value="@p.Id">@p.Name</option> }</select>
+                <input type="hidden" name="exempt" value="true" /><button class="btn btn-sm btn-soft text-nowrap" type="submit">Exempt</button>
+            </form>
+        </div></div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card mb-3"><div class="card-header">Locations</div>
+            @if (Model.Count == 0) { <div class="empty-state py-4"><i class="bi bi-geo-alt"></i>No office locations yet.</div> }
+            else
+            {
+                <div class="table-responsive"><table class="table mb-0 small align-middle">
+                    <thead><tr><th>Name</th><th>Coordinates</th><th>Radius</th><th>Status</th><th></th></tr></thead>
+                    <tbody>@foreach (var l in Model)
+                    {
+                        <tr><td class="fw-semibold">@l.Name<div class="text-muted fw-normal">@l.Branch</div></td>
+                            <td><a href="https://www.google.com/maps?q=@l.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture),@l.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" target="_blank" rel="noopener">@l.Latitude.ToString("0.0000"), @l.Longitude.ToString("0.0000") <i class="bi bi-box-arrow-up-right"></i></a></td>
+                            <td>@l.RadiusMeters m</td><td>@(l.IsActive ? "Active" : "Inactive")</td>
+                            <td class="text-end">
+                                <form method="post" action="/org/attendance/locations/save?id=@l.Id" asp-antiforgery="true">
+                                    <input type="hidden" name="location.Name" value="@l.Name" /><input type="hidden" name="location.Latitude" value="@l.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                                    <input type="hidden" name="location.Longitude" value="@l.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" /><input type="hidden" name="location.RadiusMeters" value="@l.RadiusMeters" />
+                                    <input type="hidden" name="location.IsActive" value="@(!l.IsActive)" /><input type="hidden" name="location.BranchId" value="@l.BranchId" />
+                                    <button class="btn btn-sm btn-link" type="submit">@(l.IsActive ? "Deactivate" : "Activate")</button>
+                                </form>
+                            </td></tr>
+                    }</tbody>
+                </table></div>
+            }
+        </div>
+        <div class="card"><div class="card-header">Located punches · @date.ToString("dd MMM yyyy")
+                <form method="get" action="/org/attendance/locations" class="d-flex gap-1"><label class="visually-hidden" for="pd">Date</label><input id="pd" type="date" name="date" value="@date.ToString("yyyy-MM-dd")" class="form-control form-control-sm" data-autosubmit /></form></div>
+            @if (punches.Count == 0) { <div class="empty-state py-4"><i class="bi bi-pin-map"></i>No located punches on this day.</div> }
+            else
+            {
+                <div class="table-responsive"><table class="table mb-0 small align-middle">
+                    <thead><tr><th>Time</th><th>Employee</th><th></th><th>Where</th><th>Status</th></tr></thead>
+                    <tbody>@foreach (var p in punches)
+                    {
+                        <tr><td>@p.LocalTime.ToString("HH:mm")</td><td>@p.EmployeeName<div class="text-muted">@p.EmployeeCode</div></td><td>@p.Direction</td>
+                            <td>@(p.Office is null ? "" : $"{p.DistanceMeters} m from {p.Office}")@(p.AccuracyMeters is { } a ? $" · ±{a} m" : "")
+                                @if (p.Latitude is { } la && p.Longitude is { } lo) { <a class="ms-1" href="https://www.google.com/maps?q=@la.ToString(System.Globalization.CultureInfo.InvariantCulture),@lo.ToString(System.Globalization.CultureInfo.InvariantCulture)" target="_blank" rel="noopener" aria-label="Open in maps"><i class="bi bi-map"></i></a> }</td>
+                            <td><span class="badge-status st-@Css(p.Status)">@p.Status</span></td></tr>
+                    }</tbody>
+                </table></div>
+            }
+        </div>
+    </div>
+</div>

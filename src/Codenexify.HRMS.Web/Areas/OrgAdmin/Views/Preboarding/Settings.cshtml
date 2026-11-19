@@ -1,0 +1,49 @@
+@model Codenexify.HRMS.Application.Planning.PreboardingSettingsInput
+@using Codenexify.HRMS.Domain.Planning
+@using Codenexify.HRMS.Web
+@{
+    ViewData["Title"] = "Pre-boarding settings";
+    var items = (IReadOnlyList<PreboardingItem>)ViewBag.Items;
+}
+<div class="page-head">
+    <div><h1>Welcome page and checklist</h1><div class="text-muted small"><a href="/org/preboarding">Pre-boarding</a> · what new hires see and what they're asked for</div></div>
+</div>
+<form method="post" action="/org/preboarding/settings" asp-antiforgery="true" novalidate style="max-width: 960px">
+    <div asp-validation-summary="All" class="alert alert-danger py-2 small"></div>
+    <div class="card mb-3"><div class="card-header">Welcome page</div><div class="card-body row g-3">
+        <div class="col-12"><label asp-for="WelcomeMessage" class="form-label"></label><textarea asp-for="WelcomeMessage" rows="4" class="form-control" placeholder="We're thrilled you're joining us! Here's what to expect…"></textarea></div>
+        <div class="col-12"><label asp-for="FirstDayInfo" class="form-label"></label><textarea asp-for="FirstDayInfo" rows="4" class="form-control" placeholder="Arrive at 9:30 at reception, 4th floor. Bring a photo ID. Lunch with your team at 1 pm."></textarea></div>
+        <div class="col-md-4"><label asp-for="ContactName" class="form-label"></label><input asp-for="ContactName" class="form-control" /></div>
+        <div class="col-md-4"><label asp-for="ContactEmail" class="form-label"></label><input asp-for="ContactEmail" class="form-control" /></div>
+        <div class="col-md-4"><label asp-for="ContactPhone" class="form-label"></label><input asp-for="ContactPhone" class="form-control" /></div>
+    </div></div>
+    <div class="card mb-3"><div class="card-header">What new hires fill in</div><div class="card-body row g-3">
+        <div class="col-12 small text-muted">Personal details (date of birth, address, emergency contact) are always asked. Aadhaar is never asked: if you need address proof, ask for a masked copy as a document below.</div>
+        <div class="col-md-4"><div class="form-check"><input asp-for="AskBankDetails" class="form-check-input" /><label asp-for="AskBankDetails" class="form-check-label"></label></div></div>
+        <div class="col-md-4"><div class="form-check"><input asp-for="AskPan" class="form-check-input" /><label asp-for="AskPan" class="form-check-label"></label></div></div>
+        <div class="col-md-4"><label asp-for="LinkDaysAfterJoining" class="form-label"></label><input asp-for="LinkDaysAfterJoining" class="form-control" inputmode="numeric" /></div>
+    </div></div>
+    <div class="d-flex justify-content-end mb-4"><button class="btn btn-accent" type="submit">Save settings</button></div>
+</form>
+
+<div class="card" id="items" style="max-width: 960px">
+    <div class="card-header d-flex justify-content-between align-items-center"><span>Documents and acknowledgements</span>
+        <a class="btn btn-sm btn-accent" href="/org/preboarding/items/new"><i class="bi bi-plus-lg me-1"></i>Add item</a></div>
+    @if (items.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-list-check"></i>Nothing yet. Add e.g. "PAN card copy", "Last three payslips", "Relieving letter" or "Read the code of conduct".</div>
+    }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover align-middle mb-0">
+            <thead><tr><th>Item</th><th>Type</th><th>Required</th><th>Status</th></tr></thead>
+            <tbody>@foreach (var i in items)
+            {
+                <tr><td><a class="fw-semibold" href="/org/preboarding/items/@i.Id">@i.Title</a>@if (!string.IsNullOrWhiteSpace(i.Description)) { <div class="small text-muted text-truncate" style="max-width: 420px">@i.Description</div> }</td>
+                    <td class="small">@PlanningUi.Label(i.Kind)@(i.Kind == PreboardingItemKind.Document ? " · " + i.DocumentCategory : "")</td>
+                    <td class="small">@(i.IsRequired ? "Yes" : "Optional")</td>
+                    <td>@if (i.IsActive) { <span class="badge text-bg-success">Active</span> } else { <span class="badge text-bg-secondary">Off</span> }</td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>

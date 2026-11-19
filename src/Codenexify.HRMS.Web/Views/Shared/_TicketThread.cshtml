@@ -1,0 +1,15 @@
+@model Codenexify.HRMS.Application.Support.TicketView
+@using Codenexify.HRMS.Domain.Support
+<div class="ticket-thread">
+    @foreach (var m in Model.Messages)
+    {
+        var support = m.Author == TicketAuthor.Support;
+        <div class="ticket-msg @(support ? "from-support" : "from-customer") @(m.IsInternal ? "internal" : "")">
+            <div class="d-flex justify-content-between small mb-1">
+                <span class="fw-semibold">@m.AuthorName @if (support) { <span class="badge text-bg-primary ms-1">Codenexify</span> } @if (m.IsInternal) { <span class="badge text-bg-warning ms-1">Internal note</span> }</span>
+                <span class="text-muted">@m.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</span>
+            </div>
+            <div class="ticket-body">@m.Body</div>
+        </div>
+    }
+</div>

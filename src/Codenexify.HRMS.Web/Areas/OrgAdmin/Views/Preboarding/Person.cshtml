@@ -1,0 +1,87 @@
+@model Codenexify.HRMS.Application.Planning.PreboardingStatus
+@using Codenexify.HRMS.Application.Planning
+@using Codenexify.HRMS.Domain.Planning
+@using Codenexify.HRMS.Web
+@{
+    var e = Model.Employee;
+    var inv = Model.Invite;
+    ViewData["Title"] = "Pre-boarding · " + e.FullName;
+    var link = TempData["PreboardingLink"] as string;
+    var active = Model.State is PreboardingState.Invited or PreboardingState.Opened or PreboardingState.Submitted;
+    var today = DateOnly.FromDateTime(DateTime.Now);
+}
+<div class="page-head">
+    <div><h1>@e.FullName</h1><div class="text-muted small"><a href="/org/preboarding">Pre-boarding</a> · joins @e.DateOfJoining.ToString("dd MMM yyyy")@(e.Department is null ? "" : " · " + e.Department.Name) · <a href="/org/employees/details/@e.Id">Employee record</a></div></div>
+    <span class="badge @PlanningUi.Css(Model.State) fs-6">@PlanningUi.Label(Model.State)</span>
+</div>
+
+@if (link is not null)
+{
+    <div class="alert alert-success small">
+        <div class="fw-semibold mb-1"><i class="bi bi-envelope-check me-1"></i>Link emailed to @inv?.Email</div>
+        If the email doesn't arrive, you can share this link directly with the new hire. It's shown only now; it's personal, so send it only to them.
+        <input class="form-control form-control-sm mt-2" value="@link" readonly aria-label="Welcome link" />
+    </div>
+}
+
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card mb-3"><div class="card-header">Welcome link</div><div class="card-body">
+            @if (inv is not null)
+            {
+                <dl class="row small mb-3">
+                    <dt class="col-5">Sent to</dt><dd class="col-7">@inv.Email</dd>
+                    <dt class="col-5">Sent</dt><dd class="col-7">@inv.SentAtUtc.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</dd>
+                    <dt class="col-5">Works until</dt><dd class="col-7">@inv.ExpiresAtUtc.AddDays(-1).ToString("dd MMM yyyy")</dd>
+                    <dt class="col-5">First opened</dt><dd class="col-7">@(inv.FirstOpenedAtUtc?.ToLocalTime().ToString("dd MMM yyyy, HH:mm") ?? "Not yet")</dd>
+                    <dt class="col-5">Submitted</dt><dd class="col-7">@(inv.SubmittedAtUtc?.ToLocalTime().ToString("dd MMM yyyy, HH:mm") ?? "Not yet")</dd>
+                </dl>
+            }
+            @if (e.DateOfJoining >= today && e.IsCurrent)
+            {
+                <form method="post" action="/org/preboarding/@e.Id/send" asp-antiforgery="true" class="mb-2" data-confirm="@(active ? "Send a new link? The current one stops working; answers already given are kept." : "Email the welcome link?")">
+                    <label class="form-label small" for="email">New hire's personal email</label>
+                    <div class="input-group"><input id="email" name="email" type="email" class="form-control" value="@(inv?.Email ?? e.PersonalEmail)" required maxlength="200" />
+                        <button class="btn btn-accent" type="submit">@(inv is null ? "Send link" : "Send new link")</button></div>
+                    <div class="form-text">Not their work email: they can't sign in to it yet.</div>
+                </form>
+            }
+            else
+            {
+                <p class="small text-muted mb-2">New links can only be sent before the joining date.</p>
+            }
+            <div class="d-flex gap-2">
+                @if (active)
+                {
+                    <form method="post" action="/org/preboarding/@e.Id/revoke" asp-antiforgery="true" data-confirm-danger="Cancel the link? It stops opening straight away.">
+                        <button class="btn btn-sm btn-outline-danger" type="submit">Cancel link</button></form>
+                }
+                @if (Model.State == PreboardingState.Submitted)
+                {
+                    <form method="post" action="/org/preboarding/@e.Id/reopen" asp-antiforgery="true" data-confirm="Let the new hire change their answers again?">
+                        <button class="btn btn-sm btn-light border" type="submit">Reopen for changes</button></form>
+                }
+            </div>
+        </div></div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card"><div class="card-header">Checklist</div>
+            <ul class="list-group list-group-flush">
+                @foreach (var s in Model.Steps)
+                {
+                    <li class="list-group-item d-flex gap-3 align-items-start">
+                        <i class="bi @(s.Done ? "bi-check-circle-fill text-success" : "bi-circle text-muted") fs-5"></i>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold">@s.Title @if (!s.Required) { <span class="badge text-bg-light border">optional</span> }</div>
+                            <div class="small text-muted">
+                                @if (s.Done) { <span>Done @s.DoneAtUtc?.ToLocalTime().ToString("dd MMM, HH:mm")</span> } else { <span>Not done yet</span> }
+                                @if (s.DocumentId is int docId) { <span> · <a href="/org/employees/document?docId=@docId">View document</a> (verify it on the employee record)</span> }
+                                @if (s.ItemId is null && s.Done) { <span> · saved on the <a href="/org/employees/details/@e.Id">employee record</a></span> }
+                            </div>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </div>
+    </div>
+</div>

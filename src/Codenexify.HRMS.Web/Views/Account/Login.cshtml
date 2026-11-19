@@ -1,0 +1,54 @@
+@model TenantLoginViewModel
+@{
+    ViewData["Title"] = "Sign in";
+    ViewData["HideNav"] = true;
+    var sso = Context.Request.Query["sso"].ToString();
+}
+@section Styles { <link rel="stylesheet" href="~/css/auth.css" asp-append-version="true" /> }
+<div class="ax-wrap">
+    <partial name="_AuthAside" />
+    <div class="ax-panel">
+        <div class="ax-card">
+            <span class="ax-eyebrow">Welcome back</span>
+            <h1 class="ax-title">Sign in to your company</h1>
+            <p class="ax-sub">Use the company code provided by your HR team.</p>
+            <div>
+                @if (sso == "failed") { <div class="alert alert-danger py-2 small">Single sign-on didn't complete. Try again or use your password.</div> }
+                else if (sso == "unavailable") { <div class="alert alert-warning py-2 small">Single sign-on isn't available right now. Use your password.</div> }
+                @if (TempData["Error"] is string loginError) { <div class="alert alert-danger py-2 small">@loginError</div> }
+            </div>
+            <form asp-antiforgery="true" method="post" action="/login" novalidate>
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+                <input type="hidden" asp-for="ReturnUrl" />
+                <div class="ax-field">
+                    <label asp-for="CompanyCode" class="form-label"></label>
+                    <div class="ax-input"><i class="bi bi-buildings"></i><input asp-for="CompanyCode" class="form-control" autocomplete="organization" placeholder="e.g. acme" /></div>
+                    <span asp-validation-for="CompanyCode" class="small"></span>
+                </div>
+                <div class="ax-field">
+                    <label asp-for="Email" class="form-label"></label>
+                    <div class="ax-input"><i class="bi bi-envelope"></i><input asp-for="Email" class="form-control" autocomplete="username" placeholder="you@company.com" /></div>
+                    <span asp-validation-for="Email" class="small"></span>
+                </div>
+                <div class="ax-field">
+                    <label asp-for="Password" class="form-label"></label>
+                    <div class="ax-input"><i class="bi bi-lock"></i><input asp-for="Password" class="form-control" autocomplete="current-password" />
+                        <button type="button" class="ax-eye" data-ax-eye aria-label="Show password" aria-pressed="false"><i class="bi bi-eye"></i></button></div>
+                    <span asp-validation-for="Password" class="small"></span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div class="form-check mb-0">
+                        <input asp-for="RememberMe" class="form-check-input" />
+                        <label asp-for="RememberMe" class="form-check-label"></label>
+                    </div>
+                    <a class="small fw-semibold" href="/forgot-password@(string.IsNullOrEmpty(Model.CompanyCode) ? "" : $"?company={Uri.EscapeDataString(Model.CompanyCode)}")">Forgot password?</a>
+                </div>
+                <button type="submit" class="btn ax-submit w-100">Sign in<i class="bi bi-arrow-right ms-2"></i></button>
+            </form>
+            <div class="ax-divider">or</div>
+            <a class="ax-alt" href="/login/methods@(string.IsNullOrEmpty(Model.CompanyCode) ? "" : $"?company={Uri.EscapeDataString(Model.CompanyCode)}")"><i class="bi bi-key"></i>Google, Microsoft or a mobile code</a>
+            <p class="ax-foot-note">New to @AppConfig["Platform:ProductName"]? <a href="/register" class="fw-semibold">Start a free trial</a></p>
+        </div>
+    </div>
+</div>
+@section Scripts { <script src="~/js/auth.js" asp-append-version="true"></script> }

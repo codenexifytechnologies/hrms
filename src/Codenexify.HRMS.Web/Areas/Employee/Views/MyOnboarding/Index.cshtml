@@ -1,0 +1,32 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Strength.MyOnboardingTask>
+@using Codenexify.HRMS.Domain.Strength
+@{ ViewData["Title"] = "Onboarding"; }
+<div class="page-head"><div><h1>Onboarding</h1><div class="text-muted small">Your onboarding checklist, and tasks for new joiners you manage or buddy</div></div></div>
+@if (Model.Count == 0)
+{
+    <div class="card"><div class="empty-state"><i class="bi bi-check2-all"></i>No onboarding tasks for you right now.</div></div>
+}
+else
+{
+    @foreach (var g in Model.GroupBy(t => (t.PlanId, t.For, t.ForMe)))
+    {
+        <div class="card mb-3"><div class="card-header d-flex justify-content-between">
+            <span>@(g.Key.ForMe ? "Your onboarding" : $"Onboarding · {g.Key.For}")</span>
+            <a class="small" href="/me/onboarding/@g.Key.PlanId">Full checklist</a></div>
+            <ul class="list-group list-group-flush">
+                @foreach (var t in g)
+                {
+                    <li class="list-group-item bg-transparent d-flex flex-wrap gap-2 justify-content-between align-items-start">
+                        <div><div class="fw-semibold">@t.Title</div>
+                            @if (t.Description is not null) { <div class="small text-muted">@t.Description</div> }
+                            <div class="small @(t.Overdue ? "text-danger" : "text-muted")">@(t.Assignee switch { OnboardingAssignee.Manager => "As manager", OnboardingAssignee.Buddy => "As buddy", _ => "For you" }) · due @t.DueOn.ToString("dd MMM yyyy")@(t.Overdue ? " · overdue" : "")</div></div>
+                        <form method="post" action="/me/onboarding/tasks/@t.TaskId/complete" asp-antiforgery="true" class="d-flex gap-1">
+                            <label class="visually-hidden" for="n@(t.TaskId)">Note</label>
+                            <input id="n@(t.TaskId)" name="note" maxlength="500" class="form-control form-control-sm" placeholder="Note (optional)" />
+                            <button class="btn btn-sm btn-accent text-nowrap" type="submit">Mark done</button></form>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+}

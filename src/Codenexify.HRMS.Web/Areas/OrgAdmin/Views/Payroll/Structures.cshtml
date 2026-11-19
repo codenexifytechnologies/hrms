@@ -1,0 +1,42 @@
+@model IReadOnlyList<Codenexify.HRMS.Domain.Payroll.SalaryStructure>
+@using Codenexify.HRMS.Domain.Payroll
+@{
+    ViewData["Title"] = "Salary structures";
+    var components = (IReadOnlyList<SalaryComponent>)ViewBag.Components;
+    var manage = User.HasPermission(TenantPermissions.PayrollManage);
+    string Calc(SalaryStructureLine l) => l.Calculation switch
+    {
+        ComponentCalculation.FixedAmount => $"₹{l.Value:N0}/month", ComponentCalculation.PercentOfGross => $"{l.Value:0.##}% of gross",
+        ComponentCalculation.PercentOfBasic => $"{l.Value:0.##}% of basic", _ => "Balance of gross"
+    };
+}
+<div class="page-head"><div><h1>Salary structures</h1><div class="text-muted small">How a gross salary is split into components</div></div>
+    @if (manage) { <div class="d-flex gap-2"><a class="btn btn-light border" href="/org/payroll/component"><i class="bi bi-plus-lg me-1"></i>Component</a><a class="btn btn-accent" href="/org/payroll/structure"><i class="bi bi-plus-lg me-1"></i>Structure</a></div> }</div>
+<partial name="_PayrollNav" />
+<div class="row g-3">
+    <div class="col-xl-7">
+        @foreach (var s in Model)
+        {
+            <div class="card mb-3"><div class="card-header"><span>@s.Name @if (!s.IsActive) { <span class="badge text-bg-light border">Inactive</span> }</span>
+                    @if (manage) { <a class="btn btn-sm btn-soft" href="/org/payroll/structure/@s.Id">Edit</a> }</div>
+                <div class="card-body"><div class="small text-muted mb-2">@s.Description</div>
+                    <ul class="list-unstyled small mb-0">@foreach (var l in s.Lines.OrderBy(l => l.Component.Type).ThenBy(l => l.Component.SortOrder))
+                    { <li class="d-flex justify-content-between border-bottom py-1"><span>@l.Component.Name <span class="text-muted">(@l.Component.Type)</span></span><span>@Calc(l)</span></li> }</ul>
+                </div></div>
+        }
+        @if (Model.Count == 0) { <div class="card"><div class="empty-state">No structures yet.</div></div> }
+    </div>
+    <div class="col-xl-5">
+        <div class="card"><div class="card-header">Components</div>
+            <ul class="list-group list-group-flush">@foreach (var c in components)
+            {
+                <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center">
+                    <div><span class="fw-semibold">@c.Name</span> <code class="small">@c.Code</code>
+                        <div class="small text-muted">@c.Type@(c.IsBasic ? " · basic" : "")@(c.IsHra ? " · HRA" : "")@(c.IsPfWage ? " · PF wage" : "")@(c.IsTaxable ? "" : " · non-taxable")@(c.IsProrated ? "" : " · not prorated")@(c.IsActive ? "" : " · inactive")</div></div>
+                    @if (manage) { <a class="btn btn-sm btn-light border" href="/org/payroll/component/@c.Id">Edit</a> }
+                </li>
+            }</ul>
+            <div class="card-body small text-muted border-top">Statutory deductions (PF, ESI, PT, LWF, TDS), overtime, leave encashment and loan recoveries are added automatically.</div>
+        </div>
+    </div>
+</div>

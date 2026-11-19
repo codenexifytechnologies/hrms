@@ -1,0 +1,27 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Payroll.GratuityRow>
+@{
+    ViewData["Title"] = "Gratuity liability";
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    string M(decimal v) => "₹" + v.ToString("N0", inr);
+}
+<div class="page-head"><div><h1>Gratuity liability</h1><div class="text-muted small">Accrued gratuity for current employees on today's basic pay (part years over six months count as full years)</div></div></div>
+<partial name="_PayrollNav" />
+<div class="row g-3 mb-3">
+    <div class="col-sm-4"><div class="card tone-violet"><div class="card-body py-3"><div class="kpi-label">Total accrued liability</div><div class="kpi-value">@M(Model.Sum(r => r.Amount))</div></div></div></div>
+    <div class="col-sm-4"><div class="card tone-green"><div class="card-body py-3"><div class="kpi-label">Payable now (eligible)</div><div class="kpi-value">@M(Model.Where(r => r.Eligible).Sum(r => r.Amount))</div><div class="kpi-sub">@Model.Count(r => r.Eligible) employee(s)</div></div></div></div>
+</div>
+<div class="card">
+    @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-piggy-bank"></i>No current employees, or no statutory rate set is configured.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover">
+            <thead><tr><th>Employee</th><th>Joined</th><th class="text-end">Service (years)</th><th class="text-end">Counted years</th><th class="text-end">Monthly basic</th><th class="text-end">Gratuity</th><th>Eligible</th></tr></thead>
+            <tbody>@foreach (var r in Model)
+            {
+                <tr><td class="fw-semibold">@r.Name <span class="small text-muted fw-normal">@r.Code</span></td><td class="small">@r.Joined.ToString("dd MMM yyyy")</td>
+                    <td class="text-end">@r.ServiceYears.ToString("0.##")</td><td class="text-end">@r.CountedYears</td><td class="text-end">@(r.MonthlyBasic == 0 ? "No salary" : M(r.MonthlyBasic))</td>
+                    <td class="text-end fw-semibold">@M(r.Amount)</td><td>@(r.Eligible ? "Yes" : "Not yet")</td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>

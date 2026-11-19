@@ -1,0 +1,68 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Payroll.AdjustmentRow>
+@using Codenexify.HRMS.Application.Payroll
+@using Codenexify.HRMS.Domain.Payroll
+@{
+    ViewData["Title"] = "One-time items";
+    var all = (bool)ViewBag.All;
+    var open = (DateOnly)ViewBag.Open;
+    var people = (IReadOnlyList<Codenexify.HRMS.Application.CoreHr.LookupItem>)ViewBag.Employees;
+    var item = (AdjustmentInput)ViewBag.Input;
+    var manage = User.HasPermission(TenantPermissions.PayrollManage);
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+}
+<div class="page-head"><div><h1>One-time items</h1><div class="text-muted small">Bonus, incentives, arrears, reimbursements and recoveries paid with a payroll month · next open month: <strong>@open.ToString("MMMM yyyy")</strong></div></div></div>
+<partial name="_PayrollNav" />
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">@(all ? "All items" : "Waiting to be paid")
+                <a class="small fw-normal" href="/org/payroll/adjustments?all=@(!all)">@(all ? "Show pending only" : "Show all, including paid")</a></div>
+            @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-gift"></i>Nothing @(all ? "yet" : "waiting to be paid").</div> }
+            else
+            {
+                <div class="table-responsive"><table class="table table-hover mb-0 align-middle small">
+                    <thead><tr><th>Employee</th><th>Month</th><th>Item</th><th class="text-end">Amount</th><th>Status</th><th></th></tr></thead>
+                    <tbody>@foreach (var a in Model)
+                    {
+                        <tr><td>@a.EmployeeName<div class="text-muted">@a.EmployeeCode</div></td>
+                            <td>@(new DateOnly(a.Year, a.Month, 1).ToString("MMM yyyy"))</td>
+                            <td>@a.Name<div class="text-muted">@a.Category@(a.IsDeduction ? " · deduction" : a.IsTaxable ? " · taxable" : " · not taxable")@(a.Source != AdjustmentSource.Manual ? $" · from {(a.Source == AdjustmentSource.Expense ? "expense claim" : "salary revision")}" : "")</div>
+                                @if (a.Notes is not null) { <div class="text-muted fst-italic">@a.Notes</div> }</td>
+                            <td class="text-end @(a.IsDeduction ? "text-danger" : "")">@(a.IsDeduction ? "−" : "")₹@a.Amount.ToString("N0", inr)</td>
+                            <td>@if (a.SettledRunId is not null) { <span class="badge-status st-Paid">Paid</span> } else { <span class="badge-status st-Issued">Pending</span> }</td>
+                            <td class="text-end">@if (manage && a.SettledRunId is null && a.Source != AdjustmentSource.Expense)
+                            {
+                                <form method="post" action="/org/payroll/adjustments/@a.Id/delete" asp-antiforgery="true" data-confirm="Remove this item?" data-confirm-danger="1">
+                                    <button class="btn btn-sm btn-link text-danger" type="submit" aria-label="Remove"><i class="bi bi-trash"></i></button></form>
+                            }</td></tr>
+                    }</tbody>
+                </table></div>
+            }
+        </div>
+    </div>
+    @if (manage)
+    {
+        <div class="col-lg-4">
+            <div class="card"><div class="card-header">Add an item</div><div class="card-body">
+                <form method="post" action="/org/payroll/adjustments" asp-antiforgery="true" class="row g-2">
+                    <div class="col-12"><label class="form-label small" for="ae">Employee</label>
+                        <select id="ae" name="item.EmployeeId" class="form-select" required><option value="">Choose…</option>@foreach (var p in people) { <option value="@p.Id">@p.Name</option> }</select></div>
+                    <div class="col-12"><label class="form-label small" for="ac">Type</label>
+                        <select id="ac" name="item.Category" class="form-select">
+                            @foreach (var c in Enum.GetValues<AdjustmentCategory>().Where(c => c != AdjustmentCategory.Arrears)) { <option value="@c">@c</option> }
+                        </select></div>
+                    <div class="col-12"><label class="form-label small" for="an">Description on payslip</label><input id="an" name="item.Name" maxlength="100" class="form-control" required placeholder="e.g. Diwali bonus" /></div>
+                    <div class="col-6"><label class="form-label small" for="aa">Amount (₹)</label><input id="aa" name="item.Amount" type="number" min="1" step="1" class="form-control" required /></div>
+                    <div class="col-6"><label class="form-label small" for="am">Pay with</label>
+                        <input id="am" type="month" class="form-control" value="@open.ToString("yyyy-MM")" min="@open.ToString("yyyy-MM")" data-month-split="item" required /></div>
+                    <input type="hidden" name="item.Year" value="@item.Year" data-month-year />
+                    <input type="hidden" name="item.Month" value="@item.Month" data-month-month />
+                    <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" id="at" name="item.IsTaxable" value="true" checked /><label class="form-check-label small" for="at">Taxable (ignored for reimbursements and deductions)</label></div></div>
+                    <div class="col-12"><label class="form-label small" for="ano">Notes</label><input id="ano" name="item.Notes" maxlength="300" class="form-control" /></div>
+                    <div class="col-12 text-end"><button class="btn btn-accent" type="submit">Add</button></div>
+                </form>
+                <div class="form-text mt-2">One-time items are not PF/ESI wages. If that month's payroll is already processed, re-process it to include the item.</div>
+            </div></div>
+        </div>
+    }
+</div>

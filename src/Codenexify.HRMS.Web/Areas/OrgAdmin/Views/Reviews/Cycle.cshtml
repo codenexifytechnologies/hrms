@@ -1,0 +1,120 @@
+@model Codenexify.HRMS.Application.Performance.ReviewCycleView
+@using Codenexify.HRMS.Domain.Performance
+@using Codenexify.HRMS.Web
+@{
+    var c = Model.Cycle;
+    ViewData["Title"] = c.Name;
+    var labels = c.RatingLabels.Split('|');
+    var questions = c.Questions.Where(q => !q.IsDeleted).OrderBy(q => q.SortOrder).ToList();
+    var rated = Model.RatingCounts.Values.Sum();
+    string Audience(ReviewAudience a) => a switch { ReviewAudience.SelfOnly => "Employee only", ReviewAudience.ManagerOnly => "Manager only", _ => c.SkipSelfReview ? "Manager" : "Employee & manager" };
+}
+<div class="page-head">
+    <div><h1>@c.Name</h1>
+        <div class="text-muted small"><a href="/org/reviews">Performance reviews</a> · period @c.PeriodStart.ToString("dd MMM yyyy") – @c.PeriodEnd.ToString("dd MMM yyyy")
+            · @(c.SkipSelfReview ? "" : $"self-reviews due {c.SelfReviewDue:dd MMM} · ")manager reviews due @c.ManagerReviewDue.ToString("dd MMM yyyy")</div></div>
+    <div class="d-flex flex-wrap gap-2 align-items-start">
+        <span class="badge @GoalUi.Css(c.Status) fs-6">@c.Status</span>
+        @if (c.Status is ReviewCycleStatus.Draft or ReviewCycleStatus.Active) { <a class="btn btn-light border btn-sm" href="/org/reviews/@c.Id/edit"><i class="bi bi-pencil me-1"></i>Edit</a> }
+        @if (c.Status != ReviewCycleStatus.Draft) { <a class="btn btn-light border btn-sm" href="/org/reviews/@c.Id/export"><i class="bi bi-file-earmark-excel me-1"></i>Export</a> }
+        @if (c.Status != ReviewCycleStatus.Draft && ViewBag.CalibrationOn is true) { <a class="btn btn-light border btn-sm" href="/org/reviews/@c.Id/calibration"><i class="bi bi-sliders2 me-1"></i>Calibration board</a> }
+    </div>
+</div>
+
+@if (c.Status == ReviewCycleStatus.Draft)
+{
+    <div class="card mb-3 border-primary"><div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div><strong>Ready to launch?</strong> <span class="text-muted">@Model.EligibleNow employee(s) will be included. Everyone is notified and the form below is locked.</span></div>
+        <div class="d-flex gap-2">
+            <form method="post" action="/org/reviews/@c.Id/delete" asp-antiforgery="true" data-confirm="Delete this draft cycle?" data-confirm-danger><button class="btn btn-outline-danger" type="submit">Delete draft</button></form>
+            <form method="post" action="/org/reviews/@c.Id/launch" asp-antiforgery="true" data-confirm="Launch @c.Name for @Model.EligibleNow employee(s)?"><button class="btn btn-accent" type="submit"><i class="bi bi-rocket-takeoff me-1"></i>Launch</button></form>
+        </div>
+    </div></div>
+}
+else if (c.Status == ReviewCycleStatus.Active)
+{
+    var submitted = Model.Reviews.Count(r => r.Status == ReviewStatus.Submitted);
+    <div class="card mb-3"><div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>@submitted of @Model.Reviews.Count manager review(s) submitted. Check ratings (open a review to adjust it), then share the results with employees.</div>
+        <form method="post" action="/org/reviews/@c.Id/release" asp-antiforgery="true" data-confirm="Share @submitted submitted review(s) with the employees? Ratings can't be adjusted afterwards.">
+            <button class="btn btn-accent" type="submit" disabled="@(submitted == 0)"><i class="bi bi-send-check me-1"></i>Share results</button></form>
+    </div></div>
+}
+else if (c.Status == ReviewCycleStatus.Released)
+{
+    <div class="card mb-3"><div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>Results were shared on @c.ReleasedAtUtc?.ToLocalTime().ToString("dd MMM yyyy"). Late reviews are shared as soon as they're submitted. Close the cycle when you're done.</div>
+        <form method="post" action="/org/reviews/@c.Id/close" asp-antiforgery="true" data-confirm="Close this cycle? It becomes read-only."><button class="btn btn-light border" type="submit">Close cycle</button></form>
+    </div></div>
+}
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        @if (c.Status != ReviewCycleStatus.Draft)
+        {
+            <div class="card mb-3">
+                <div class="card-header">Employees (@Model.Reviews.Count)</div>
+                <div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+                    <thead><tr><th>Employee</th><th>Reviewer</th><th>Status</th><th>Rating</th></tr></thead>
+                    <tbody>@foreach (var r in Model.Reviews)
+                    {
+                        <tr><td><a href="/org/reviews/r/@r.Id">@r.EmployeeName</a> <span class="small text-muted">@r.EmployeeCode</span></td>
+                            <td class="small">@(r.ReviewerName ?? "HR")</td>
+                            <td><span class="badge @GoalUi.Css(r.Status)">@GoalUi.Label(r.Status)</span></td>
+                            <td class="small">@(r.Rating is int x ? $"{x} · {labels[x - 1]}" : "—")</td></tr>
+                    }</tbody>
+                </table></div>
+            </div>
+        }
+
+        <div class="card">
+            <div class="card-header">Review form (@questions.Count questions)</div>
+            <ul class="list-group list-group-flush">
+                @foreach (var q in questions)
+                {
+                    <li class="list-group-item d-flex justify-content-between gap-2">
+                        <div><div>@q.Text@(q.Required ? "" : " (optional)")</div>
+                            <div class="small text-muted">@(q.Type == ReviewQuestionType.Rating ? "Rating 1–5 + comment" : "Written answer") · @Audience(q.Audience)</div></div>
+                        @if (c.Status == ReviewCycleStatus.Draft)
+                        {
+                            <form method="post" action="/org/reviews/questions/@q.Id/remove" asp-antiforgery="true"><input type="hidden" name="cycleId" value="@c.Id" />
+                                <button class="btn btn-sm btn-link text-danger p-0" type="submit">Remove</button></form>
+                        }
+                    </li>
+                }
+            </ul>
+            @if (c.Status == ReviewCycleStatus.Draft)
+            {
+                <div class="card-footer">
+                    @if (ViewBag.ValuesOn is true)
+                    {
+                        <form method="post" action="/org/reviews/@c.Id/value-questions" asp-antiforgery="true" class="mb-2">
+                            <button class="btn btn-sm btn-light border" type="submit"><i class="bi bi-gem me-1"></i>Add a rating question for each core value</button></form>
+                    }
+                    <form method="post" action="/org/reviews/@c.Id/questions" asp-antiforgery="true" class="row g-2 align-items-end">
+                        <div class="col-md-6"><label class="form-label small" for="q-text">Add a question</label><input class="form-control form-control-sm" id="q-text" name="question.Text" maxlength="500" required /></div>
+                        <div class="col-md-2"><label class="form-label small" for="q-type">Type</label>
+                            <select class="form-select form-select-sm" id="q-type" name="question.Type"><option value="Rating">Rating</option><option value="Text">Written</option></select></div>
+                        <div class="col-md-2"><label class="form-label small" for="q-aud">Answered by</label>
+                            <select class="form-select form-select-sm" id="q-aud" name="question.Audience"><option value="Both">Both</option><option value="SelfOnly">Employee</option><option value="ManagerOnly">Manager</option></select></div>
+                        <div class="col-md-2"><input type="hidden" name="question.Required" value="true" /><button class="btn btn-sm btn-accent w-100" type="submit">Add</button></div>
+                    </form>
+                </div>
+            }
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card"><div class="card-header">Rating distribution</div><div class="card-body">
+            @if (rated == 0) { <div class="small text-muted">No ratings yet.</div> }
+            else
+            {
+                @for (var v = 5; v >= 1; v--)
+                {
+                    var n = Model.RatingCounts.GetValueOrDefault(v);
+                    <div class="mb-2"><div class="d-flex justify-content-between small"><span>@v · @labels[v - 1]</span><span>@n (@(n * 100 / rated)%)</span></div>
+                        <div class="progress" style="height: 6px" role="progressbar" aria-label="@labels[v - 1]" aria-valuenow="@n" aria-valuemin="0" aria-valuemax="@rated"><div class="progress-bar" style="width: @(n * 100 / rated)%"></div></div></div>
+                }
+            }
+        </div></div>
+    </div>
+</div>

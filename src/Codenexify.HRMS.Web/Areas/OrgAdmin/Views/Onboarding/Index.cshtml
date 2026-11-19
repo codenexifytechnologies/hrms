@@ -1,0 +1,52 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Strength.OnboardingPlanRow>
+@using Codenexify.HRMS.Application.Strength
+@using Codenexify.HRMS.Domain.Strength
+@{
+    ViewData["Title"] = "Onboarding";
+    var all = (bool)ViewBag.All;
+    var candidates = (IReadOnlyList<OnboardingCandidate>)ViewBag.Candidates;
+    var templates = (IReadOnlyList<OnboardingTemplateRow>)ViewBag.Templates;
+    var people = (IReadOnlyList<Codenexify.HRMS.Application.CoreHr.LookupItem>)ViewBag.Employees;
+}
+<div class="page-head"><div><h1>Onboarding</h1><div class="text-muted small">Checklists for new joiners, shared between HR, managers, buddies and the joiner</div></div>
+    <a class="btn btn-light border" href="/org/onboarding/templates"><i class="bi bi-list-check me-1"></i>Templates</a></div>
+
+<div class="card mb-3"><div class="card-header">Start onboarding</div><div class="card-body">
+    @if (candidates.Count == 0) { <p class="small text-muted mb-0">Everyone who joined in the last 90 days (or is about to join) already has onboarding.</p> }
+    else if (templates.Count == 0) { <p class="small text-muted mb-0">Create an active <a href="/org/onboarding/templates">template</a> first.</p> }
+    else
+    {
+        <form method="post" action="/org/onboarding/start" asp-antiforgery="true" class="row g-2 align-items-end">
+            <div class="col-md-4"><label class="form-label small" for="oe">New joiner</label>
+                <select id="oe" name="employeeId" class="form-select" required><option value="">Choose…</option>@foreach (var c in candidates) { <option value="@c.EmployeeId">@c.Name (@c.Code) · joins @c.DateOfJoining.ToString("dd MMM")</option> }</select></div>
+            <div class="col-md-3"><label class="form-label small" for="ot">Template</label>
+                <select id="ot" name="templateId" class="form-select" required>@foreach (var t in templates) { <option value="@t.Id">@t.Name (@t.TaskCount tasks)</option> }</select></div>
+            <div class="col-md-3"><label class="form-label small" for="ob">Buddy</label>
+                <select id="ob" name="buddyEmployeeId" class="form-select"><option value="">No buddy</option>@foreach (var p in people) { <option value="@p.Id">@p.Name</option> }</select></div>
+            <div class="col-md-2"><button class="btn btn-accent w-100" type="submit">Start</button></div>
+        </form>
+        <div class="form-text">Due dates are counted from the joining date. Manager tasks go to the joiner's reporting manager.</div>
+    }
+</div></div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center"><span>@(all ? "All onboarding" : "In progress")</span>
+        <div class="btn-group"><a class="btn btn-sm @(all ? "btn-light border" : "btn-soft")" href="/org/onboarding">In progress</a><a class="btn btn-sm @(all ? "btn-soft" : "btn-light border")" href="/org/onboarding?all=true">All</a></div></div>
+    @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-person-plus"></i>No onboarding @(all ? "yet" : "in progress").</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+            <thead><tr><th>Joiner</th><th>Joins</th><th>Template</th><th style="min-width:180px">Progress</th><th>Status</th></tr></thead>
+            <tbody>@foreach (var p in Model)
+            {
+                var pct = p.Total == 0 ? 0 : (int)Math.Round(100.0 * p.Done / p.Total);
+                <tr><td><a class="fw-semibold" href="/org/onboarding/@p.Id">@p.EmployeeName</a><div class="small text-muted">@p.EmployeeCode</div></td>
+                    <td class="small">@p.DateOfJoining.ToString("dd MMM yyyy")</td><td class="small">@p.TemplateName</td>
+                    <td><div class="d-flex align-items-center gap-2"><div class="progress flex-grow-1" role="progressbar" aria-label="Progress" aria-valuenow="@pct" aria-valuemin="0" aria-valuemax="100" style="height:.5rem"><div class="progress-bar" style="width:@(pct)%"></div></div>
+                        <span class="small text-muted text-nowrap">@p.Done/@p.Total</span></div>
+                        @if (p.Overdue > 0) { <div class="small text-danger">@p.Overdue overdue</div> }</td>
+                    <td><span class="badge-status st-@(p.Status == OnboardingStatus.Completed ? "Active" : "PendingVerification")">@(p.Status == OnboardingStatus.InProgress ? "In progress" : p.Status.ToString())</span></td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>

@@ -1,0 +1,27 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Performance.PipRow>
+@using Codenexify.HRMS.Application.Performance
+@{
+    ViewData["Title"] = "Improvement plans";
+    var team = (IReadOnlyList<PipRow>)ViewBag.Team;
+    var canCreate = (bool)ViewBag.CanCreate;
+    var isHr = (bool)ViewBag.IsHr;
+}
+<div class="page-head">
+    <div><h1>Improvement plans</h1><div class="text-muted small">Structured, time-bound support to get performance back on track</div></div>
+    <div class="d-flex gap-2">
+        @if (isHr) { <a class="btn btn-light border" href="/org/pips">All plans</a> }
+        @if (canCreate) { <a class="btn btn-accent" href="/me/pips/new"><i class="bi bi-plus-lg me-1"></i>New plan</a> }
+    </div>
+</div>
+@if (Model.Count > 0)
+{
+    <div class="card mb-3"><div class="card-header">My plans</div><partial name="_PipTable" model="Model" /></div>
+}
+@if (team.Count > 0 || canCreate)
+{
+    <div class="card"><div class="card-header">My team</div><partial name="_PipTable" model="team" /></div>
+}
+@if (Model.Count == 0 && team.Count == 0 && !canCreate)
+{
+    <div class="card"><div class="empty-state"><i class="bi bi-clipboard2-pulse"></i>Nothing here.</div></div>
+}

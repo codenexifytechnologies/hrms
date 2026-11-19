@@ -1,0 +1,74 @@
+@model RegisterRow?
+@inject Codenexify.HRMS.Application.Subscriptions.IFeatureAccessService FeatureAccess
+@{
+    ViewData["Title"] = "My attendance";
+    var register = (AttendanceRegister)ViewBag.Register;
+    var today = (DateOnly)ViewBag.Today;
+    var status = (TodayStatus)ViewBag.Status;
+    var overtime = (IReadOnlyList<OvertimeRow>)ViewBag.Overtime;
+    var first = new DateOnly(register.Year, register.Month, 1);
+    var prev = first.AddMonths(-1);
+    var next = first.AddMonths(1);
+    var showOt = (await FeatureAccess.GetEnabledFeaturesAsync(User.GetOrganizationId()!.Value)).Contains(FeatureCodes.Overtime);
+}
+<div class="page-head">
+    <div><h1>My attendance</h1><div class="text-muted small">@first.ToString("MMMM yyyy")</div></div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-light border" href="/me/attendance?year=@prev.Year&month=@prev.Month" aria-label="Previous month"><i class="bi bi-chevron-left"></i></a>
+        <a class="btn btn-light border @(next > today ? "disabled" : "")" href="/me/attendance?year=@next.Year&month=@next.Month" aria-label="Next month"><i class="bi bi-chevron-right"></i></a>
+    </div>
+</div>
+<div class="row g-3">
+    <div class="col-lg-5">
+        <partial name="_ClockCard" model="status" />
+        @if (Model is not null)
+        {
+            <div class="card"><div class="card-body d-flex flex-wrap justify-content-around text-center gap-3">
+                <div><div class="fs-3 fw-bold text-success">@Model.Present.ToString("0.#")</div><div class="small text-muted">Present</div></div>
+                <div><div class="fs-3 fw-bold text-danger">@Model.Absent.ToString("0.#")</div><div class="small text-muted">Absent</div></div>
+                <div><div class="fs-3 fw-bold text-info">@Model.Leave.ToString("0.#")</div><div class="small text-muted">Leave</div></div>
+                <div><div class="fs-3 fw-bold text-warning">@Model.LateDays</div><div class="small text-muted">Late</div></div>
+            </div></div>
+        }
+    </div>
+    <div class="col-lg-7">
+        <div class="card"><div class="card-header">Daily record</div>
+            @if (Model is null) { <div class="empty-state"><i class="bi bi-calendar3"></i>No attendance for this month.</div> }
+            else
+            {
+                <div class="table-responsive"><table class="table table-sm table-hover">
+                    <thead><tr><th>Date</th><th>Status</th>@if (showOt) { <th></th> }</tr></thead>
+                    <tbody>@foreach (var d in register.Dates.Where(d => d <= today).Reverse())
+                    {
+                        if (!Model.Days.TryGetValue(d, out var st)) { continue; }
+                        var claimed = overtime.FirstOrDefault(o => o.Date == d);
+                        <tr>
+                            <td class="small">@d.ToString("ddd, dd MMM")</td>
+                            <td><partial name="_AttendanceStatus" model="st" /></td>
+                            @if (showOt)
+                            {
+                                <td class="text-end small">
+                                    @if (claimed is not null) { <span class="badge-status st-@(claimed.Status == OvertimeStatus.Pending ? "PendingVerification" : claimed.Status == OvertimeStatus.Approved ? "Active" : "Expired")">OT @(((claimed.ApprovedMinutes ?? claimed.Minutes) / 60.0).ToString("0.#"))h @claimed.Status.ToString().ToLowerInvariant()</span> }
+                                    else if (d < today && st is AttendanceStatus.Present or AttendanceStatus.Holiday or AttendanceStatus.WeeklyOff)
+                                    {
+                                        <button class="btn btn-sm btn-link p-0" data-bs-toggle="modal" data-bs-target="#otModal" data-set-date="@d.ToString("yyyy-MM-dd")" data-set-label="@d.ToString("ddd, dd MMM")">Claim overtime</button>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }</tbody>
+                </table></div>
+            }
+        </div>
+    </div>
+</div>
+@if (showOt)
+{
+    <div class="modal fade" id="otModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" method="post" action="/me/attendance/claimovertime" asp-antiforgery="true">
+        <div class="modal-header"><h5 class="modal-title">Claim overtime · <span data-bind="label"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body"><input type="hidden" name="date" data-bind="date" />
+            <p class="small text-muted">Overtime recorded by the system (time beyond your shift, or work on an off day) is sent to your manager. If none was recorded you will see a message.</p>
+            <label class="form-label" for="otr">Reason</label><input id="otr" name="reason" class="form-control" required maxlength="500" /></div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Submit claim</button></div>
+    </form></div></div>
+}

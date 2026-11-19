@@ -1,0 +1,59 @@
+@model Codenexify.HRMS.Application.Performance.PromotionView
+@using Codenexify.HRMS.Domain.Performance
+@using Codenexify.HRMS.Web
+@{
+    var c = Model.Case;
+    var r = Model.Row;
+    ViewData["Title"] = $"Promotion: {r.EmployeeName}";
+}
+<div class="page-head">
+    <div><h1>@r.EmployeeName</h1><div class="text-muted small"><a href="/me/promotions">Promotions</a> · proposed by @c.ProposedByName on @c.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy")</div></div>
+    <span class="badge @GoalUi.Css(c.Status) fs-6">@c.Status</span>
+</div>
+
+@if (c.ApplyError is not null) { <div class="alert alert-danger small"><i class="bi bi-exclamation-triangle me-1"></i>Couldn't apply: @c.ApplyError</div> }
+
+<div class="row g-3" style="max-width: 1100px">
+    <div class="col-lg-7">
+        <div class="card mb-3"><div class="card-body">
+            <div class="row text-center g-3 mb-3">
+                <div class="col-6"><div class="small text-muted">Job title</div><div class="fw-semibold">@(r.ToTitle is null ? r.FromTitle ?? "—" : $"{r.FromTitle ?? "—"} → {r.ToTitle}")</div></div>
+                <div class="col-6"><div class="small text-muted">Annual gross</div>
+                    <div class="fw-semibold">@(c.ProposedAnnualGross is decimal g ? $"₹{c.CurrentAnnualGross:N0} → ₹{g:N0}" : "No change")</div>
+                    @if (r.RaisePercent is decimal p) { <div class="small text-success">@p.ToString("+0.#;-0.#;0")%</div> }</div>
+            </div>
+            <div class="small text-muted mb-1">Effective from @c.EffectiveOn.ToString("dd MMM yyyy")@(Model.ReviewName is null ? "" : $" · based on {Model.ReviewName}{(Model.ReviewRating is int x ? $" (rating {x})" : "")}")</div>
+            <div style="white-space: pre-line">@c.Justification</div>
+        </div></div>
+        @if (c.DecidedAtUtc is { } at)
+        {
+            <div class="card"><div class="card-body small"><strong>@(c.Status == PromotionStatus.Rejected ? "Rejected" : "Approved")</strong> by @c.DecidedByName on @at.ToLocalTime().ToString("dd MMM yyyy")
+                @if (c.DecisionNote is not null) { <div class="mt-1">“@c.DecisionNote”</div> }
+                @if (c.AppliedAtUtc is { } ap) { <div class="mt-1 text-success"><i class="bi bi-check2-circle me-1"></i>Applied on @ap.ToLocalTime().ToString("dd MMM yyyy")</div> }</div></div>
+        }
+    </div>
+    <div class="col-lg-5">
+        @if (Model.CanDecide)
+        {
+            <div class="card mb-3"><div class="card-header">Decision</div><div class="card-body">
+                <form method="post" action="/me/promotions/@c.Id/decide" asp-antiforgery="true">
+                    <label class="form-label small" for="note">Note (required to reject)</label>
+                    <textarea class="form-control mb-2" id="note" name="note" rows="3" maxlength="1000"></textarea>
+                    <div class="d-flex justify-content-between">
+                        <button class="btn btn-outline-danger" type="submit" name="approve" value="false">Reject</button>
+                        <button class="btn btn-accent" type="submit" name="approve" value="true">Approve</button>
+                    </div>
+                    <div class="form-text">Approval applies the new title and salary on the effective date (immediately if it's today or earlier).</div>
+                </form>
+            </div></div>
+        }
+        @if (Model.CanRetry)
+        {
+            <form method="post" action="/me/promotions/@c.Id/apply" asp-antiforgery="true" class="mb-3"><button class="btn btn-accent w-100" type="submit">Try applying again</button></form>
+        }
+        @if (Model.CanWithdraw)
+        {
+            <form method="post" action="/me/promotions/@c.Id/withdraw" asp-antiforgery="true" data-confirm="Withdraw this proposal?"><button class="btn btn-light border w-100" type="submit">Withdraw proposal</button></form>
+        }
+    </div>
+</div>

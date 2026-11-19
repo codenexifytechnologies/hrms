@@ -1,0 +1,34 @@
+@model IReadOnlyList<Codenexify.HRMS.Domain.Support.PlatformAnnouncement>
+@{
+    ViewData["Title"] = "Announcements";
+    var plans = (Dictionary<int, string>)ViewBag.Plans;
+    var now = DateTime.UtcNow;
+}
+<div class="page-head">
+    <div><h1>Announcements</h1><div class="text-muted small">Banners shown at the top of organization portals (times in IST)</div></div>
+    <a class="btn btn-accent" href="/superadmin/announcements/edit"><i class="bi bi-megaphone me-1"></i>New announcement</a>
+</div>
+<div class="card">
+    @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-megaphone"></i>No announcements yet.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+            <thead><tr><th>Title</th><th>Severity</th><th>Audience</th><th>Window (IST)</th><th>State</th><th></th></tr></thead>
+            <tbody>@foreach (var a in Model)
+            {
+                var live = a.IsActive && a.StartsAtUtc <= now && (a.EndsAtUtc is null || a.EndsAtUtc > now);
+                <tr><td><div class="fw-semibold">@a.Title</div><div class="small text-muted text-truncate" style="max-width: 420px">@a.Body</div></td>
+                    <td class="small">@a.Severity</td>
+                    <td class="small">@(a.PlanId is int p ? $"{plans.GetValueOrDefault(p, "Plan")} plan" : "All organizations")</td>
+                    <td class="small">@a.StartsAtUtc.AddHours(5.5).ToString("dd MMM, HH:mm") – @(a.EndsAtUtc?.AddHours(5.5).ToString("dd MMM, HH:mm") ?? "no end")</td>
+                    <td>@if (live) { <span class="badge-status st-Active">Live</span> } else if (!a.IsActive) { <span class="badge-status st-Inactive">Draft</span> } else if (a.StartsAtUtc > now) { <span class="badge-status st-Trial">Scheduled</span> } else { <span class="badge-status st-Inactive">Ended</span> }</td>
+                    <td class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-soft" href="/superadmin/announcements/edit/@a.Id">Edit</a>
+                        <form class="d-inline" method="post" action="/superadmin/announcements/@a.Id/delete" asp-antiforgery="true" data-confirm="Delete this announcement?" data-confirm-danger="1">
+                            <button class="btn btn-sm btn-link text-danger" type="submit" title="Delete"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>

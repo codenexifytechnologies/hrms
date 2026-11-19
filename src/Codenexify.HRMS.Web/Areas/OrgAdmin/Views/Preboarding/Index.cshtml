@@ -1,0 +1,34 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Planning.PreboardingJoinerRow>
+@using Codenexify.HRMS.Web
+@{ ViewData["Title"] = "Pre-boarding"; }
+<div class="page-head">
+    <div><h1>Pre-boarding</h1><div class="text-muted small">Send people who are about to join a secure welcome link to share their details and documents before day one</div></div>
+    <a class="btn btn-light border" href="/org/preboarding/settings"><i class="bi bi-gear me-1"></i>Welcome page and checklist</a>
+</div>
+<div class="card">
+    @if (Model.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-door-open"></i>Nobody is due to join. Add the new hire as an employee with a future joining date, then send their link from here.</div>
+    }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover align-middle mb-0">
+            <thead><tr><th>New hire</th><th>Department</th><th>Joins</th><th>Status</th><th>Progress</th><th></th></tr></thead>
+            <tbody>@foreach (var j in Model)
+            {
+                <tr><td><a class="fw-semibold" href="/org/preboarding/@j.EmployeeId">@j.Name</a><div class="small text-muted">@j.Code@(j.PersonalEmail is null ? "" : " · " + j.PersonalEmail)</div></td>
+                    <td class="small">@(j.Department ?? "—")</td>
+                    <td class="small text-nowrap">@j.DateOfJoining.ToString("dd MMM yyyy")</td>
+                    <td><span class="badge @PlanningUi.Css(j.State)">@PlanningUi.Label(j.State)</span>
+                        @if (j.SentAtUtc is { } sent) { <div class="small text-muted">sent @sent.ToLocalTime().ToString("dd MMM")</div> }</td>
+                    <td style="min-width: 140px">@if (j.InviteId is not null)
+                        {
+                            var pct = j.Total == 0 ? 0 : 100 * j.Done / j.Total;
+                            <div class="progress" style="height: 6px" role="progressbar" aria-label="Pre-boarding progress" aria-valuenow="@pct" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width: @pct%"></div></div>
+                            <div class="small text-muted">@j.Done of @j.Total steps</div>
+                        }</td>
+                    <td class="text-end"><a class="btn btn-sm @(j.InviteId is null ? "btn-accent" : "btn-light border")" href="/org/preboarding/@j.EmployeeId">@(j.InviteId is null ? "Send link" : "Open")</a></td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>

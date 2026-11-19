@@ -1,0 +1,30 @@
+@model TaxRuleInput
+@using Codenexify.HRMS.Application.Payroll
+@using Codenexify.HRMS.Domain.Payroll
+@{
+    var id = ViewBag.Id as int?;
+    ViewData["Title"] = id is null ? "Add income-tax rules" : $"Income tax FY {Model.FinancialYear}-{(Model.FinancialYear + 1) % 100} ({Model.Regime})";
+}
+<div class="page-head"><div><h1>@ViewData["Title"]</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/superadmin/statutory#tax">Statutory rules</a></li><li class="breadcrumb-item active">Income tax</li></ol></nav></div></div>
+<div class="card" style="max-width: 900px"><div class="card-body">
+    <form method="post" action="/superadmin/statutory/tax/@id" asp-antiforgery="true" class="row g-3" novalidate>
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small col-12"></div>
+        <div class="col-md-3"><label asp-for="FinancialYear" class="form-label"></label><input asp-for="FinancialYear" class="form-control" /><div class="form-text">2026 = FY 2026-27</div></div>
+        <div class="col-md-3"><label asp-for="Regime" class="form-label"></label><select asp-for="Regime" asp-items="Html.GetEnumSelectList<TaxRegime>()" class="form-select"></select></div>
+        <div class="col-md-3"><label asp-for="StandardDeduction" class="form-label"></label><input asp-for="StandardDeduction" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="CessRate" class="form-label"></label><input asp-for="CessRate" class="form-control" step="0.01" /></div>
+        <div class="col-md-3"><label asp-for="RebateIncomeLimit" class="form-label"></label><input asp-for="RebateIncomeLimit" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="RebateMaxAmount" class="form-label"></label><input asp-for="RebateMaxAmount" class="form-control" /></div>
+        <div class="col-md-6 small text-muted d-flex align-items-end">New regime applies marginal relief just above the rebate limit.</div>
+        <div class="form-section-title col-12 mb-0">Deduction limits (old regime)</div>
+        <div class="col-md-3"><label asp-for="Section80CLimit" class="form-label"></label><input asp-for="Section80CLimit" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="Section80DLimit" class="form-label"></label><input asp-for="Section80DLimit" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="Section80CCD1BLimit" class="form-label"></label><input asp-for="Section80CCD1BLimit" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="HomeLoanInterestLimit" class="form-label"></label><input asp-for="HomeLoanInterestLimit" class="form-control" /></div>
+        <div class="col-md-6"><label asp-for="Slabs" class="form-label"></label><textarea asp-for="Slabs" class="form-control font-monospace" rows="8" placeholder="0,400000,0&#10;400000,800000,5&#10;…&#10;2400000,,30"></textarea><span asp-validation-for="Slabs"></span></div>
+        <div class="col-md-6"><label asp-for="Surcharges" class="form-label"></label><textarea asp-for="Surcharges" class="form-control font-monospace" rows="8" placeholder="5000000,10&#10;10000000,15"></textarea></div>
+        <div class="col-12"><div class="form-check form-switch"><input asp-for="IsVerified" class="form-check-input" /><label asp-for="IsVerified" class="form-check-label"></label></div></div>
+        <div class="col-12 d-flex justify-content-end gap-2"><a href="/superadmin/statutory#tax" class="btn btn-light border">Cancel</a><button class="btn btn-accent" type="submit">Save</button></div>
+    </form>
+</div></div>

@@ -1,0 +1,77 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Performance.GoalRow>
+@using Codenexify.HRMS.Application.Performance
+@using Codenexify.HRMS.Domain.Performance
+@using Codenexify.HRMS.Web
+@{
+    ViewData["Title"] = "Goals";
+    var tab = (string)ViewBag.Tab;
+    var fy = (int)ViewBag.Fy;
+    var viewer = (GoalViewer)ViewBag.Viewer;
+    var thisFy = Codenexify.HRMS.Web.Areas.Employee.Controllers.GoalsController.CurrentFyStart(DateOnly.FromDateTime(DateTime.Today));
+    string Tab(string key, string label) => $"<a class=\"btn btn-sm {(tab == key ? "btn-soft" : "btn-light border")}\" href=\"/me/goals?tab={key}&fy={fy}\">{label}</a>";
+    var open = Model.Where(g => g.Status is not (GoalStatus.Completed or GoalStatus.Cancelled)).ToList();
+}
+<div class="page-head">
+    <div><h1>Goals</h1><div class="text-muted small">Objectives and key results for FY @fy–@(((fy + 1) % 100).ToString("00"))</div></div>
+    <div class="d-flex gap-2">
+        <form method="get" action="/me/goals">
+            <input type="hidden" name="tab" value="@tab" />
+            <select class="form-select" name="fy" aria-label="Financial year" data-autosubmit>
+                @for (var y = thisFy + 1; y >= thisFy - 2; y--) { <option value="@y" selected="@(y == fy)">FY @y–@(((y + 1) % 100).ToString("00"))</option> }
+            </select>
+        </form>
+        <a class="btn btn-accent text-nowrap" href="/me/goals/new@(tab is "company" or "all" && viewer.IsHr ? "?level=Company" : "")"><i class="bi bi-plus-lg me-1"></i>New goal</a>
+    </div>
+</div>
+
+<div class="d-flex flex-wrap gap-1 mb-3">
+    @if (viewer.EmployeeId is not null) { @Html.Raw(Tab("mine", "My goals")) }
+    @if (viewer.Reports.Count > 0) { @Html.Raw(Tab("team", "My team")) }
+    @Html.Raw(Tab("company", "Company & departments"))
+    @if (viewer.IsHr) { @Html.Raw(Tab("all", "Everyone")) }
+</div>
+
+@if (Model.Count > 0)
+{
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3"><div class="card"><div class="card-body py-2"><div class="small text-muted">Goals</div><div class="fs-5 fw-semibold">@Model.Count</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card"><div class="card-body py-2"><div class="small text-muted">Average progress</div><div class="fs-5 fw-semibold">@(open.Count == 0 ? 100 : Math.Round(open.Average(g => g.Progress)))%</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card"><div class="card-body py-2"><div class="small text-muted">At risk / off track</div><div class="fs-5 fw-semibold">@Model.Count(g => g.Status is GoalStatus.AtRisk or GoalStatus.OffTrack)</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card"><div class="card-body py-2"><div class="small text-muted">Completed</div><div class="fs-5 fw-semibold">@Model.Count(g => g.Status == GoalStatus.Completed)</div></div></div></div>
+    </div>
+}
+
+<div class="card">
+    @if (Model.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-bullseye"></i>
+            @(tab switch { "company" => "No company or department goals for this year yet.", "team" => "Your team has no goals for this year yet.", "all" => "No individual goals for this year yet.", _ => "You have no goals for this year yet." })
+            @if (tab == "mine" || (tab == "company" && viewer.IsHr)) { <div class="mt-2"><a class="btn btn-sm btn-accent" href="/me/goals/new@(tab == "company" ? "?level=Company" : "")">Set a goal</a></div> }
+        </div>
+    }
+    else
+    {
+        <div class="list-group list-group-flush">
+            @foreach (var g in Model)
+            {
+                <a class="list-group-item list-group-item-action py-3" href="/me/goals/@g.Id">
+                    <div class="d-flex justify-content-between gap-3 align-items-start">
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="fw-semibold">@g.Title</div>
+                            <div class="small text-muted">
+                                @(g.Level switch { GoalLevel.Company => "Company", GoalLevel.Department => $"Department · {g.DepartmentName}", _ => g.OwnerName })
+                                · due @g.DueOn.ToString("dd MMM yyyy")@(g.KeyResults > 0 ? $" · {g.KeyResults} key result{(g.KeyResults == 1 ? "" : "s")}" : "")
+                                @if (g.ParentTitle is not null) { <span>· supports <em>@g.ParentTitle</em></span> }
+                            </div>
+                        </div>
+                        <span class="badge @GoalUi.StatusCss(g.Status) text-nowrap">@GoalUi.Label(g.Status)</span>
+                    </div>
+                    <div class="progress mt-2" style="height: 6px" role="progressbar" aria-label="Progress" aria-valuenow="@g.Progress" aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar @GoalUi.BarCss(g.Status)" style="width: @(g.Progress.ToString(System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                    </div>
+                    <div class="small text-muted mt-1">@g.Progress.ToString("0.#")%</div>
+                </a>
+            }
+        </div>
+    }
+</div>

@@ -1,0 +1,61 @@
+@model RoleInput
+@{
+    var id = ViewBag.Id as int?;
+    var isNew = id is null;
+    var isSystem = (bool)ViewBag.IsSystem;
+    var locked = ViewBag.Locked as bool? ?? false;
+    ViewData["Title"] = isNew ? "New role" : $"Role: {Model.Name}";
+    var permissions = (IReadOnlyList<Codenexify.HRMS.Domain.Identity.Permission>)ViewBag.Permissions;
+    var enabled = (IReadOnlySet<string>)ViewBag.Features;
+}
+<div class="page-head">
+    <div><h1>@ViewData["Title"]</h1>
+        <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/roles">Roles</a></li><li class="breadcrumb-item active">@(isNew ? "New" : Model.Name)</li></ol></nav></div>
+</div>
+@if (locked)
+{
+    <div class="alert alert-info small"><i class="bi bi-lock me-1"></i>The Organization Admin role always has every permission and cannot be changed.</div>
+}
+<form method="post" action="@(isNew ? "/org/roles/create" : $"/org/roles/edit/{id}")" asp-antiforgery="true" novalidate>
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+    <fieldset disabled="@locked">
+        <div class="row g-3">
+            <div class="col-lg-4">
+                <div class="card"><div class="card-header">Role</div><div class="card-body">
+                    <div class="mb-3"><label asp-for="Name" class="form-label"></label>
+                        @if (isSystem) { <input class="form-control" value="@Model.Name" disabled /><div class="form-text">System role names cannot be changed.</div> }
+                        else { <input asp-for="Name" class="form-control" /><span asp-validation-for="Name"></span> }</div>
+                    <div><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="3"></textarea></div>
+                </div></div>
+            </div>
+            <div class="col-lg-8">
+                <div class="card"><div class="card-header">Permissions</div><div class="card-body">
+                    <p class="small text-muted">You can only grant permissions you hold yourself. Permissions for modules outside your plan are kept but have no effect until the module is added.</p>
+                    @foreach (var group in permissions.GroupBy(p => p.Module))
+                    {
+                        <div class="feature-group-title">@group.Key</div>
+                        <div class="row g-2">
+                            @foreach (var p in group)
+                            {
+                                var has = Model.PermissionIds.Contains(p.Id);
+                                var grantable = User.HasPermission(p.Code);
+                                var inPlan = p.FeatureCode is null || enabled.Contains(p.FeatureCode);
+                                <div class="col-md-6">
+                                    <label class="feature-pill @(inPlan ? "" : "opacity-75")">
+                                        <span class="small">@p.Name@if (!inPlan) { <span class="badge text-bg-light border ms-1">not in plan</span> }@if (!grantable) { <i class="bi bi-lock ms-1 text-muted" title="You don't hold this permission"></i> }<br /><code class="text-muted">@p.Code</code></span>
+                                        <input type="checkbox" class="form-check-input m-0" name="PermissionIds" value="@p.Id" checked="@has" disabled="@(!grantable)" />
+                                        @if (!grantable && has) { <input type="hidden" name="PermissionIds" value="@p.Id" /> }
+                                    </label>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div></div>
+            </div>
+        </div>
+    </fieldset>
+    <div class="d-flex gap-2 justify-content-end mt-3">
+        <a href="/org/roles" class="btn btn-light border">@(locked ? "Back" : "Cancel")</a>
+        @if (!locked) { <button type="submit" class="btn btn-accent">@(isNew ? "Create role" : "Save role")</button> }
+    </div>
+</form>

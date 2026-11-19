@@ -1,0 +1,23 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Performance.PromotionRow>
+@using Codenexify.HRMS.Web
+@if (Model.Count == 0)
+{
+    <div class="empty-state"><i class="bi bi-graph-up-arrow"></i>No promotions here.</div>
+}
+else
+{
+    <div class="table-responsive"><table class="table table-hover align-middle mb-0">
+        <thead><tr><th>Employee</th><th>Change</th><th class="text-end">Raise</th><th>Effective</th><th>Proposed by</th><th>Status</th></tr></thead>
+        <tbody>@foreach (var p in Model)
+        {
+            <tr>
+                <td><a class="fw-semibold" href="/me/promotions/@p.Id">@p.EmployeeName</a> <span class="small text-muted">@p.EmployeeCode</span></td>
+                <td class="small">@(p.ToTitle is null ? "Same title" : $"{p.FromTitle ?? "—"} → {p.ToTitle}")</td>
+                <td class="text-end small">@(p.RaisePercent is decimal r ? $"{r:+0.#;-0.#;0}%" : "—")</td>
+                <td class="small">@p.EffectiveOn.ToString("dd MMM yyyy")</td>
+                <td class="small">@p.ProposedBy</td>
+                <td><span class="badge @GoalUi.Css(p.Status)">@p.Status</span>@if (p.ApplyError is not null) { <i class="bi bi-exclamation-triangle text-danger ms-1" title="@p.ApplyError"></i> }</td>
+            </tr>
+        }</tbody>
+    </table></div>
+}

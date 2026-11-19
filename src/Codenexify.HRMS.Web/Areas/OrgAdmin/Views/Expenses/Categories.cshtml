@@ -1,0 +1,33 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Payroll.ExpenseCategoryRow>
+@{
+    ViewData["Title"] = "Expense categories";
+}
+<div class="page-head"><div><h1>Expense categories</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/expenses">Expense claims</a></li><li class="breadcrumb-item active">Categories</li></ol></nav></div></div>
+<div class="card mb-3" style="max-width: 900px">
+    <div class="table-responsive"><table class="table mb-0 align-middle small">
+        <thead><tr><th>Name</th><th>Limit per expense (₹)</th><th>Receipt required</th><th>Active</th><th></th></tr></thead>
+        <tbody>@foreach (var c in Model)
+        {
+            <tr><td colspan="5" class="p-0">
+                <form method="post" action="/org/expenses/categories" asp-antiforgery="true" class="d-flex flex-wrap align-items-center gap-2 p-2">
+                    <input type="hidden" name="id" value="@c.Id" />
+                    <label class="visually-hidden" for="n@(c.Id)">Name</label><input id="n@(c.Id)" name="name" value="@c.Name" maxlength="80" class="form-control form-control-sm" style="max-width: 240px" required />
+                    <label class="visually-hidden" for="m@(c.Id)">Limit</label><input id="m@(c.Id)" name="maxPerItem" value="@c.MaxPerItem?.ToString("0.##")" type="number" min="1" step="1" class="form-control form-control-sm" style="max-width: 150px" placeholder="No limit" />
+                    <div class="form-check mb-0"><input class="form-check-input" type="checkbox" id="r@(c.Id)" name="receiptRequired" value="true" checked="@c.ReceiptRequired" /><label class="form-check-label" for="r@(c.Id)">Receipt</label></div>
+                    <div class="form-check mb-0"><input class="form-check-input" type="checkbox" id="a@(c.Id)" name="isActive" value="true" checked="@c.IsActive" /><label class="form-check-label" for="a@(c.Id)">Active</label></div>
+                    <button class="btn btn-sm btn-soft ms-auto" type="submit">Save</button>
+                </form>
+            </td></tr>
+        }</tbody>
+    </table></div>
+</div>
+<div class="card" style="max-width: 900px"><div class="card-header">Add a category</div><div class="card-body">
+    <form method="post" action="/org/expenses/categories" asp-antiforgery="true" class="d-flex flex-wrap align-items-center gap-2">
+        <label class="visually-hidden" for="nn">Name</label><input id="nn" name="name" maxlength="80" class="form-control" style="max-width: 260px" placeholder="e.g. Hotel stay" required />
+        <label class="visually-hidden" for="nm">Limit</label><input id="nm" name="maxPerItem" type="number" min="1" step="1" class="form-control" style="max-width: 170px" placeholder="Limit (optional)" />
+        <div class="form-check mb-0"><input class="form-check-input" type="checkbox" id="nr" name="receiptRequired" value="true" checked /><label class="form-check-label" for="nr">Receipt required</label></div>
+        <input type="hidden" name="isActive" value="true" />
+        <button class="btn btn-accent ms-auto" type="submit">Add</button>
+    </form>
+</div></div>

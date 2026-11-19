@@ -1,0 +1,41 @@
+@model Codenexify.HRMS.Application.Strength.PeopleDashboard
+@{
+    ViewData["Title"] = "People analytics";
+    object Rows(IEnumerable<(string Label, int Count)> r) => r.Select(x => new { label = x.Label, value = x.Count });
+}
+<div class="page-head"><div><h1>People analytics</h1><div class="text-muted small">Workforce trends over the last 12 months</div></div>
+    <a href="/org/reports" class="btn btn-light border"><i class="bi bi-table me-1"></i>HR reports</a></div>
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-xl-2"><div class="card"><div class="card-body kpi"><div class="kpi-icon"><i class="bi bi-people"></i></div><div><div class="kpi-label">Headcount</div><div class="kpi-value">@Model.Headcount</div></div></div></div></div>
+    <div class="col-6 col-xl-2"><div class="card tone-green"><div class="card-body kpi"><div class="kpi-icon"><i class="bi bi-person-plus"></i></div><div><div class="kpi-label">Joiners (12m)</div><div class="kpi-value">@Model.Joiners12M</div></div></div></div></div>
+    <div class="col-6 col-xl-2"><div class="card tone-red"><div class="card-body kpi"><div class="kpi-icon"><i class="bi bi-person-dash"></i></div><div><div class="kpi-label">Leavers (12m)</div><div class="kpi-value">@Model.Leavers12M</div></div></div></div></div>
+    <div class="col-6 col-xl-2"><div class="card tone-amber"><div class="card-body kpi"><div class="kpi-icon"><i class="bi bi-arrow-repeat"></i></div><div><div class="kpi-label">Attrition (12m)</div><div class="kpi-value">@Model.AttritionPercent%</div></div></div></div></div>
+    <div class="col-6 col-xl-2"><div class="card tone-blue"><div class="card-body kpi"><div class="kpi-icon"><i class="bi bi-calendar-check"></i></div><div><div class="kpi-label">Attendance (30d)</div><div class="kpi-value">@(Model.AttendanceRate30D is { } a ? $"{a}%" : "—")</div></div></div></div></div>
+    <div class="col-6 col-xl-2"><div class="card tone-violet"><div class="card-body kpi"><div class="kpi-icon"><i class="bi bi-hourglass"></i></div><div><div class="kpi-label">Avg. tenure</div><div class="kpi-value">@Model.AverageTenureYears y</div></div></div></div></div>
+</div>
+<p class="small text-muted">Attrition = leavers in the last 12 months ÷ average headcount. Attendance counts present days (half-days as half) over working days marked present, half-day or absent.</p>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-6"><div class="card h-100"><div class="card-header">Headcount</div><div class="card-body" style="height:260px"><canvas data-chart="line" data-source="hcData" data-label="Headcount"></canvas></div></div></div>
+    <div class="col-lg-6"><div class="card h-100"><div class="card-header">Joiners and leavers</div><div class="card-body" style="height:260px"><canvas data-chart="bar" data-source="flowData" data-label="Joiners|Leavers"></canvas></div></div></div>
+</div>
+<div class="row g-3">
+    <div class="col-md-6 col-xl-3"><div class="card h-100"><div class="card-header">By department</div><div class="card-body" style="height:260px">
+        @if (Model.ByDepartment.Count == 0) { <div class="empty-state py-4">No data</div> } else { <canvas data-chart="doughnut" data-source="deptData"></canvas> }</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="card h-100"><div class="card-header">By gender</div><div class="card-body" style="height:260px">
+        @if (Model.ByGender.Count == 0) { <div class="empty-state py-4">No data</div> } else { <canvas data-chart="doughnut" data-source="genderData"></canvas> }</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="card h-100"><div class="card-header">Tenure</div><div class="card-body" style="height:260px"><canvas data-chart="bar" data-source="tenureData" data-label="Employees"></canvas></div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="card h-100"><div class="card-header">Age</div><div class="card-body" style="height:260px"><canvas data-chart="bar" data-source="ageData" data-label="Employees"></canvas></div>
+        @if (Model.UnknownAge > 0) { <div class="card-footer small text-muted">@Model.UnknownAge without a date of birth</div> }</div></div>
+</div>
+<script type="application/json" id="hcData">@Json.Serialize(Model.Trend.Select(t => new { label = t.Label, value = t.Headcount }))</script>
+<script type="application/json" id="flowData">@Json.Serialize(Model.Trend.Select(t => new { label = t.Label, values = new[] { t.Joiners, t.Leavers } }))</script>
+<script type="application/json" id="deptData">@Json.Serialize(Rows(Model.ByDepartment))</script>
+<script type="application/json" id="genderData">@Json.Serialize(Rows(Model.ByGender))</script>
+<script type="application/json" id="tenureData">@Json.Serialize(Rows(Model.ByTenure))</script>
+<script type="application/json" id="ageData">@Json.Serialize(Rows(Model.ByAge))</script>
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="~/js/charts.js" asp-append-version="true"></script>
+}

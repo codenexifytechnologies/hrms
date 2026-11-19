@@ -1,0 +1,14 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Performance.PromotionRow>
+@{
+    ViewData["Title"] = "Promotions";
+    var hasTeam = (bool)ViewBag.HasTeam;
+}
+<div class="page-head">
+    <div><h1>Promotions</h1><div class="text-muted small">Propose promotions for your team; HR reviews and approves them</div></div>
+    @if (hasTeam) { <a class="btn btn-accent" href="/me/promotions/new"><i class="bi bi-plus-lg me-1"></i>Propose a promotion</a> }
+</div>
+@if (!hasTeam && Model.Count == 0)
+{
+    <div class="alert alert-info small">Promotions are proposed by managers for the people in their team.</div>
+}
+<div class="card"><partial name="_PromotionTable" model="Model" /></div>

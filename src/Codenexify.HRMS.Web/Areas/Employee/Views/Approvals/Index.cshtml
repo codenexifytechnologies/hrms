@@ -1,0 +1,66 @@
+@{
+    ViewData["Title"] = "Approvals";
+    var leave = (IReadOnlyList<LeaveRequestRow>)ViewBag.Leave;
+    var overtime = (IReadOnlyList<OvertimeRow>)ViewBag.Overtime;
+    var team = ViewBag.Team as IReadOnlyList<EmployeeRow> ?? [];
+    var teamReg = ViewBag.TeamToday as AttendanceRegister;
+    var today = ViewBag.Today as DateOnly?;
+}
+<div class="page-head"><div><h1>Approvals &amp; my team</h1><div class="text-muted small">Requests from people who report to you</div></div></div>
+<div class="row g-3">
+    <div class="col-xl-8">
+        <div class="card mb-3"><div class="card-header">Leave requests <span class="badge text-bg-light border">@leave.Count</span></div>
+            @if (leave.Count == 0) { <div class="empty-state py-4"><i class="bi bi-check2-all"></i>Nothing waiting for you.</div> }
+            else
+            {
+                <ul class="list-group list-group-flush">@foreach (var r in leave)
+                {
+                    <li class="list-group-item bg-transparent">
+                        <div class="d-flex flex-wrap justify-content-between gap-2">
+                            <div><strong>@r.EmployeeName</strong> <span class="badge" style="background:@r.Color">@r.LeaveType</span>
+                                <div class="small">@(r.From == r.To ? r.From.ToString("ddd, dd MMM") : $"{r.From:dd MMM} – {r.To:dd MMM}") · @r.Days.ToString("0.#") day(s)@(r.IsHalfDay ? " (half day)" : "")</div>
+                                <div class="small text-muted">@r.Reason</div></div>
+                            <div class="d-flex gap-2 align-items-start">
+                                <form method="post" action="/me/approvals/leave?id=@r.Id&approve=true" asp-antiforgery="true"><button class="btn btn-sm btn-accent" type="submit">Approve</button></form>
+                                <form method="post" action="/me/approvals/leave?id=@r.Id&approve=false" asp-antiforgery="true" class="d-flex gap-1">
+                                    <input name="notes" class="form-control form-control-sm" placeholder="Reason to reject" required aria-label="Reason to reject" />
+                                    <button class="btn btn-sm btn-outline-danger" type="submit">Reject</button></form>
+                            </div>
+                        </div>
+                    </li>
+                }</ul>
+            }
+        </div>
+        <div class="card"><div class="card-header">Overtime claims <span class="badge text-bg-light border">@overtime.Count</span></div>
+            @if (overtime.Count == 0) { <div class="empty-state py-4"><i class="bi bi-check2-all"></i>Nothing waiting for you.</div> }
+            else
+            {
+                <ul class="list-group list-group-flush">@foreach (var o in overtime)
+                {
+                    <li class="list-group-item bg-transparent d-flex flex-wrap justify-content-between gap-2">
+                        <div><strong>@o.EmployeeName</strong> · @o.Date.ToString("ddd, dd MMM") · @(o.Minutes / 60)h @(o.Minutes % 60)m<div class="small text-muted">@o.Reason</div></div>
+                        <div class="d-flex gap-2 align-items-start">
+                            <form method="post" action="/me/approvals/overtime?id=@o.Id&approve=true" asp-antiforgery="true"><button class="btn btn-sm btn-accent" type="submit">Approve</button></form>
+                            <form method="post" action="/me/approvals/overtime?id=@o.Id&approve=false" asp-antiforgery="true" class="d-flex gap-1">
+                                <input name="notes" class="form-control form-control-sm" placeholder="Reason to reject" required aria-label="Reason to reject" />
+                                <button class="btn btn-sm btn-outline-danger" type="submit">Reject</button></form>
+                        </div>
+                    </li>
+                }</ul>
+            }
+        </div>
+    </div>
+    <div class="col-xl-4">
+        <div class="card"><div class="card-header">My team today</div>
+            @if (team.Count == 0) { <div class="card-body text-muted small">No direct reports.</div> }
+            else
+            {
+                <ul class="list-group list-group-flush">@foreach (var t in team)
+                {
+                    var st = today is { } d && teamReg?.Rows.FirstOrDefault(r => r.EmployeeId == t.Id)?.Days.TryGetValue(d, out var s) == true ? s : AttendanceStatus.NotMarked;
+                    <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center"><span>@t.Name<span class="small text-muted d-block">@t.Designation</span></span><partial name="_AttendanceStatus" model="st" /></li>
+                }</ul>
+            }
+        </div>
+    </div>
+</div>

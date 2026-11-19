@@ -1,0 +1,42 @@
+@{
+    ViewData["Title"] = "Other ways to sign in";
+    ViewData["HideNav"] = true;
+    var company = ViewBag.Company as string;
+    var options = ViewBag.Options as Codenexify.HRMS.Application.Identity.SignInOptions;
+}
+@section Styles { <link rel="stylesheet" href="~/css/auth.css" asp-append-version="true" /> }
+<div class="ax-wrap">
+    <partial name="_AuthAside" />
+    <div class="ax-panel">
+        <div class="ax-card">
+            <span class="ax-eyebrow">Sign in</span>
+            <h1 class="ax-title">Other ways to sign in</h1>
+            <p class="ax-sub">Single sign-on and mobile codes work when your company has switched them on.</p>
+            <div>@if (TempData["Error"] is string err) { <div class="alert alert-danger py-2 small">@err</div> }</div>
+            <form method="get" action="/login/methods">
+                <div class="ax-field">
+                    <label class="form-label" for="mc">Company code</label>
+                    <div class="ax-input"><i class="bi bi-buildings"></i><input id="mc" name="company" value="@company" required class="form-control" placeholder="e.g. acme" autocomplete="organization" /></div>
+                </div>
+                <button class="btn ax-submit w-100" type="submit">Show sign-in options<i class="bi bi-arrow-right ms-2"></i></button>
+            </form>
+            <div>
+                @if (options is not null)
+                {
+                    <div class="ax-divider">for @company</div>
+                    @if (!options.Any) { <div class="alert alert-light border small mb-0">This company signs in with email and password only.</div> }
+                    else
+                    {
+                        <div class="d-grid gap-2">
+                            @if (options.Google) { <a class="ax-alt" href="/sso/google?company=@Uri.EscapeDataString(company!)"><i class="bi bi-google"></i>Continue with Google</a> }
+                            @if (options.Microsoft) { <a class="ax-alt" href="/sso/microsoft?company=@Uri.EscapeDataString(company!)"><i class="bi bi-microsoft"></i>Continue with Microsoft</a> }
+                            @if (options.MobileOtp) { <a class="ax-alt" href="/login/otp?company=@Uri.EscapeDataString(company!)"><i class="bi bi-phone"></i>Sign in with a code on my mobile</a> }
+                        </div>
+                    }
+                }
+            </div>
+            <p class="ax-foot-note"><a href="/login@(company is null ? "" : $"?company={Uri.EscapeDataString(company)}")"><i class="bi bi-arrow-left me-1"></i>Back to password sign-in</a></p>
+        </div>
+    </div>
+</div>
+@section Scripts { <script src="~/js/auth.js" asp-append-version="true"></script> }

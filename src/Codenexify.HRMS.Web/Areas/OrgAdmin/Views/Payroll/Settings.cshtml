@@ -1,0 +1,47 @@
+@model Codenexify.HRMS.Application.Payroll.PayrollSettingsInput
+@{
+    ViewData["Title"] = "Payroll settings";
+}
+<div class="page-head"><div><h1>Payroll settings</h1><div class="text-muted small">Statutory switches, registration numbers, rates and accounting ledgers. Statutory rates themselves are maintained by the platform.</div></div></div>
+<partial name="_PayrollNav" />
+<form method="post" action="/org/payroll/settings" asp-antiforgery="true" novalidate>
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+    <div class="row g-3">
+        <div class="col-xl-6">
+            <div class="card mb-3"><div class="card-header">Statutory</div><div class="card-body row g-3">
+                <div class="col-12 d-flex flex-wrap gap-4">
+                    <div class="form-check form-switch"><input asp-for="PfEnabled" class="form-check-input" /><label asp-for="PfEnabled" class="form-check-label"></label></div>
+                    <div class="form-check form-switch"><input asp-for="PfRestrictToCeiling" class="form-check-input" /><label asp-for="PfRestrictToCeiling" class="form-check-label"></label></div>
+                    <div class="form-check form-switch"><input asp-for="EsiEnabled" class="form-check-input" /><label asp-for="EsiEnabled" class="form-check-label"></label></div>
+                    <div class="form-check form-switch"><input asp-for="PtEnabled" class="form-check-input" /><label asp-for="PtEnabled" class="form-check-label"></label></div>
+                    <div class="form-check form-switch"><input asp-for="LwfEnabled" class="form-check-input" /><label asp-for="LwfEnabled" class="form-check-label"></label></div>
+                    <div class="form-check form-switch"><input asp-for="TdsEnabled" class="form-check-input" /><label asp-for="TdsEnabled" class="form-check-label"></label></div>
+                </div>
+                <div class="col-md-6"><label asp-for="DefaultState" class="form-label"></label><input asp-for="DefaultState" class="form-control" placeholder="e.g. Maharashtra" /><div class="form-text">Used when a branch has no state.</div></div>
+                <div class="col-md-6"><label asp-for="Tan" class="form-label"></label><input asp-for="Tan" class="form-control text-uppercase" /><span asp-validation-for="Tan"></span></div>
+                <div class="col-md-6"><label asp-for="PfEstablishmentCode" class="form-label"></label><input asp-for="PfEstablishmentCode" class="form-control" /></div>
+                <div class="col-md-6"><label asp-for="EsiEmployerCode" class="form-label"></label><input asp-for="EsiEmployerCode" class="form-control" /></div>
+            </div></div>
+            <div class="card"><div class="card-header">Pay calculation</div><div class="card-body row g-3">
+                <div class="col-md-4"><label asp-for="OvertimeRateMultiplier" class="form-label"></label><input asp-for="OvertimeRateMultiplier" class="form-control" step="0.25" /><span asp-validation-for="OvertimeRateMultiplier"></span></div>
+                <div class="col-md-4"><label asp-for="DailyRateDivisor" class="form-label"></label><input asp-for="DailyRateDivisor" class="form-control" /><span asp-validation-for="DailyRateDivisor"></span></div>
+                <div class="col-md-4"><label asp-for="PayDay" class="form-label"></label><input asp-for="PayDay" class="form-control" /></div>
+                <div class="col-12 small text-muted">Overtime hourly rate = monthly gross ÷ daily-rate days ÷ 8. Leave encashment = basic ÷ daily-rate days per day.</div>
+            </div></div>
+        </div>
+        <div class="col-xl-6">
+            <div class="card"><div class="card-header">Accounting ledgers (journal export)</div><div class="card-body row g-3">
+                <div class="col-md-6"><label asp-for="SalaryExpenseAccount" class="form-label"></label><input asp-for="SalaryExpenseAccount" class="form-control" /><span asp-validation-for="SalaryExpenseAccount"></span></div>
+                <div class="col-md-6"><label asp-for="EmployerContributionAccount" class="form-label"></label><input asp-for="EmployerContributionAccount" class="form-control" /><span asp-validation-for="EmployerContributionAccount"></span></div>
+                <div class="col-md-6"><label asp-for="SalaryPayableAccount" class="form-label"></label><input asp-for="SalaryPayableAccount" class="form-control" /><span asp-validation-for="SalaryPayableAccount"></span></div>
+                <div class="col-md-6"><label asp-for="PfPayableAccount" class="form-label"></label><input asp-for="PfPayableAccount" class="form-control" /><span asp-validation-for="PfPayableAccount"></span></div>
+                <div class="col-md-6"><label asp-for="EsiPayableAccount" class="form-label"></label><input asp-for="EsiPayableAccount" class="form-control" /><span asp-validation-for="EsiPayableAccount"></span></div>
+                <div class="col-md-6"><label asp-for="PtPayableAccount" class="form-label"></label><input asp-for="PtPayableAccount" class="form-control" /><span asp-validation-for="PtPayableAccount"></span></div>
+                <div class="col-md-6"><label asp-for="LwfPayableAccount" class="form-label"></label><input asp-for="LwfPayableAccount" class="form-control" /><span asp-validation-for="LwfPayableAccount"></span></div>
+                <div class="col-md-6"><label asp-for="TdsPayableAccount" class="form-label"></label><input asp-for="TdsPayableAccount" class="form-control" /><span asp-validation-for="TdsPayableAccount"></span></div>
+                <div class="col-md-6"><label asp-for="LoanRecoveryAccount" class="form-label"></label><input asp-for="LoanRecoveryAccount" class="form-control" /><span asp-validation-for="LoanRecoveryAccount"></span></div>
+            </div></div>
+        </div>
+    </div>
+    <div class="d-flex justify-content-end mt-3"><button class="btn btn-accent" type="submit">Save settings</button></div>
+</form>

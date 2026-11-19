@@ -1,0 +1,23 @@
+@model Codenexify.HRMS.Web.DependentsFormModel
+@using Codenexify.HRMS.Domain.Benefits
+@using Codenexify.HRMS.Web
+@*
+    Family members covered by a benefit. One row per allowed dependent; blank rows are ignored,
+    so clearing a name removes that person. Saving replaces the whole list.
+*@
+<form method="post" action="@Model.Action" asp-antiforgery="true">
+    @if (Model.PlanId is int planId) { <input type="hidden" name="planId" value="@planId" /> }
+    <div class="small text-muted mb-2">Up to @Model.Max family member(s). Clear a name to remove someone.</div>
+    @for (var i = 0; i < Model.Max; i++)
+    {
+        var d = i < Model.Current.Count ? Model.Current[i] : null;
+        <div class="row g-2 mb-2">
+            <div class="col-md-5"><input class="form-control form-control-sm" name="dependents[@i].Name" value="@d?.Name" maxlength="150" placeholder="Full name" aria-label="Name of family member @(i + 1)" /></div>
+            <div class="col-md-4"><select class="form-select form-select-sm" name="dependents[@i].Relation" aria-label="Relation of family member @(i + 1)">
+                @foreach (var r in Enum.GetValues<DependentRelation>()) { <option value="@r" selected="@(d?.Relation == r)">@BenefitUi.Label(r)</option> }
+            </select></div>
+            <div class="col-md-3"><input class="form-control form-control-sm" type="date" name="dependents[@i].DateOfBirth" value="@(d?.DateOfBirth?.ToString("yyyy-MM-dd"))" aria-label="Date of birth of family member @(i + 1)" /></div>
+        </div>
+    }
+    <button class="btn btn-sm btn-accent" type="submit">Save family members</button>
+</form>

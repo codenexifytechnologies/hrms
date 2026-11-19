@@ -1,0 +1,139 @@
+@model IReadOnlyList<AttendanceRow>
+@inject Codenexify.HRMS.Application.Subscriptions.IFeatureAccessService FeatureAccess
+@{
+    ViewData["Title"] = "Attendance";
+    var date = (DateOnly)ViewBag.Date;
+    var today = (DateOnly)ViewBag.Today;
+    var s = (DaySummary)ViewBag.Summary;
+    var departments = (IReadOnlyList<LookupItem>)ViewBag.Departments;
+    var overtime = (PagedResult<OvertimeRow>)ViewBag.Overtime;
+    var otStatus = ViewBag.OtStatus as OvertimeStatus?;
+    var canManage = User.HasPermission(TenantPermissions.AttendanceManage);
+    var features = await FeatureAccess.GetEnabledFeaturesAsync(User.GetOrganizationId()!.Value);
+    var showOt = features.Contains(FeatureCodes.Overtime);
+    string Hm(int minutes) => minutes <= 0 ? "—" : $"{minutes / 60}h {minutes % 60:00}m";
+    var regularize = new RegularizeInput { Date = date };
+}
+<div class="page-head">
+    <div><h1>Attendance</h1><div class="text-muted small">Daily attendance calculated from punches, leave, holidays and shifts</div></div>
+    <div class="d-flex gap-2">
+        <a href="/org/attendance/register" class="btn btn-light border"><i class="bi bi-calendar3 me-1"></i>Monthly register</a>
+        @if (features.Contains(FeatureCodes.Shifts) && canManage) { <a href="/org/shifts" class="btn btn-light border"><i class="bi bi-clock-history me-1"></i>Shifts</a> }
+    </div>
+</div>
+
+<ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#daily" type="button">Daily view</button></li>
+    @if (showOt) { <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#overtime" type="button">Overtime claims</button></li> }
+</ul>
+
+<div class="tab-content">
+<div class="tab-pane fade show active" id="daily">
+    <div class="row g-3 mb-3">
+        @foreach (var (label, value, tone, icon) in new[] { ("Present", s.Present, "tone-green", "bi-check2-circle"), ("Half day", s.HalfDay, "tone-amber", "bi-circle-half"), ("Absent", s.Absent, "tone-red", "bi-x-circle"), ("On leave", s.OnLeave, "tone-blue", "bi-airplane"), ("Late", s.Late, "tone-violet", "bi-alarm"), (date == today ? "Not yet in" : "Off / holiday", date == today ? s.NotMarked : s.Off, "", "bi-hourglass") })
+        {
+            <div class="col-6 col-md-4 col-xl-2"><div class="card @tone"><div class="card-body kpi py-3"><div class="kpi-icon"><i class="bi @icon"></i></div><div><div class="kpi-label">@label</div><div class="kpi-value fs-4">@value</div></div></div></div></div>
+        }
+    </div>
+    <div class="card">
+        <div class="card-header">
+            <form method="get" class="row g-2 w-100">
+                <div class="col-md-3"><input type="date" name="date" value="@date.ToString("yyyy-MM-dd")" max="@today.ToString("yyyy-MM-dd")" class="form-control" data-autosubmit aria-label="Date" /></div>
+                <div class="col-md-3"><select name="departmentId" class="form-select" data-autosubmit aria-label="Department"><option value="">All departments</option>
+                    @foreach (var d in departments) { <option value="@d.Id" selected="@(ViewBag.DepartmentId == d.Id)">@d.Name</option> }</select></div>
+                <div class="col-md-4"><input type="search" name="search" value="@ViewBag.Search" class="form-control" placeholder="Employee" aria-label="Employee" /></div>
+                <div class="col-md-2"><button class="btn btn-light border w-100" type="submit">Filter</button></div>
+            </form>
+        </div>
+        @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-calendar-x"></i>No employees for this date.</div> }
+        else
+        {
+            <div class="table-responsive"><table class="table table-hover">
+                <thead><tr><th>Employee</th><th>Status</th><th>In</th><th>Out</th><th>Worked</th><th>Late</th><th>Overtime</th>@if (canManage) { <th></th> }</tr></thead>
+                <tbody>@foreach (var r in Model)
+                {
+                    <tr>
+                        <td><a href="/org/employees/details/@r.EmployeeId" class="fw-semibold">@r.Name</a><div class="small text-muted">@r.Code · @r.Department</div></td>
+                        <td><partial name="_AttendanceStatus" model="r.Status" />@if (r.IsRegularized) { <i class="bi bi-pencil-square text-muted ms-1" title="Regularized: @r.Remarks"></i> }</td>
+                        <td class="small">@(r.FirstInLocal?.ToString("HH:mm") ?? "—")</td>
+                        <td class="small">@(r.LastOutLocal?.ToString("HH:mm") ?? "—")</td>
+                        <td class="small">@Hm(r.WorkedMinutes)</td>
+                        <td class="small @(r.LateMinutes > 0 ? "text-danger" : "")">@(r.LateMinutes > 0 ? $"{r.LateMinutes}m" : "—")</td>
+                        <td class="small">@Hm(r.OvertimeMinutes)</td>
+                        @if (canManage)
+                        {
+                            <td class="text-end text-nowrap">
+                                <button class="btn btn-sm btn-soft" data-bs-toggle="modal" data-bs-target="#regModal" data-set-employee="@r.EmployeeId" data-set-who="@r.Name"
+                                        data-set-in="@r.FirstInLocal?.ToString("HH:mm")" data-set-out="@r.LastOutLocal?.ToString("HH:mm")">Regularize</button>
+                                @if (r.IsRegularized)
+                                {
+                                    <form method="post" action="/org/attendance/clearregularization?employeeId=@r.EmployeeId&date=@date.ToString("yyyy-MM-dd")" asp-antiforgery="true" class="d-inline" data-confirm="Remove the manual correction and recalculate from punches?">
+                                        <button class="btn btn-sm btn-light border" type="submit" title="Undo regularization"><i class="bi bi-arrow-counterclockwise"></i></button></form>
+                                }
+                            </td>
+                        }
+                    </tr>
+                }</tbody>
+            </table></div>
+        }
+    </div>
+</div>
+
+@if (showOt)
+{
+    <div class="tab-pane fade" id="overtime">
+        <div class="filter-chips mb-3">
+            <a class="chip @(otStatus is null ? "active" : "")" href="/org/attendance?otStatus=#overtime">All</a>
+            @foreach (var st in Enum.GetValues<OvertimeStatus>()) { <a class="chip @(otStatus == st ? "active" : "")" href="/org/attendance?otStatus=@st#overtime">@st</a> }
+        </div>
+        <div class="card">
+            @if (overtime.Items.Count == 0) { <div class="empty-state"><i class="bi bi-clock"></i>No overtime claims.</div> }
+            else
+            {
+                <div class="table-responsive"><table class="table table-hover">
+                    <thead><tr><th>Employee</th><th>Date</th><th>Recorded</th><th>Reason</th><th>Status</th>@if (canManage) { <th></th> }</tr></thead>
+                    <tbody>@foreach (var o in overtime.Items)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@o.EmployeeName <div class="small text-muted">@o.EmployeeCode</div></td>
+                            <td class="small">@o.Date.ToString("ddd, dd MMM")</td>
+                            <td class="small">@Hm(o.Minutes)@(o.ApprovedMinutes is { } am && am != o.Minutes ? $" (approved {Hm(am)})" : "")</td>
+                            <td class="small">@o.Reason @if (!string.IsNullOrEmpty(o.DecisionNotes)) { <div class="text-muted fst-italic">@o.DecisionNotes</div> }</td>
+                            <td><span class="badge-status st-@(o.Status == OvertimeStatus.Pending ? "PendingVerification" : o.Status == OvertimeStatus.Approved ? "Active" : "Expired")">@o.Status</span></td>
+                            @if (canManage)
+                            {
+                                <td class="text-end text-nowrap">@if (o.Status == OvertimeStatus.Pending)
+                                {
+                                    <form method="post" action="/org/attendance/overtime?id=@o.Id&approve=true" asp-antiforgery="true" class="d-inline"><button class="btn btn-sm btn-soft" type="submit">Approve</button></form>
+                                    <form method="post" action="/org/attendance/overtime?id=@o.Id&approve=false" asp-antiforgery="true" class="d-inline d-flex gap-1 mt-1">
+                                        <input name="notes" class="form-control form-control-sm" placeholder="Reason" required aria-label="Reason" /><button class="btn btn-sm btn-outline-danger" type="submit">Reject</button></form>
+                                }</td>
+                            }
+                        </tr>
+                    }</tbody>
+                </table></div>
+            }
+        </div>
+    </div>
+}
+</div>
+
+@if (canManage)
+{
+    <div class="modal fade" id="regModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" method="post" action="/org/attendance/regularize" asp-antiforgery="true" novalidate>
+        <div class="modal-header"><h5 class="modal-title">Regularize: <span data-bind="who"></span> · @date.ToString("dd MMM yyyy")</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body row g-3">
+            <input type="hidden" name="employeeId" data-bind="employee" />
+            <input type="hidden" asp-for="@regularize.Date" />
+            <div class="col-12"><label asp-for="@regularize.Status" class="form-label"></label>
+                <select asp-for="@regularize.Status" class="form-select">
+                    @foreach (var st in new[] { AttendanceStatus.Present, AttendanceStatus.HalfDay, AttendanceStatus.Absent, AttendanceStatus.Leave, AttendanceStatus.WeeklyOff, AttendanceStatus.Holiday }) { <option value="@st">@st</option> }
+                </select></div>
+            <div class="col-6"><label asp-for="@regularize.InTime" class="form-label"></label><input asp-for="@regularize.InTime" type="time" class="form-control" data-bind="in" /></div>
+            <div class="col-6"><label asp-for="@regularize.OutTime" class="form-label"></label><input asp-for="@regularize.OutTime" type="time" class="form-control" data-bind="out" /></div>
+            <div class="col-12"><label asp-for="@regularize.Remarks" class="form-label">Reason</label><input asp-for="@regularize.Remarks" class="form-control" placeholder="e.g. Forgot to punch out; client visit" /><span asp-validation-for="@regularize.Remarks"></span></div>
+            <div class="col-12 small text-muted">A regularized day is locked against automatic recalculation until you undo it. Approving leave does not override it.</div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Save</button></div>
+    </form></div></div>
+}

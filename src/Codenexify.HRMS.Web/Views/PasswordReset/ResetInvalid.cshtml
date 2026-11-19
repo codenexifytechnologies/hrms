@@ -1,0 +1,21 @@
+@{
+    var platform = (string?)ViewData["Portal"] == "platform";
+    ViewData["Title"] = "Link expired";
+    ViewData["HideNav"] = true;
+    ViewData["AuthMode"] = platform ? "platform" : "company";
+    if (platform) { ViewData["BodyClass"] = "portal-platform"; }
+    Layout = "_PublicLayout";
+}
+@section Styles { <link rel="stylesheet" href="~/css/auth.css" asp-append-version="true" /> }
+<div class="ax-wrap">
+    <partial name="_AuthAside" />
+    <div class="ax-panel">
+        <div class="ax-card">
+            <span class="ax-eyebrow">Reset link</span>
+            <h1 class="ax-title"><i class="bi bi-hourglass-bottom me-2"></i>This link can't be used</h1>
+            <p class="ax-sub">It has expired, was already used, or a newer link was sent. Links work once and for @Codenexify.HRMS.Application.Identity.PasswordResetService.LinkMinutes minutes.</p>
+            <a class="btn ax-submit w-100" href="@(platform ? "/superadmin/account/forgot-password" : "/forgot-password")"><i class="bi bi-send me-2"></i>Send a new link</a>
+            <p class="ax-foot-note"><a href="@(platform ? "/superadmin/account/login" : "/login")">Back to sign in</a></p>
+        </div>
+    </div>
+</div>

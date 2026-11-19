@@ -1,0 +1,57 @@
+@model Codenexify.HRMS.Application.Engagement.ProfileChangeInput
+@using Codenexify.HRMS.Application.Engagement
+@using Codenexify.HRMS.Domain.CoreHr
+@using Codenexify.HRMS.Domain.Engagement
+@{
+    ViewData["Title"] = "Update my details";
+    var history = (IReadOnlyList<ProfileChangeRow>)ViewBag.History;
+    var pending = history.FirstOrDefault(h => h.Status == ProfileChangeStatus.Pending);
+}
+<div class="page-head"><div><h1>Update my details</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/me">My home</a></li><li class="breadcrumb-item active">Update my details</li></ol></nav></div></div>
+<div class="row g-3">
+    <div class="col-lg-7">
+        @if (pending is not null)
+        {
+            <div class="alert alert-info small"><i class="bi bi-hourglass-split me-1"></i>A request from @pending.RequestedAtUtc.ToLocalTime().ToString("dd MMM") is waiting for HR. Sending a new one replaces it.</div>
+        }
+        <div class="card"><div class="card-body">
+            <p class="small text-muted">Changes go to HR for approval. Bank account, PAN and job details can only be changed by HR — please raise them with your HR team.</p>
+            <form method="post" action="/me/profile" asp-antiforgery="true" class="row g-3" novalidate>
+                <div asp-validation-summary="All" class="alert alert-danger py-2 small col-12"></div>
+                <div class="col-md-6"><label asp-for="MobilePhone" class="form-label"></label><input asp-for="MobilePhone" class="form-control" /></div>
+                <div class="col-md-6"><label asp-for="PersonalEmail" class="form-label"></label><input asp-for="PersonalEmail" class="form-control" /></div>
+                <div class="col-12"><label asp-for="CurrentAddress" class="form-label"></label><textarea asp-for="CurrentAddress" rows="2" class="form-control"></textarea></div>
+                <div class="col-12"><label asp-for="PermanentAddress" class="form-label"></label><textarea asp-for="PermanentAddress" rows="2" class="form-control"></textarea></div>
+                <div class="col-md-6"><label asp-for="MaritalStatus" class="form-label"></label>
+                    <select asp-for="MaritalStatus" class="form-select" asp-items="Html.GetEnumSelectList<MaritalStatus>()"><option value="">—</option></select></div>
+                <div class="col-md-6"><label asp-for="BloodGroup" class="form-label"></label><input asp-for="BloodGroup" class="form-control" placeholder="e.g. O+" /></div>
+                <div class="col-md-5"><label asp-for="EmergencyContactName" class="form-label"></label><input asp-for="EmergencyContactName" class="form-control" /></div>
+                <div class="col-md-3"><label asp-for="EmergencyContactRelation" class="form-label"></label><input asp-for="EmergencyContactRelation" class="form-control" /></div>
+                <div class="col-md-4"><label asp-for="EmergencyContactPhone" class="form-label"></label><input asp-for="EmergencyContactPhone" class="form-control" /></div>
+                <div class="col-12"><label asp-for="Note" class="form-label"></label><input asp-for="Note" class="form-control" /></div>
+                <div class="col-12 d-flex justify-content-end gap-2"><a href="/me" class="btn btn-light border">Cancel</a><button class="btn btn-accent" type="submit">Send to HR</button></div>
+            </form>
+        </div></div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card"><div class="card-header">My requests</div>
+            @if (history.Count == 0) { <div class="card-body small text-muted">No requests yet.</div> }
+            <ul class="list-group list-group-flush">
+                @foreach (var h in history)
+                {
+                    <li class="list-group-item bg-transparent small">
+                        <div class="d-flex justify-content-between"><span>@h.RequestedAtUtc.ToLocalTime().ToString("dd MMM yyyy")</span>
+                            <span class="badge-status st-@(h.Status switch { ProfileChangeStatus.Approved => "Active", ProfileChangeStatus.Pending => "PendingVerification", ProfileChangeStatus.Rejected => "Expired", _ => "Inactive" })">@h.Status</span></div>
+                        <div class="text-muted">@string.Join(", ", h.Changes.Select(c => c.Label))</div>
+                        @if (h.DecisionNotes is not null) { <div>HR: @h.DecisionNotes</div> }
+                        @if (h.Status == ProfileChangeStatus.Pending)
+                        {
+                            <form method="post" action="/me/profile/cancel/@h.Id" asp-antiforgery="true" class="mt-1"><button class="btn btn-sm btn-link p-0" type="submit">Cancel request</button></form>
+                        }
+                    </li>
+                }
+            </ul>
+        </div>
+    </div>
+</div>

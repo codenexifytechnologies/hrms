@@ -1,0 +1,38 @@
+@model Codenexify.HRMS.Application.Documents.LetterIssueInput
+@{
+    ViewData["Title"] = "Issue a letter";
+    var templates = (IReadOnlyList<Codenexify.HRMS.Application.Documents.LetterTemplateRow>)ViewBag.Templates;
+    var employeeId = ViewBag.EmployeeId as int?;
+    var employee = ViewBag.Employee as Codenexify.HRMS.Domain.CoreHr.Employee;
+    var people = ViewBag.Employees as IReadOnlyList<Codenexify.HRMS.Application.CoreHr.LookupItem>;
+}
+<div class="page-head"><div><h1>Issue a letter</h1><div class="text-muted small">Step 1 of 2 — choose the letter; you'll check the text before it's issued</div></div></div>
+<partial name="_LettersNav" />
+<div class="card" style="max-width: 820px"><div class="card-body">
+    <form method="post" action="/org/letters/preview" asp-antiforgery="true" class="row g-3" novalidate>
+        <input type="hidden" name="fromTemplate" value="1" />
+        <div asp-validation-summary="All" class="alert alert-danger py-2 small col-12"></div>
+        <div class="col-12">
+            <label class="form-label" for="emp">Employee</label>
+            @if (employee is not null)
+            {
+                <input type="hidden" name="employeeId" value="@employee.Id" />
+                <div id="emp" class="form-control-plaintext fw-semibold">@employee.FullName <span class="text-muted small">(@employee.EmployeeCode · @employee.Status)</span></div>
+            }
+            else
+            {
+                <select id="emp" name="employeeId" class="form-select" required><option value="">Choose…</option>
+                    @foreach (var p in people ?? []) { <option value="@p.Id" selected="@(p.Id == employeeId)">@p.Name</option> }</select>
+                <div class="form-text">Current employees are listed. For a former employee (experience or relieving letter), open their profile and choose <strong>Issue letter</strong>.</div>
+            }
+        </div>
+        <div class="col-md-7"><label asp-for="TemplateId" class="form-label"></label>
+            <select asp-for="TemplateId" class="form-select"><option value="">Choose…</option>@foreach (var t in templates) { <option value="@t.Id">@t.Name (@t.Kind)</option> }</select>
+            @if (templates.Count == 0) { <div class="form-text text-danger">No active templates. <a href="/org/letters/templates/edit">Create one</a>.</div> }</div>
+        <div class="col-md-5"><label asp-for="LetterDate" class="form-label"></label><input asp-for="LetterDate" type="date" class="form-control" /><div class="form-text">Leave blank for today.</div></div>
+        <div class="col-md-6"><label asp-for="SignatoryName" class="form-label"></label><input asp-for="SignatoryName" class="form-control" /></div>
+        <div class="col-md-6"><label asp-for="SignatoryDesignation" class="form-label"></label><input asp-for="SignatoryDesignation" class="form-control" /></div>
+        <div class="col-12"><div class="form-check"><input asp-for="ShareWithEmployee" class="form-check-input" /><label asp-for="ShareWithEmployee" class="form-check-label"></label></div></div>
+        <div class="col-12 d-flex justify-content-end"><button class="btn btn-accent" type="submit">Preview <i class="bi bi-arrow-right ms-1"></i></button></div>
+    </form>
+</div></div>

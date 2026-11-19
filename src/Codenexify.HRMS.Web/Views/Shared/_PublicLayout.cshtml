@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <partial name="_Head" />
+    <title>@ViewData["Title"] · @AppConfig["Platform:ProductName"]</title>
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body class="@ViewData["BodyClass"]">
+    @if (ViewData["HideNav"] is not true)
+    {
+        <nav class="site-nav navbar navbar-expand-lg py-3">
+            <div class="container">
+                <a class="app-brand p-0 text-reset" href="/" aria-label="@AppConfig["Platform:ProductName"] home">
+                    <span class="logo logo-mark"><partial name="_BrandMark" /></span>
+                    <span class="lh-sm"><span class="brand-word fs-5">Code<b>nexify</b></span><span class="brand-tag">HRMS</span></span>
+                </a>
+                <div class="ms-auto d-flex align-items-center gap-2">
+                    <button class="icon-btn" type="button" data-toggle-theme aria-label="Toggle theme"><i data-theme-icon class="bi bi-moon-stars"></i></button>
+                    <a class="btn btn-light" href="/login">Sign in</a>
+                    <a class="btn btn-accent" href="/register">Start free trial</a>
+                </div>
+            </div>
+        </nav>
+    }
+    <main class="fade-in">
+        @RenderBody()
+    </main>
+    @if (ViewData["HideNav"] is not true)
+    {
+        <footer class="border-top py-4 mt-5">
+            <div class="container small text-muted d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <span>&copy; @DateTime.UtcNow.Year <partial name="_CompanyLink" />. All rights reserved.</span>
+                <partial name="_LegalLinks" />
+                <span class="d-flex flex-wrap align-items-center gap-3">
+                    <a href="mailto:@AppConfig["Platform:SupportEmail"]">@AppConfig["Platform:SupportEmail"]</a>
+                    @* Platform staff sign-in (Super Admin); company users sign in from the top bar. *@
+                    <a class="btn btn-sm btn-outline-secondary" href="/superadmin/account/login" rel="nofollow"><i class="bi bi-shield-lock me-1"></i>Control Center login</a>
+                </span>
+            </div>
+        </footer>
+    }
+    <partial name="_Scripts" />
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

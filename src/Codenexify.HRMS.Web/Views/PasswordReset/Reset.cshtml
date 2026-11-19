@@ -1,0 +1,42 @@
+@model Codenexify.HRMS.Web.Controllers.ResetPasswordViewModel
+@{
+    var link = (Codenexify.HRMS.Application.Identity.PasswordResetLink)ViewBag.Link;
+    var platform = link.Type == Codenexify.HRMS.Domain.Enums.PrincipalType.Platform;
+    ViewData["Title"] = "Choose a new password";
+    ViewData["HideNav"] = true;
+    ViewData["AuthMode"] = platform ? "platform" : "company";
+    if (platform) { ViewData["BodyClass"] = "portal-platform"; }
+    Layout = "_PublicLayout";
+    var action = platform ? "/superadmin/account/reset-password" : "/reset-password";
+}
+@section Styles { <link rel="stylesheet" href="~/css/auth.css" asp-append-version="true" /> }
+<div class="ax-wrap">
+    <partial name="_AuthAside" />
+    <div class="ax-panel">
+        <div class="ax-card">
+            <span class="ax-eyebrow">@(platform ? "Control Center" : link.OrganizationName)</span>
+            <h1 class="ax-title">Choose a new password</h1>
+            <p class="ax-sub">For <strong>@link.MaskedEmail</strong>. You'll be signed out on every other device.</p>
+            <form method="post" action="@action" asp-antiforgery="true" novalidate autocomplete="off">
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+                <input type="hidden" asp-for="Token" />
+                <div class="ax-field">
+                    <label asp-for="NewPassword" class="form-label"></label>
+                    <div class="ax-input"><i class="bi bi-lock"></i><input asp-for="NewPassword" class="form-control" autocomplete="new-password" />
+                        <button type="button" class="ax-eye" data-ax-eye aria-label="Show password" aria-pressed="false"><i class="bi bi-eye"></i></button></div>
+                    <div class="ax-meter" data-ax-meter="NewPassword" data-ax-min="@Codenexify.HRMS.Application.Identity.PasswordResetService.MinPasswordLength" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+                    <div class="ax-meter-text" aria-live="polite"></div>
+                    <div class="form-text">At least @Codenexify.HRMS.Application.Identity.PasswordResetService.MinPasswordLength characters.</div>
+                    <span asp-validation-for="NewPassword" class="small text-danger"></span>
+                </div>
+                <div class="ax-field">
+                    <label asp-for="ConfirmPassword" class="form-label"></label>
+                    <div class="ax-input"><i class="bi bi-lock-fill"></i><input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" /></div>
+                    <span asp-validation-for="ConfirmPassword" class="small text-danger"></span>
+                </div>
+                <button type="submit" class="btn ax-submit w-100 mt-2"><i class="bi bi-check2-circle me-2"></i>Save new password</button>
+            </form>
+        </div>
+    </div>
+</div>
+@section Scripts { <script src="~/js/auth.js" asp-append-version="true"></script> }

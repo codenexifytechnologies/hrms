@@ -1,0 +1,45 @@
+@model Codenexify.HRMS.Application.Performance.SkillProfile
+@using Codenexify.HRMS.Application.Performance
+@*
+    A skill profile as a table. ViewData["Mode"]: "self" (employee edits own level) or "assess" (manager/HR sets their level).
+    ViewData["Action"]: the form URL.
+*@
+@{
+    var mode = (string)ViewData["Mode"]!;
+    var action = (string)ViewData["Action"]!;
+}
+@if (Model.Lines.Count == 0)
+{
+    <div class="empty-state"><i class="bi bi-tools"></i>No skills listed yet@(mode == "self" ? ". Add your first one below." : ".")</div>
+}
+else
+{
+    <div class="table-responsive"><table class="table align-middle mb-0">
+        <thead><tr><th>Skill</th><th>Self-rating</th><th>Manager</th><th>Needed for the role</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var l in Model.Lines)
+        {
+            <tr>
+                <td><div class="fw-semibold">@l.Skill</div><div class="small text-muted">@l.Category</div></td>
+                <td class="small">@SkillService.LevelName(l.SelfLevel)</td>
+                <td class="small">@SkillService.LevelName(l.ManagerLevel)@if (l.ManagerNote is not null) { <div class="text-muted">“@l.ManagerNote”</div> }@if (l.AssessedBy is not null) { <div class="text-muted">by @l.AssessedBy</div> }</td>
+                <td class="small">@(l.Required is int r ? SkillService.LevelName(r) : "—")
+                    @if (l.Gap > 0) { <span class="badge text-bg-warning ms-1">@l.Gap level@(l.Gap == 1 ? "" : "s") short</span> }
+                    else if (l.Required is not null) { <span class="badge text-bg-success ms-1">Meets</span> }</td>
+                <td class="text-end" style="min-width: 13rem">
+                    <form method="post" action="@action" asp-antiforgery="true" class="d-flex gap-1 justify-content-end">
+                        <input type="hidden" name="skillId" value="@l.SkillId" />
+                        @{ var current = mode == "self" ? l.SelfLevel : l.ManagerLevel; }
+                        <select class="form-select form-select-sm" name="level" aria-label="Level for @l.Skill" style="max-width: 9rem">
+                            <option value="0">@(current is null ? "Set level…" : "Remove")</option>
+                            @for (var i = 1; i <= 5; i++) { <option value="@i" selected="@(current == i)">@i · @SkillService.LevelName(i)</option> }
+                        </select>
+                        @if (mode == "assess") { <input class="form-control form-control-sm" name="note" maxlength="500" value="@l.ManagerNote" placeholder="Note" aria-label="Note for @l.Skill" style="max-width: 8rem" /> }
+                        <button class="btn btn-sm btn-light border" type="submit">Save</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table></div>
+}

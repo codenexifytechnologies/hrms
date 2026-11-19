@@ -1,0 +1,84 @@
+@model ExitRequest
+@{
+    var e = Model.Employee;
+    ViewData["Title"] = $"Exit: {e.FullName}";
+    var lwd = Model.ApprovedLastWorkingDay ?? Model.RequestedLastWorkingDay;
+    var done = Model.Checklist.Count(c => c.IsCompleted);
+}
+<div class="page-head">
+    <div><h1>@e.FullName <span class="badge-status st-@(Model.Status switch { ExitStatus.Pending => "PendingVerification", ExitStatus.Approved => "Trial", ExitStatus.Completed => "Inactive", _ => "Cancelled" }) align-middle">@Model.Status</span></h1>
+        <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/exits">Exits</a></li><li class="breadcrumb-item"><a href="/org/employees/details/@e.Id">@e.EmployeeCode</a></li><li class="breadcrumb-item active">@Model.Type</li></ol></nav></div>
+</div>
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card mb-3"><div class="card-header">Request</div><div class="card-body">
+            <dl class="row small mb-0">
+                <dt class="col-5">Type</dt><dd class="col-7">@Model.Type@(Model.InitiatedByEmployee ? " (submitted by employee)" : "")</dd>
+                <dt class="col-5">Requested on</dt><dd class="col-7">@Model.RequestedOn.ToString("dd MMM yyyy")</dd>
+                <dt class="col-5">Requested LWD</dt><dd class="col-7">@Model.RequestedLastWorkingDay.ToString("dd MMM yyyy")</dd>
+                @if (Model.ApprovedLastWorkingDay is { } a) { <dt class="col-5">Approved LWD</dt><dd class="col-7 fw-semibold">@a.ToString("dd MMM yyyy")</dd> }
+                <dt class="col-5">Department</dt><dd class="col-7">@(e.Department?.Name ?? "—")</dd>
+                <dt class="col-5">Notice period</dt><dd class="col-7">@e.NoticePeriodDays days</dd>
+                <dt class="col-12 mt-2">Reason</dt><dd class="col-12">@Model.Reason</dd>
+                @if (Model.DecidedBy is not null) { <dt class="col-12 mt-2">Decision</dt><dd class="col-12">@Model.DecidedBy · @Model.DecidedAtUtc?.ToLocalTime().ToString("dd MMM yyyy HH:mm")@(string.IsNullOrEmpty(Model.DecisionNotes) ? "" : " — " + Model.DecisionNotes)</dd> }
+            </dl>
+        </div></div>
+
+        @if (Model.Status == ExitStatus.Pending)
+        {
+            <div class="card mb-3"><div class="card-header">Decision</div><div class="card-body">
+                <form method="post" action="/org/exits/approve/@Model.Id" asp-antiforgery="true" class="row g-2 mb-3">
+                    <div class="col-7"><label class="form-label" for="lwd">Last working day</label><input id="lwd" name="lastWorkingDay" type="date" class="form-control" value="@lwd.ToString("yyyy-MM-dd")" required /></div>
+                    <div class="col-12"><label class="form-label" for="an">Notes (optional)</label><input id="an" name="notes" class="form-control" maxlength="1000" /></div>
+                    <div class="col-12"><button class="btn btn-accent" type="submit"><i class="bi bi-check2 me-1"></i>Approve &amp; start checklist</button></div>
+                </form>
+                <form method="post" action="/org/exits/reject/@Model.Id" asp-antiforgery="true" class="row g-2" data-confirm="Reject this request?" data-confirm-danger="1">
+                    <div class="col-8"><input name="notes" class="form-control" placeholder="Reason for rejecting" maxlength="1000" required aria-label="Reason for rejecting" /></div>
+                    <div class="col-4"><button class="btn btn-outline-danger w-100" type="submit">Reject</button></div>
+                </form>
+            </div></div>
+        }
+
+        <div class="card"><div class="card-header">Exit interview notes</div><div class="card-body">
+            <form method="post" action="/org/exits/interview/@Model.Id" asp-antiforgery="true">
+                <textarea name="notes" class="form-control mb-2" rows="4" maxlength="2000" aria-label="Exit interview notes">@Model.ExitInterviewNotes</textarea>
+                <button class="btn btn-sm btn-soft" type="submit">Save notes</button>
+            </form>
+        </div></div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card"><div class="card-header">Exit checklist <span class="small text-muted fw-normal">@done of @Model.Checklist.Count done</span></div>
+            @if (Model.Status == ExitStatus.Pending) { <div class="card-body text-muted small">The checklist starts when the exit is approved.</div> }
+            else if (Model.Checklist.Count == 0) { <div class="card-body text-muted small">No checklist items (configure them in Organization structure → HR settings).</div> }
+            else
+            {
+                @if (Model.Checklist.Count > 0) { <div class="progress mx-3 mt-3" style="height:8px"><div class="progress-bar" style="width:@(done * 100 / Model.Checklist.Count)%"></div></div> }
+                <ul class="list-group list-group-flush mt-2">
+                    @foreach (var item in Model.Checklist.OrderBy(c => c.SortOrder))
+                    {
+                        <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center gap-2">
+                            <div><span class="@(item.IsCompleted ? "text-decoration-line-through text-muted" : "fw-semibold")">@item.Title</span> <span class="badge text-bg-light border">@item.Owner</span>
+                                @if (item.IsCompleted) { <div class="small text-muted">@item.CompletedBy · @item.CompletedAtUtc?.ToLocalTime().ToString("dd MMM, HH:mm")</div> }</div>
+                            @if (Model.Status == ExitStatus.Approved)
+                            {
+                                <form method="post" action="/org/exits/checklist/@Model.Id?itemId=@item.Id&completed=@((!item.IsCompleted).ToString().ToLowerInvariant())" asp-antiforgery="true">
+                                    <button class="btn btn-sm @(item.IsCompleted ? "btn-light border" : "btn-soft")" type="submit">@(item.IsCompleted ? "Reopen" : "Mark done")</button>
+                                </form>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+            @if (Model.Status == ExitStatus.Approved)
+            {
+                <div class="card-body border-top d-flex justify-content-between align-items-center">
+                    <span class="small text-muted">Completing marks the employee as exited on @lwd.ToString("dd MMM yyyy") and disables their login.</span>
+                    <form method="post" action="/org/exits/complete/@Model.Id" asp-antiforgery="true" data-confirm="Complete the exit for @e.FullName? Their login will be disabled." data-confirm-danger="1">
+                        <button class="btn btn-danger" type="submit" disabled="@(done < Model.Checklist.Count)">Complete exit</button>
+                    </form>
+                </div>
+            }
+            @if (Model.Status == ExitStatus.Completed) { <div class="card-body border-top small text-success"><i class="bi bi-check-circle me-1"></i>Completed @Model.CompletedAtUtc?.ToLocalTime().ToString("dd MMM yyyy HH:mm"). Full &amp; final settlement is handled in Payroll (Phase 3).</div> }
+        </div>
+    </div>
+</div>

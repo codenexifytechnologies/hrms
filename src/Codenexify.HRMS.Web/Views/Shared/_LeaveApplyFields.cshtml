@@ -1,0 +1,13 @@
+@model Codenexify.HRMS.Application.Time.LeaveApplyInput
+@{
+    var types = ((IEnumerable<Codenexify.HRMS.Application.Time.LeaveTypeRow>)ViewBag.Types).Where(t => t.IsActive);
+}
+<div class="col-12"><label asp-for="LeaveTypeId" class="form-label"></label>
+    <select asp-for="LeaveTypeId" class="form-select" data-leave-type><option value="">Select…</option>
+        @foreach (var t in types) { <option value="@t.Id" data-half="@(t.AllowHalfDay ? "1" : "0")">@t.Name</option> }</select>
+    <span asp-validation-for="LeaveTypeId"></span></div>
+<div class="col-6"><label asp-for="FromDate" class="form-label"></label><input asp-for="FromDate" type="date" class="form-control" data-leave-from /></div>
+<div class="col-6"><label asp-for="ToDate" class="form-label"></label><input asp-for="ToDate" type="date" class="form-control" data-leave-to /></div>
+<div class="col-6 d-flex align-items-end"><div class="form-check form-switch"><input asp-for="IsHalfDay" class="form-check-input" data-leave-half /><label asp-for="IsHalfDay" class="form-check-label"></label></div></div>
+<div class="col-6"><label asp-for="HalfDaySession" class="form-label"></label><select asp-for="HalfDaySession" asp-items="Html.GetEnumSelectList<Codenexify.HRMS.Domain.Time.HalfDaySession>()" class="form-select" data-leave-session><option value="">—</option></select></div>
+<div class="col-12"><label asp-for="Reason" class="form-label"></label><textarea asp-for="Reason" class="form-control" rows="2"></textarea><span asp-validation-for="Reason"></span></div>

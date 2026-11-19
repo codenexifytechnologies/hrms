@@ -1,0 +1,40 @@
+@model PagedResult<Codenexify.HRMS.Domain.Audit.AuditLog>
+@{
+    ViewData["Title"] = "Audit trail";
+}
+<div class="page-head">
+    <div><h1>Audit trail</h1><div class="text-muted small">Changes made in your organization, including actions by platform support</div></div>
+</div>
+<div class="card">
+    @if (Model.Items.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-journal-x"></i>No activity recorded yet.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover small">
+                <thead><tr><th>When</th><th>By</th><th>Action</th><th>Record</th><th>Details</th></tr></thead>
+                <tbody>
+                @foreach (var a in Model.Items)
+                {
+                    <tr>
+                        <td class="text-nowrap">@a.TimestampUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</td>
+                        <td>@(a.ActorType == PrincipalType.Platform ? "Platform support" : a.ActorName ?? "system")</td>
+                        <td class="fw-semibold">@a.Action</td>
+                        <td>@a.EntityType @(a.EntityId is null ? "" : "#" + a.EntityId)</td>
+                        <td style="max-width: 420px">
+                            @a.Details
+                            @if (a.NewValues is not null && a.ActorType != PrincipalType.Platform)
+                            {
+                                <details><summary class="text-muted">Changes</summary><code class="json">@a.NewValues</code></details>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+    <partial name="_Pager" model="Model.ToPager()" />
+</div>

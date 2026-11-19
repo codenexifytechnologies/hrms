@@ -1,0 +1,45 @@
+@model Codenexify.HRMS.Application.Performance.PromotionInput
+@using Codenexify.HRMS.Application.CoreHr
+@{
+    ViewData["Title"] = "Propose a promotion";
+    var people = (IReadOnlyList<LookupItem>)ViewBag.People;
+    var designations = (IReadOnlyList<LookupItem>)ViewBag.Designations;
+    var reviews = (IReadOnlyList<(int Id, string Name, int? Rating)>)ViewBag.Reviews;
+}
+<div class="page-head"><div><h1>Propose a promotion</h1><div class="text-muted small"><a href="/me/promotions">Promotions</a></div></div></div>
+
+<div style="max-width: 860px">
+    <div class="card mb-3"><div class="card-body">
+        <form method="get" action="/me/promotions/new" class="row g-2 align-items-end">
+            <div class="col-md-8"><label class="form-label" for="p-emp">Employee</label>
+                <select class="form-select" id="p-emp" name="employeeId" data-autosubmit><option value="">Choose…</option>
+                    @foreach (var p in people) { <option value="@p.Id" selected="@(Model.EmployeeId == p.Id)">@p.Name</option> }</select></div>
+        </form>
+    </div></div>
+
+    @if (Model.EmployeeId > 0)
+    {
+        <form method="post" action="/me/promotions/new" asp-antiforgery="true">
+            <input type="hidden" name="proposal.EmployeeId" value="@Model.EmployeeId" />
+            <div class="card mb-3"><div class="card-body row g-3">
+                <div class="col-md-6"><label class="form-label" for="p-title">New job title</label>
+                    <select class="form-select" id="p-title" name="proposal.ToDesignationId"><option value="">No change</option>
+                        @foreach (var d in designations) { <option value="@d.Id">@d.Name</option> }</select></div>
+                <div class="col-md-3"><label class="form-label" for="p-gross">New annual gross (₹)</label>
+                    <input class="form-control" id="p-gross" name="proposal.ProposedAnnualGross" inputmode="decimal" placeholder="No change" /></div>
+                <div class="col-md-3"><label class="form-label" for="p-date">Effective from</label>
+                    <input class="form-control" id="p-date" type="date" name="proposal.EffectiveOn" value="@Model.EffectiveOn.ToString("yyyy-MM-dd")" required /></div>
+                @if (reviews.Count > 0)
+                {
+                    <div class="col-md-6"><label class="form-label" for="p-review">Based on review</label>
+                        <select class="form-select" id="p-review" name="proposal.PerformanceReviewId"><option value="">—</option>
+                            @foreach (var r in reviews) { <option value="@r.Id">@r.Name@(r.Rating is int x ? $" · rating {x}" : "")</option> }</select></div>
+                }
+                <div class="col-12"><label class="form-label" for="p-why">Why</label>
+                    <textarea class="form-control" id="p-why" name="proposal.Justification" rows="5" minlength="20" maxlength="4000" required placeholder="Impact, scope they already handle, readiness for the new role."></textarea></div>
+                <div class="col-12 form-text mt-0">The new salary uses the employee's current salary structure. If the date is in a month already paid, the difference is paid as arrears in the next payroll.</div>
+            </div></div>
+            <div class="d-flex justify-content-end gap-2"><a class="btn btn-light border" href="/me/promotions">Cancel</a><button class="btn btn-accent" type="submit">Submit</button></div>
+        </form>
+    }
+</div>

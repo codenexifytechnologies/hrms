@@ -1,0 +1,89 @@
+@model Codenexify.HRMS.Application.Strength.AssetInput
+@using Codenexify.HRMS.Application.Strength
+@using Codenexify.HRMS.Domain.Strength
+@{
+    var id = ViewBag.Id as int?;
+    ViewData["Title"] = id is null ? "Add asset" : $"{Model.AssetTag} · {Model.Name}";
+    var categories = (IReadOnlyList<string>)ViewBag.Categories;
+    var row = ViewBag.Row as AssetRow;
+    var history = ViewBag.History as IReadOnlyList<AssetHistoryRow> ?? [];
+    var people = ViewBag.Employees as IReadOnlyList<Codenexify.HRMS.Application.CoreHr.LookupItem> ?? [];
+}
+<div class="page-head"><div><h1>@ViewData["Title"]</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/assets">Assets</a></li><li class="breadcrumb-item active">@(id is null ? "New" : Model.AssetTag)</li></ol></nav></div>
+    @if (row is not null) { <span class="badge-status st-@(row.Status == AssetStatus.Available ? "Active" : row.Status == AssetStatus.Assigned ? "Issued" : "Inactive") fs-6">@row.Status</span> }
+</div>
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card"><div class="card-header">Details</div><div class="card-body">
+            <form method="post" action="/org/assets/edit/@id" asp-antiforgery="true" class="row g-2" novalidate>
+                <div asp-validation-summary="All" class="alert alert-danger py-2 small col-12"></div>
+                <div class="col-md-4"><label asp-for="AssetTag" class="form-label small"></label><input asp-for="AssetTag" class="form-control text-uppercase" /></div>
+                <div class="col-md-8"><label asp-for="Name" class="form-label small"></label><input asp-for="Name" class="form-control" placeholder="e.g. Dell Latitude 5440" /></div>
+                <div class="col-md-6"><label asp-for="Category" class="form-label small"></label><input asp-for="Category" class="form-control" list="cats" /><datalist id="cats">@foreach (var c in categories) { <option value="@c"></option> }</datalist></div>
+                <div class="col-md-6"><label asp-for="SerialNumber" class="form-label small"></label><input asp-for="SerialNumber" class="form-control" /></div>
+                <div class="col-12"><label asp-for="Description" class="form-label small"></label><input asp-for="Description" class="form-control" placeholder="Specs, accessories, IMEI…" /></div>
+                <div class="col-md-4"><label asp-for="PurchaseDate" class="form-label small"></label><input asp-for="PurchaseDate" type="date" class="form-control" /></div>
+                <div class="col-md-4"><label asp-for="PurchaseCost" class="form-label small"></label><input asp-for="PurchaseCost" class="form-control" /></div>
+                <div class="col-md-4"><label asp-for="WarrantyUntil" class="form-label small"></label><input asp-for="WarrantyUntil" type="date" class="form-control" /></div>
+                <div class="col-md-4"><label asp-for="Condition" class="form-label small"></label><select asp-for="Condition" class="form-select" asp-items="Html.GetEnumSelectList<AssetCondition>()"></select></div>
+                <div class="col-12 text-end"><button class="btn btn-accent" type="submit">Save</button></div>
+            </form>
+        </div></div>
+    </div>
+    @if (row is not null)
+    {
+        <div class="col-lg-6">
+            @if (row.Status == AssetStatus.Available)
+            {
+                <div class="card mb-3"><div class="card-header">Assign</div><div class="card-body">
+                    <form method="post" action="/org/assets/@id/assign" asp-antiforgery="true" class="row g-2">
+                        <div class="col-12"><label class="form-label small" for="ae">Employee</label>
+                            <select id="ae" name="employeeId" class="form-select" required><option value="">Choose…</option>@foreach (var p in people) { <option value="@p.Id">@p.Name</option> }</select></div>
+                        <div class="col-md-6"><label class="form-label small" for="ar">Expected return (optional)</label><input id="ar" name="expectedReturn" type="date" class="form-control" /></div>
+                        <div class="col-md-6"><label class="form-label small" for="an">Notes</label><input id="an" name="notes" maxlength="500" class="form-control" placeholder="e.g. with charger and bag" /></div>
+                        <div class="col-12 text-end"><button class="btn btn-accent" type="submit">Assign</button></div>
+                    </form>
+                </div></div>
+            }
+            else if (row.Status == AssetStatus.Assigned)
+            {
+                <div class="card mb-3"><div class="card-header">With @row.EmployeeName</div><div class="card-body">
+                    <p class="small text-muted">Since @row.AssignedOn?.ToString("dd MMM yyyy") · @(row.Acknowledged ? "receipt confirmed by the employee" : "the employee hasn't confirmed receipt yet")</p>
+                    <form method="post" action="/org/assets/@id/return" asp-antiforgery="true" class="row g-2">
+                        <div class="col-md-5"><label class="form-label small" for="rc">Condition on return</label>
+                            <select id="rc" name="condition" class="form-select">@foreach (var c in Enum.GetValues<AssetCondition>()) { <option value="@c" selected="@(c == Model.Condition)">@c</option> }</select></div>
+                        <div class="col-md-7"><label class="form-label small" for="rn">Notes</label><input id="rn" name="notes" maxlength="300" class="form-control" /></div>
+                        <div class="col-12 d-flex justify-content-between">
+                            <button class="btn btn-outline-danger btn-sm" type="submit" formaction="/org/assets/@id/status?status=Lost" data-confirm="Mark this asset as lost?" data-confirm-danger="1">Report lost</button>
+                            <button class="btn btn-accent" type="submit">Take back</button></div>
+                    </form>
+                    <div class="form-text">Damaged assets go to “under repair” when taken back.</div>
+                </div></div>
+            }
+            @if (row.Status is AssetStatus.Available or AssetStatus.UnderRepair or AssetStatus.Retired or AssetStatus.Lost)
+            {
+                <div class="card mb-3"><div class="card-body d-flex flex-wrap gap-2 align-items-center">
+                    <span class="small text-muted me-auto">Change status:</span>
+                    @foreach (var s in new[] { AssetStatus.Available, AssetStatus.UnderRepair, AssetStatus.Retired }.Where(s => s != row.Status))
+                    {
+                        <form method="post" action="/org/assets/@id/status?status=@s" asp-antiforgery="true"><button class="btn btn-sm btn-light border" type="submit">@s</button></form>
+                    }
+                </div></div>
+            }
+            <div class="card"><div class="card-header">History</div>
+                @if (history.Count == 0) { <div class="card-body small text-muted">Never assigned.</div> }
+                else
+                {
+                    <ul class="list-group list-group-flush small">
+                        @foreach (var h in history)
+                        {
+                            <li class="list-group-item bg-transparent"><strong>@h.EmployeeName</strong> · @h.AssignedOn.ToString("dd MMM yyyy") → @(h.ReturnedOn?.ToString("dd MMM yyyy") ?? "now")
+                                <div class="text-muted">Out: @h.ConditionOut@(h.ConditionIn is { } ci ? $" · in: {ci}" : "") · by @h.AssignedBy@(h.AcknowledgedAtUtc is null ? "" : " · confirmed")@(h.Notes is null ? "" : $" · {h.Notes}")</div></li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+    }
+</div>

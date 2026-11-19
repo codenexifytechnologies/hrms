@@ -1,0 +1,29 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Performance.WorkflowRuleRow>
+@using Codenexify.HRMS.Web
+@{ ViewData["Title"] = "Automation"; }
+<div class="page-head">
+    <div><h1>Automation</h1><div class="text-muted small">Rules that act on their own when something happens: send reminders, create tasks, start onboarding, enrol in benefits</div></div>
+    <a class="btn btn-accent" href="/org/workflows/new"><i class="bi bi-plus-lg me-1"></i>New rule</a>
+</div>
+<div class="card">
+    @if (Model.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-lightning-charge"></i>No automation rules yet. For example: "3 days before someone joins, remind their manager to set up a laptop."
+            <div class="mt-2"><a class="btn btn-sm btn-accent" href="/org/workflows/new">Create the first</a></div></div>
+    }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover align-middle mb-0">
+            <thead><tr><th>Rule</th><th>When</th><th class="text-end">Actions</th><th class="text-end">Times run</th><th>Last run</th><th>Status</th></tr></thead>
+            <tbody>@foreach (var r in Model)
+            {
+                <tr><td><a class="fw-semibold" href="/org/workflows/@r.Id">@r.Name</a></td>
+                    <td class="small">@WorkflowUi.Describe(r.Trigger, r.DaysOffset)</td>
+                    <td class="text-end">@r.Actions</td><td class="text-end">@r.Runs</td>
+                    <td class="small text-muted">@(r.LastRunAtUtc?.ToLocalTime().ToString("dd MMM yyyy, HH:mm") ?? "Not yet")</td>
+                    <td>@if (r.IsActive) { <span class="badge text-bg-success">Active</span> } else { <span class="badge text-bg-secondary">Paused</span> }</td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>
+<p class="small text-muted mt-3">Rules are checked every hour. Each rule acts once per employee, so a reminder is never sent twice for the same person.</p>

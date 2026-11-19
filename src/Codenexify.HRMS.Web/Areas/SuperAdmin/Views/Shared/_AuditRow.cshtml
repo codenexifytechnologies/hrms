@@ -1,0 +1,11 @@
+@model Codenexify.HRMS.Domain.Audit.AuditLog
+<div class="timeline-item small">
+    <div class="d-flex justify-content-between gap-2">
+        <strong>@Model.Action <span class="text-muted fw-normal">· @Model.EntityType @(Model.EntityId is null ? "" : "#" + Model.EntityId)</span></strong>
+        <span class="text-muted text-nowrap" title="@Model.TimestampUtc.ToString("u")">@Model.TimestampUtc.ToLocalTime().ToString("dd MMM, HH:mm")</span>
+    </div>
+    <div class="text-muted">
+        @(Model.ActorName ?? "system")@(Model.ActorType is null ? "" : $" ({Model.ActorType})")
+        @if (!string.IsNullOrEmpty(Model.Details)) { <span>— @Model.Details</span> }
+    </div>
+</div>

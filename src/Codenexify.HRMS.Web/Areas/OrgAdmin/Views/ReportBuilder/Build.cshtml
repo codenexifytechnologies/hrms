@@ -1,0 +1,147 @@
+@model Codenexify.HRMS.Application.Performance.SavedReportInput
+@using Codenexify.HRMS.Application.CoreHr
+@using Codenexify.HRMS.Application.Performance
+@using Codenexify.HRMS.Domain.CoreHr
+@using Codenexify.HRMS.Domain.Performance
+@using Codenexify.HRMS.Web
+@{
+    var id = ViewBag.Id as int?;
+    var isMine = ViewBag.IsMine is true;
+    var payrollAllowed = ViewBag.PayrollAllowed is true;
+    var fields = (IReadOnlyList<ReportField>)ViewBag.Fields;
+    var result = ViewBag.Result as ReportResult;
+    var branches = (IReadOnlyList<LookupItem>)ViewBag.Branches;
+    var departments = (IReadOnlyList<LookupItem>)ViewBag.Departments;
+    var d = Model.Definition;
+    ViewData["Title"] = id is null ? "New report" : Model.Name;
+    string Cell(object? v) => v switch
+    {
+        null => "",
+        DateOnly date => date.ToString("dd MMM yyyy"),
+        decimal m => m.ToString("#,##0.##"),
+        _ => v.ToString() ?? ""
+    };
+    var dateHelp = Model.Source switch
+    {
+        ReportSource.Employees => "Joining date between (leave blank for everyone).",
+        ReportSource.Leave => "Leave that overlaps these dates (default: this calendar year).",
+        ReportSource.Attendance => "Months covered (default: this month so far).",
+        _ => "Pay months covered (default: this year so far). Only finalized or paid runs are included."
+    };
+}
+<div class="page-head">
+    <div><h1>@ViewData["Title"]</h1><div class="text-muted small"><a href="/org/report-builder">Report builder</a> / @WorkflowUi.Label(Model.Source)@(id is not null && !isMine ? " · shared with you (read-only; save a copy to change it)" : "")</div></div>
+    @if (id is not null && isMine)
+    {
+        <form method="post" action="/org/report-builder/@id/delete" asp-antiforgery="true" data-confirm-danger="Delete this saved report?">
+            <button class="btn btn-outline-danger" type="submit"><i class="bi bi-trash me-1"></i>Delete</button></form>
+    }
+</div>
+
+@if (id is null)
+{
+    <form method="get" action="/org/report-builder/build" class="card mb-3"><div class="card-body d-flex flex-wrap align-items-center gap-2">
+        <label for="source" class="form-label mb-0 fw-semibold">Data source</label>
+        <select id="source" name="source" class="form-select" style="max-width: 280px" data-autosubmit>
+            @foreach (var s in Enum.GetValues<ReportSource>())
+            {
+                if (s == ReportSource.Payroll && !payrollAllowed) { continue; }
+                <option value="@s" selected="@(Model.Source == s)">@WorkflowUi.Label(s)</option>
+            }
+        </select>
+        <span class="small text-muted">Changing the source starts a fresh report.</span>
+        <noscript><button class="btn btn-sm btn-light border" type="submit">Change</button></noscript>
+    </div></form>
+}
+
+<form method="post" action="/org/report-builder/build@(id is null ? "" : "?id=" + id)" asp-antiforgery="true" novalidate>
+    <input type="hidden" name="Source" value="@Model.Source" />
+    <div asp-validation-summary="All" class="alert alert-danger py-2 small"></div>
+
+    <div class="row g-3">
+        <div class="col-lg-4">
+            <div class="card h-100"><div class="card-header">Columns</div><div class="card-body">
+                @foreach (var f in fields)
+                {
+                    <div class="form-check"><input class="form-check-input" type="checkbox" name="Definition.Columns" value="@f.Key" id="col-@f.Key" checked="@d.Columns.Contains(f.Key)" />
+                        <label class="form-check-label" for="col-@f.Key">@f.Label @if (f.Type == ReportFieldType.Number) { <span class="text-muted small">(number)</span> }</label></div>
+                }
+            </div></div>
+        </div>
+        <div class="col-lg-8">
+            <div class="card mb-3"><div class="card-header">Filters</div><div class="card-body row g-3">
+                <div class="col-md-4"><label class="form-label" for="dep">Department</label>
+                    <select id="dep" name="Definition.DepartmentId" class="form-select"><option value="">All departments</option>
+                        @foreach (var x in departments) { <option value="@x.Id" selected="@(d.DepartmentId == x.Id)">@x.Name</option> }</select></div>
+                <div class="col-md-4"><label class="form-label" for="br">Branch</label>
+                    <select id="br" name="Definition.BranchId" class="form-select"><option value="">All branches</option>
+                        @foreach (var x in branches) { <option value="@x.Id" selected="@(d.BranchId == x.Id)">@x.Name</option> }</select></div>
+                <div class="col-md-4"><label class="form-label" for="et">Employment type</label>
+                    <select id="et" name="Definition.EmploymentType" class="form-select"><option value="">All types</option>
+                        @foreach (var t in Enum.GetValues<EmploymentType>()) { <option value="@t" selected="@(d.EmploymentType == t)">@BenefitUi.Label(t)</option> }</select></div>
+                <div class="col-md-4"><label class="form-label" for="people">People</label>
+                    <select id="people" name="Definition.People" class="form-select">
+                        <option value="current" selected="@(d.People == "current")">Current employees</option>
+                        <option value="exited" selected="@(d.People == "exited")">Former employees</option>
+                        <option value="all" selected="@(d.People == "all")">Everyone</option>
+                    </select></div>
+                <div class="col-md-4"><label class="form-label" for="from">From</label><input id="from" name="Definition.From" type="date" class="form-control" value="@d.From?.ToString("yyyy-MM-dd")" /></div>
+                <div class="col-md-4"><label class="form-label" for="to">To</label><input id="to" name="Definition.To" type="date" class="form-control" value="@d.To?.ToString("yyyy-MM-dd")" /></div>
+                <div class="col-12 form-text mt-1">@dateHelp</div>
+            </div></div>
+            <div class="card mb-3"><div class="card-header">Group and sort</div><div class="card-body row g-3">
+                <div class="col-md-5"><label class="form-label" for="group">Group by</label>
+                    <select id="group" name="Definition.GroupBy" class="form-select"><option value="">No grouping (one row per record)</option>
+                        @foreach (var f in fields.Where(f => f.Type != ReportFieldType.Number)) { <option value="@f.Key" selected="@(d.GroupBy == f.Key)">@f.Label</option> }</select>
+                    <div class="form-text">Grouped reports show a row count and the totals of the number columns you ticked.</div></div>
+                <div class="col-md-4"><label class="form-label" for="sort">Sort by</label>
+                    <select id="sort" name="Definition.SortBy" class="form-select"><option value="">First column</option>
+                        @foreach (var f in fields) { <option value="@f.Key" selected="@(d.SortBy == f.Key)">@f.Label</option> }
+                        <option value="_rows" selected="@(d.SortBy == "_rows")">Rows (grouped reports)</option></select></div>
+                <div class="col-md-3 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" name="Definition.Descending" value="true" id="desc" checked="@d.Descending" /><input type="hidden" name="Definition.Descending" value="false" />
+                    <label class="form-check-label" for="desc">Largest / latest first</label></div></div>
+            </div></div>
+            <div class="card"><div class="card-body row g-3 align-items-end">
+                <div class="col-md-5"><label class="form-label" for="name">Report name</label><input id="name" name="Name" class="form-control" value="@Model.Name" maxlength="150" placeholder="Needed only to save" /></div>
+                <div class="col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" name="IsShared" value="true" id="shared" checked="@Model.IsShared" /><input type="hidden" name="IsShared" value="false" />
+                    <label class="form-check-label" for="shared">Share with everyone who can build reports</label></div></div>
+                <div class="col-md-3 text-md-end">
+                    <button class="btn btn-light border" type="submit" name="do" value="save">@(id is not null && !isMine ? "Save a copy" : "Save")</button>
+                </div>
+            </div></div>
+        </div>
+    </div>
+    <div class="d-flex justify-content-end gap-2 mt-3">
+        <button class="btn btn-light border" type="submit" name="do" value="export"><i class="bi bi-file-earmark-excel me-1"></i>Export to Excel</button>
+        <button class="btn btn-accent" type="submit" name="do" value="run"><i class="bi bi-play-fill me-1"></i>Run report</button>
+    </div>
+</form>
+
+@if (result is not null)
+{
+    <div class="card mt-4">
+        <div class="card-header d-flex justify-content-between"><span>Results</span><span class="small text-muted">@result.Rows.Count row(s)@(result.Truncated ? $" · showing the first {ReportBuilderService.MaxRows}; narrow the filters or group the report" : "")</span></div>
+        @if (result.Rows.Count == 0)
+        {
+            <div class="empty-state"><i class="bi bi-table"></i>No records match these filters.</div>
+        }
+        else
+        {
+            <div class="table-responsive" style="max-height: 70vh"><table class="table table-sm table-hover align-middle mb-0">
+                <thead class="sticky-top bg-body"><tr>@foreach (var c in result.Columns) { <th class="@(c.Type == ReportFieldType.Number ? "text-end" : "")">@c.Label</th> }</tr></thead>
+                <tbody>@foreach (var row in result.Rows)
+                {
+                    <tr>@for (var i = 0; i < result.Columns.Count; i++) { <td class="@(result.Columns[i].Type == ReportFieldType.Number ? "text-end" : "")">@Cell(row[i])</td> }</tr>
+                }</tbody>
+                @if (result.Totals.Count > 0)
+                {
+                    <tfoot><tr class="fw-semibold">@for (var i = 0; i < result.Columns.Count; i++)
+                    {
+                        var c = result.Columns[i];
+                        <td class="@(c.Type == ReportFieldType.Number ? "text-end" : "")">@(i == 0 && c.Type != ReportFieldType.Number ? "Total" : result.Totals.TryGetValue(c.Key, out var tot) ? tot.ToString("#,##0.##") : "")</td>
+                    }</tr></tfoot>
+                }
+            </table></div>
+        }
+    </div>
+}

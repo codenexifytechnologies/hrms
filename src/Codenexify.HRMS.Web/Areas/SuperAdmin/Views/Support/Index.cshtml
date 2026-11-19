@@ -1,0 +1,56 @@
+@model Codenexify.HRMS.Application.Common.PagedResult<Codenexify.HRMS.Application.Support.TicketRow>
+@using Codenexify.HRMS.Application.Support
+@using Codenexify.HRMS.Domain.Support
+@{
+    ViewData["Title"] = "Support tickets";
+    var q = (TicketQuery)ViewBag.Query;
+    var c = (TicketCounts)ViewBag.Counts;
+}
+<div class="page-head">
+    <div><h1>Support tickets</h1><div class="text-muted small">Requests from client organizations · urgent first, then most recent activity</div></div>
+    @if (User.HasPermission(PlatformPermissions.SupportAccess)) { <a class="btn btn-light border" href="/superadmin/support/access"><i class="bi bi-eye me-1"></i>Support access</a> }
+</div>
+<div class="row g-3 mb-3">
+    @foreach (var (label, value, href, tone) in new[] {
+        ("Open", c.Open, "/superadmin/support?status=Open", "tone-blue"), ("In progress", c.InProgress, "/superadmin/support?status=InProgress", "tone-violet"),
+        ("Waiting on customer", c.WaitingOnCustomer, "/superadmin/support?status=WaitingOnCustomer", "tone-amber"),
+        ("Unassigned", c.Unassigned, "/superadmin/support", ""), ("Urgent", c.Urgent, "/superadmin/support", "tone-red") })
+    {
+        <div class="col-6 col-md"><a class="card text-decoration-none text-reset @tone" href="@href"><div class="card-body py-3"><div class="kpi-label">@label</div><div class="kpi-value fs-4">@value</div></div></a></div>
+    }
+</div>
+<div class="card">
+    <div class="card-body border-bottom">
+        <form method="get" action="/superadmin/support" class="row g-2 align-items-end">
+            <div class="col-md-4"><label class="form-label small" for="ts">Search</label><input id="ts" name="search" value="@q.Search" class="form-control" placeholder="#id or subject" /></div>
+            <div class="col-md-3"><label class="form-label small" for="tst">Status</label>
+                <select id="tst" name="status" class="form-select"><option value="">Any</option>
+                    @foreach (var s in Enum.GetValues<TicketStatus>()) { <option value="@s" selected="@(q.Status == s)">@s</option> }
+                </select></div>
+            <div class="col-md-3 d-flex gap-3 pb-2">
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="too" name="openOnly" value="true" checked="@q.OpenOnly" /><label class="form-check-label small" for="too">Open only</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="tmo" name="mineOnly" value="true" checked="@q.MineOnly" /><label class="form-check-label small" for="tmo">Assigned to me</label></div>
+            </div>
+            <div class="col-md-2"><button class="btn btn-soft w-100" type="submit">Filter</button></div>
+        </form>
+    </div>
+    @if (Model.Items.Count == 0) { <div class="empty-state"><i class="bi bi-life-preserver"></i>No tickets match.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover mb-0">
+            <thead><tr><th>#</th><th>Subject</th><th>Organization</th><th>Priority</th><th>Status</th><th>Assigned</th><th>Last activity</th></tr></thead>
+            <tbody>@foreach (var t in Model.Items)
+            {
+                <tr><td class="text-muted">#@t.Id</td>
+                    <td><a class="fw-semibold" href="/superadmin/support/tickets/@t.Id">@t.Subject</a>@if (t.AwaitingSupport) { <span class="badge text-bg-danger ms-1">needs reply</span> }
+                        <div class="small text-muted">@t.Category · by @t.RaisedByName</div></td>
+                    <td class="small"><a href="/superadmin/organizations/details/@t.OrganizationId">@t.OrganizationName</a></td>
+                    <td class="small pr-@t.Priority">@t.Priority</td>
+                    <td><span class="badge-status st-@t.Status">@t.Status</span></td>
+                    <td class="small">@(t.AssignedToName ?? "—")</td>
+                    <td class="small">@t.LastActivityAtUtc.ToLocalTime().ToString("dd MMM, HH:mm")</td></tr>
+            }</tbody>
+        </table></div>
+    }
+    <partial name="_Pager" model="Model.ToPager()" />
+</div>

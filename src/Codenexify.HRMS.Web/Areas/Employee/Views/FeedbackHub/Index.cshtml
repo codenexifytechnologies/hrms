@@ -1,0 +1,151 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Performance.FeedbackRow>
+@using Codenexify.HRMS.Application.CoreHr
+@using Codenexify.HRMS.Application.Performance
+@using Codenexify.HRMS.Domain.Performance
+@{
+    ViewData["Title"] = "Feedback";
+    var tab = (string)ViewBag.Tab;
+    var me = (int)ViewBag.Me;
+    var toAnswer = (IReadOnlyList<FeedbackAsk>)ViewBag.ToAnswer;
+    var myRequests = (IReadOnlyList<FeedbackRequestView>)ViewBag.MyRequests;
+    var team = (IReadOnlyList<LookupItem>)ViewBag.Team;
+    var colleagues = (IReadOnlyList<LookupItem>)ViewBag.Colleagues;
+    string Tab(string key, string label) => "<a class=\"btn btn-sm " + (tab == key ? "btn-soft" : "btn-light border") + "\" href=\"/me/feedback-hub?tab=" + key + "\">" + label + "</a>";
+    string Visibility(FeedbackVisibility v) => v switch { FeedbackVisibility.Private => "Only them", FeedbackVisibility.ManagersOnly => "Their managers only", _ => "Them and their managers" };
+}
+<div class="page-head">
+    <div><h1>Feedback</h1><div class="text-muted small">Appreciate colleagues and help each other grow, any time of the year</div></div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-light border" type="button" data-bs-toggle="collapse" data-bs-target="#ask"><i class="bi bi-chat-square-text me-1"></i>Ask for feedback</button>
+        <button class="btn btn-accent" type="button" data-bs-toggle="collapse" data-bs-target="#give"><i class="bi bi-send me-1"></i>Give feedback</button>
+    </div>
+</div>
+
+<div class="collapse mb-3" id="give"><div class="card"><div class="card-header">Give feedback</div><div class="card-body">
+    <form method="post" action="/me/feedback-hub/give" asp-antiforgery="true" class="row g-3">
+        <div class="col-md-5"><label class="form-label" for="give-about">To</label>
+            <select class="form-select" id="give-about" name="note.AboutEmployeeId" required><option value="">Choose a colleague…</option>
+                @foreach (var c in colleagues) { <option value="@c.Id">@c.Name</option> }</select></div>
+        <div class="col-md-3"><label class="form-label" for="give-tone">Type</label>
+            <select class="form-select" id="give-tone" name="note.Tone"><option value="Appreciation">Appreciation</option><option value="Suggestion">Suggestion</option></select></div>
+        <div class="col-md-4"><label class="form-label" for="give-vis">Who can read it</label>
+            <select class="form-select" id="give-vis" name="note.Visibility">
+                <option value="PersonAndManagers">Them and their managers</option><option value="Private">Only them</option><option value="ManagersOnly">Their managers only</option>
+            </select></div>
+        <div class="col-12"><label class="form-label" for="give-body">Feedback</label>
+            <textarea class="form-control" id="give-body" name="note.Body" rows="3" minlength="10" maxlength="2000" required placeholder="Be specific: what happened, and the impact it had."></textarea></div>
+        <div class="col-12 d-flex justify-content-between align-items-center"><span class="small text-muted">Your name is shown with your feedback. For anonymous feedback to HR use Anonymous feedback.</span>
+            <button class="btn btn-accent" type="submit">Send</button></div>
+    </form>
+</div></div></div>
+
+<div class="collapse mb-3" id="ask"><div class="card"><div class="card-header">Ask for feedback</div><div class="card-body">
+    <form method="post" action="/me/feedback-hub/request" asp-antiforgery="true" class="row g-3">
+        <div class="col-md-4"><label class="form-label" for="ask-about">About</label>
+            <select class="form-select" id="ask-about" name="ask.AboutEmployeeId"><option value="@me">Me</option>
+                @foreach (var t in team) { <option value="@t.Id">@t.Name (my team)</option> }</select></div>
+        <div class="col-md-5"><label class="form-label" for="ask-who">Ask (hold Ctrl to pick several, up to 10)</label>
+            <select class="form-select" id="ask-who" name="ask.RecipientIds" multiple size="4" required>
+                @foreach (var c in colleagues) { <option value="@c.Id">@c.Name</option> }</select></div>
+        <div class="col-md-3"><label class="form-label" for="ask-due">Reply by (optional)</label><input class="form-control" id="ask-due" type="date" name="ask.DueOn" /></div>
+        <div class="col-12"><label class="form-label" for="ask-q">Question</label>
+            <input class="form-control" id="ask-q" name="ask.Question" maxlength="500" required value="What should I keep doing, and what could I do better?" /></div>
+        <div class="col-12 text-end"><button class="btn btn-accent" type="submit">Send request</button></div>
+    </form>
+</div></div></div>
+
+@if (toAnswer.Count > 0)
+{
+    <div class="card mb-3 border-warning"><div class="card-header">Waiting for your feedback (@toAnswer.Count)</div>
+        <ul class="list-group list-group-flush">
+            @foreach (var a in toAnswer)
+            {
+                <li class="list-group-item">
+                    <div class="d-flex justify-content-between flex-wrap gap-2">
+                        <div><strong>@a.RequestedByName</strong> asks about <strong>@(a.AboutId == a.RequestedById ? "themselves" : a.AboutName)</strong>: “@a.Question”
+                            @if (a.DueOn is { } due) { <span class="small text-muted">· by @due.ToString("dd MMM")</span> }</div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-accent" type="button" data-bs-toggle="collapse" data-bs-target="#ans-@a.RecipientRowId">Answer</button>
+                            <form method="post" action="/me/feedback-hub/requests/@a.RecipientRowId/decline" asp-antiforgery="true" data-confirm="Decline this request?"><button class="btn btn-sm btn-light border" type="submit">Decline</button></form>
+                        </div>
+                    </div>
+                    <div class="collapse mt-2" id="ans-@a.RecipientRowId">
+                        <form method="post" action="/me/feedback-hub/give" asp-antiforgery="true" class="row g-2">
+                            <input type="hidden" name="note.AboutEmployeeId" value="@a.AboutId" /><input type="hidden" name="note.RequestId" value="@a.RequestId" />
+                            <div class="col-md-3"><select class="form-select form-select-sm" name="note.Tone" aria-label="Type"><option value="Appreciation">Appreciation</option><option value="Suggestion">Suggestion</option></select></div>
+                            <div class="col-md-4"><select class="form-select form-select-sm" name="note.Visibility" aria-label="Who can read it"><option value="PersonAndManagers">Them and their managers</option><option value="Private">Only them</option><option value="ManagersOnly">Their managers only</option></select></div>
+                            <div class="col-12"><textarea class="form-control form-control-sm" name="note.Body" rows="3" minlength="10" maxlength="2000" required aria-label="Your answer"></textarea></div>
+                            <div class="col-12 text-end"><button class="btn btn-sm btn-accent" type="submit">Send answer</button></div>
+                        </form>
+                    </div>
+                </li>
+            }
+        </ul></div>
+}
+
+<div class="d-flex flex-wrap gap-1 mb-3">
+    @Html.Raw(Tab("received", "Received"))
+    @Html.Raw(Tab("given", "Given"))
+    @Html.Raw(Tab("requests", "My requests"))
+    @if (team.Count > 0) { @Html.Raw(Tab("team", "My team")) }
+</div>
+
+@if (tab == "requests")
+{
+    <div class="card">
+        @if (myRequests.Count == 0) { <div class="empty-state"><i class="bi bi-chat-square-text"></i>You haven't asked for feedback yet.</div> }
+        else
+        {
+            <ul class="list-group list-group-flush">
+                @foreach (var r in myRequests)
+                {
+                    <li class="list-group-item">
+                        <div class="fw-semibold">“@r.Question”</div>
+                        <div class="small text-muted">About @(r.AboutId == me ? "me" : r.AboutName) · @r.AtUtc.ToLocalTime().ToString("dd MMM yyyy")@(r.DueOn is { } d ? $" · reply by {d:dd MMM}" : "")</div>
+                        <div class="d-flex flex-wrap gap-1 mt-2">
+                            @foreach (var rec in r.Recipients)
+                            {
+                                var css = rec.Status == FeedbackRequestStatus.Answered ? "text-bg-success" : rec.Status == FeedbackRequestStatus.Declined ? "text-bg-secondary" : "text-bg-light border";
+                                <span class="badge @css">@rec.Name · @rec.Status</span>
+                            }
+                        </div>
+                    </li>
+                }
+            </ul>
+            <div class="card-footer small text-muted">Answers about you appear under Received; answers about your team under My team.</div>
+        }
+    </div>
+}
+else
+{
+    <div class="card">
+        @if (Model.Count == 0)
+        {
+            <div class="empty-state"><i class="bi bi-chat-heart"></i>@(tab switch { "given" => "You haven't given feedback yet.", "team" => "No feedback about your team yet.", _ => "No feedback yet. Ask a few colleagues for some!" })</div>
+        }
+        else
+        {
+            <ul class="list-group list-group-flush">
+                @foreach (var f in Model)
+                {
+                    <li class="list-group-item py-3">
+                        <div class="d-flex justify-content-between gap-2 flex-wrap">
+                            <div class="small">
+                                @if (tab == "given") { <span>To <strong>@f.AboutName</strong></span> }
+                                else if (tab == "team") { <span><strong>@f.AuthorName</strong> about <strong>@f.AboutName</strong></span> }
+                                else { <span>From <strong>@f.AuthorName</strong></span> }
+                                <span class="text-muted">· @f.AtUtc.ToLocalTime().ToString("dd MMM yyyy")</span>
+                            </div>
+                            <div class="d-flex gap-1">
+                                <span class="badge @(f.Tone == FeedbackTone.Appreciation ? "text-bg-success" : "text-bg-info")">@(f.Tone == FeedbackTone.Appreciation ? "Appreciation" : "Suggestion")</span>
+                                @if (tab != "received") { <span class="badge text-bg-light border">@Visibility(f.Visibility)</span> }
+                            </div>
+                        </div>
+                        @if (f.Question is not null) { <div class="small text-muted mt-1">In answer to: “@f.Question”</div> }
+                        <div class="mt-2" style="white-space: pre-line">@f.Body</div>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+}

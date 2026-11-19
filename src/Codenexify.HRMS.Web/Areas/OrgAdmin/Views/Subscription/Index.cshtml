@@ -1,0 +1,68 @@
+@model SubscriptionOverview?
+@{
+    ViewData["Title"] = "Subscription";
+    var blocked = ViewBag.BlockedFeature as string;
+    var plans = (List<Codenexify.HRMS.Application.Subscriptions.PlanSummary>)ViewBag.Plans;
+    var today = DateOnly.FromDateTime(DateTime.Today);
+}
+<div class="page-head">
+    <div><h1>Subscription</h1><div class="text-muted small">Your plan, limits and included modules</div></div>
+</div>
+@if (!string.IsNullOrEmpty(blocked))
+{
+    <div class="alert alert-warning"><i class="bi bi-lock me-1"></i>The module <code>@blocked</code> is not included in your current subscription. Contact @AppConfig["Platform:SupportEmail"] to upgrade or add it.</div>
+}
+@if (Model is null)
+{
+    <div class="card"><div class="empty-state"><i class="bi bi-receipt"></i>No active subscription. Please contact @AppConfig["Platform:SupportEmail"].</div></div>
+}
+else
+{
+    var s = Model.Subscription;
+    <div class="row g-3 mb-3">
+        <div class="col-lg-7">
+            <div class="card h-100"><div class="card-header">@Model.PlanName <span class="badge-status st-@s.Status">@s.Status</span></div>
+                <div class="card-body row g-3 small">
+                    <div class="col-sm-4"><div class="text-muted">Billing</div><div class="fw-semibold">@s.BillingCycle</div></div>
+                    <div class="col-sm-4"><div class="text-muted">Current period</div><div class="fw-semibold">@s.StartDate.ToString("dd MMM yyyy") – @s.EndDate.ToString("dd MMM yyyy")</div></div>
+                    <div class="col-sm-4"><div class="text-muted">Days remaining</div><div class="fw-semibold">@Math.Max(0, s.EndDate.DayNumber - today.DayNumber)</div></div>
+                    <div class="col-sm-4"><div class="text-muted">Auto renew</div><div class="fw-semibold">@(s.AutoRenew ? "Yes" : "No")</div></div>
+                    @if (s.TrialEndsOn is { } te) { <div class="col-sm-4"><div class="text-muted">Trial ends</div><div class="fw-semibold">@te.ToString("dd MMM yyyy")</div></div> }
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card h-100"><div class="card-header">Usage &amp; limits</div>
+                <div class="card-body small">
+                    <div class="d-flex justify-content-between"><span>Users</span><span>@Model.UserCount / @Model.Limits.MaxEmployees.ToString("N0")</span></div>
+                    <div class="progress mb-3" style="height:8px"><div class="progress-bar" style="width:@(Model.Limits.MaxEmployees == 0 ? 0 : Math.Min(100, Model.UserCount * 100 / Model.Limits.MaxEmployees))%"></div></div>
+                    <div class="d-flex justify-content-between"><span>Branches allowed</span><span>@Model.Limits.MaxBranches</span></div>
+                    <div class="d-flex justify-content-between"><span>Storage</span><span>@Model.Limits.StorageLimitGb GB</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card mb-3"><div class="card-header">Included modules <span class="small text-muted fw-normal">@Model.EnabledFeatures.Count enabled</span></div>
+        <div class="card-body">
+            @if (Model.EnabledFeatures.Count == 0) { <div class="text-muted small">No modules are currently enabled.</div> }
+            @foreach (var group in Model.EnabledFeatures.GroupBy(f => f.ModuleGroup))
+            {
+                <div class="feature-group-title">@group.Key</div>
+                <div class="d-flex flex-wrap gap-2">@foreach (var f in group) { <span class="chip"><i class="bi bi-check2 text-success"></i>@f.Name</span> }</div>
+            }
+        </div>
+    </div>
+}
+@if (plans.Count > 0)
+{
+    <div class="card"><div class="card-header">Available plans</div>
+        <div class="table-responsive"><table class="table">
+            <thead><tr><th>Plan</th><th>Monthly</th><th>Yearly</th><th>Modules</th><th>Employees</th></tr></thead>
+            <tbody>@foreach (var p in plans)
+            {
+                <tr class="@(p.Name == Model?.PlanName ? "table-active" : "")"><td class="fw-semibold">@p.Name</td><td>₹@p.MonthlyPrice.ToString("N0")@(p.IsPerEmployeePricing ? "/emp" : "")</td><td>₹@p.YearlyPrice.ToString("N0")</td><td>@p.EffectiveFeatureCount</td><td>@p.MaxEmployees.ToString("N0")</td></tr>
+            }</tbody>
+        </table></div>
+        <div class="card-body small text-muted pt-2">To change plan or add modules, contact <a href="mailto:@AppConfig["Platform:SupportEmail"]">@AppConfig["Platform:SupportEmail"]</a>.</div>
+    </div>
+}

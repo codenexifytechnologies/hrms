@@ -1,0 +1,27 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Strength.TimelineEvent>
+@{
+    var e = (Codenexify.HRMS.Domain.CoreHr.Employee)ViewBag.Employee;
+    ViewData["Title"] = $"{e.FullName} · Timeline";
+}
+<div class="page-head"><div><h1>@e.FullName</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/employees">Employees</a></li><li class="breadcrumb-item"><a href="/org/employees/details/@e.Id">@e.EmployeeCode</a></li><li class="breadcrumb-item active">Timeline</li></ol></nav></div></div>
+<div class="card"><div class="card-body">
+    @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-clock-history"></i>Nothing recorded yet.</div> }
+    else
+    {
+        <ul class="list-unstyled mb-0">
+            @foreach (var g in Model.GroupBy(x => x.Date.Year))
+            {
+                <li class="text-muted small fw-semibold text-uppercase mt-2 mb-2">@g.Key</li>
+                @foreach (var ev in g)
+                {
+                    <li class="d-flex gap-3 pb-3 border-start ps-3 ms-2 position-relative">
+                        <span class="kpi-icon flex-shrink-0" style="width:2rem;height:2rem;font-size:1rem;margin-left:-2.05rem"><i class="bi @ev.Icon"></i></span>
+                        <div><div class="fw-semibold">@ev.Title</div>
+                            <div class="small text-muted">@ev.Date.ToString("dd MMM yyyy")@(ev.Detail is null ? "" : $" · {ev.Detail}")</div></div>
+                    </li>
+                }
+            }
+        </ul>
+    }
+</div></div>

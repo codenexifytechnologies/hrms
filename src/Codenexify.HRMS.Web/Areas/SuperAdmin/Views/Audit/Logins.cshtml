@@ -1,0 +1,48 @@
+@model PagedResult<Codenexify.HRMS.Domain.Audit.LoginAudit>
+@{
+    ViewData["Title"] = "Login history";
+    var type = ViewBag.Type as PrincipalType?;
+    var ok = ViewBag.Succeeded as bool?;
+}
+<div class="page-head">
+    <div><h1>Login history</h1><div class="text-muted small">Platform and organization sign-in attempts</div></div>
+</div>
+<div class="card">
+    <div class="card-header">
+        <form method="get" class="row g-2 w-100">
+            <div class="col-md-5"><input type="search" name="search" value="@ViewBag.Search" class="form-control" placeholder="Email or IP address" /></div>
+            <div class="col-md-3"><select name="type" class="form-select" data-autosubmit><option value="">Platform &amp; tenant</option>
+                @foreach (var t in Enum.GetValues<PrincipalType>()) { <option value="@t" selected="@(type == t)">@t</option> }</select></div>
+            <div class="col-md-2"><select name="succeeded" class="form-select" data-autosubmit><option value="">Any result</option>
+                <option value="true" selected="@(ok == true)">Succeeded</option><option value="false" selected="@(ok == false)">Failed</option></select></div>
+            <div class="col-md-2"><button class="btn btn-light border w-100" type="submit">Filter</button></div>
+        </form>
+    </div>
+    @if (Model.Items.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-door-closed"></i>No sign-in attempts match.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover small">
+                <thead><tr><th>When</th><th>Email</th><th>Type</th><th>Org</th><th>Result</th><th>IP</th><th>Device</th></tr></thead>
+                <tbody>
+                @foreach (var l in Model.Items)
+                {
+                    <tr>
+                        <td class="text-nowrap">@l.TimestampUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm:ss")</td>
+                        <td>@l.Email</td>
+                        <td>@l.PrincipalType</td>
+                        <td>@if (l.OrganizationId is { } oid) { <a href="/superadmin/organizations/details/@oid">#@oid</a> }</td>
+                        <td>@if (l.Succeeded) { <span class="badge-status st-Active">Success</span> } else { <span class="badge-status st-Expired">Failed</span><div class="text-muted">@l.FailureReason</div> }</td>
+                        <td>@l.IpAddress</td>
+                        <td class="text-muted text-truncate" style="max-width: 260px" title="@l.UserAgent">@l.UserAgent</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+    <partial name="_Pager" model="Model.ToPager()" />
+</div>

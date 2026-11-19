@@ -1,0 +1,32 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Support.GrantRow>
+@{
+    ViewData["Title"] = "Support access";
+}
+<div class="page-head">
+    <div><h1>Support access</h1><div class="text-muted small">Organizations that currently allow Codenexify to view their data read-only</div></div>
+</div>
+<div class="alert alert-info small"><i class="bi bi-shield-check me-1"></i>
+    Access exists only while an organization's admin has granted it. Each visit lasts at most 2 hours, cannot change anything, and every page you open is recorded in that organization's audit trail, which they can see. Bank details, PAN, documents, billing and user administration are never shown.</div>
+<div class="card">
+    @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-eye-slash"></i>No organization has granted access right now. Ask the customer to grant it from Administration → Support.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+            <thead><tr><th>Organization</th><th>Granted by</th><th>Reason</th><th>Scope</th><th>Expires</th><th>Visits</th><th></th></tr></thead>
+            <tbody>@foreach (var g in Model)
+            {
+                <tr><td class="fw-semibold"><a href="/superadmin/organizations/details/@g.OrganizationId">@g.OrganizationName</a></td>
+                    <td class="small">@g.GrantedByName<div class="text-muted">@g.GrantedAtUtc.ToLocalTime().ToString("dd MMM, HH:mm")</div></td>
+                    <td class="small">@g.Reason @if (g.TicketId is int tid) { <a href="/superadmin/support/tickets/@tid">#@tid</a> }</td>
+                    <td class="small">HR &amp; attendance@(g.IncludePayroll ? " + payroll" : "")</td>
+                    <td class="small">@g.ExpiresAtUtc.ToLocalTime().ToString("dd MMM, HH:mm")</td>
+                    <td class="small">@g.Sessions.Count</td>
+                    <td class="text-end">
+                        <form method="post" action="/superadmin/support/access/@g.Id/open" asp-antiforgery="true" data-confirm="Open a read-only session in @g.OrganizationName? Your page views are recorded in their audit trail.">
+                            <button class="btn btn-sm btn-accent" type="submit"><i class="bi bi-box-arrow-up-right me-1"></i>Open read-only</button>
+                        </form>
+                    </td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>

@@ -1,0 +1,205 @@
+@model PagedResult<LeaveRequestRow>
+@{
+    ViewData["Title"] = "Leave";
+    var year = (int)ViewBag.Year;
+    var q = (LeaveRequestQuery)ViewBag.Query;
+    var types = (IReadOnlyList<LeaveTypeRow>)ViewBag.Types;
+    var holidays = (IReadOnlyList<Holiday>)ViewBag.Holidays;
+    var balances = (PagedResult<EmployeeBalancesRow>)ViewBag.Balances;
+    var branches = (IReadOnlyList<LookupItem>)ViewBag.Branches;
+    var employees = (IReadOnlyList<LookupItem>)ViewBag.Employees;
+    var onLeave = (IReadOnlyList<LeaveRequestRow>)ViewBag.OnLeaveToday;
+    var activeTypes = types.Where(t => t.IsActive).ToList();
+    var application = new LeaveApplyInput { FromDate = DateOnly.FromDateTime(DateTime.Today), ToDate = DateOnly.FromDateTime(DateTime.Today) };
+    var holiday = new HolidayInput { Date = new DateOnly(year, 1, 1) };
+    string Range(LeaveRequestRow r) => r.From == r.To ? r.From.ToString("dd MMM yyyy") + (r.IsHalfDay ? $" ({(r.Session == HalfDaySession.FirstHalf ? "1st" : "2nd")} half)" : "") : $"{r.From:dd MMM} – {r.To:dd MMM yyyy}";
+}
+<div class="page-head">
+    <div><h1>Leave</h1><div class="text-muted small">Requests, balances, leave policies and the holiday calendar</div></div>
+    <button class="btn btn-accent" data-bs-toggle="modal" data-bs-target="#applyModal"><i class="bi bi-plus-lg me-1"></i>Record leave</button>
+</div>
+
+@if (onLeave.Count > 0)
+{
+    <div class="alert alert-light border d-flex flex-wrap gap-2 align-items-center small"><i class="bi bi-airplane me-1"></i><strong>On leave today:</strong>
+        @foreach (var l in onLeave) { <span class="chip"><span style="width:8px;height:8px;border-radius:50%;background:@l.Color"></span>@l.EmployeeName@(l.IsHalfDay ? " (½)" : "")</span> }
+    </div>
+}
+
+<ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#requests" type="button">Requests</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#balances" type="button">Balances @year</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#types" type="button">Leave types &amp; policy</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#holidays" type="button">Holidays @year</button></li>
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane fade show active" id="requests">
+        <div class="card">
+            <div class="card-header">
+                <form method="get" class="row g-2 w-100">
+                    <div class="col-md-4"><input type="search" name="search" value="@q.Search" class="form-control" placeholder="Employee name or ID" aria-label="Search" /></div>
+                    <div class="col-md-3"><select name="status" class="form-select" data-autosubmit aria-label="Status"><option value="">All statuses</option>
+                        @foreach (var s in Enum.GetValues<LeaveStatus>()) { <option value="@s" selected="@(q.Status == s)">@s</option> }</select></div>
+                    <div class="col-md-2"><button class="btn btn-light border w-100" type="submit">Filter</button></div>
+                </form>
+            </div>
+            @if (Model.Items.Count == 0) { <div class="empty-state"><i class="bi bi-calendar2-check"></i>No leave requests.</div> }
+            else
+            {
+                <div class="table-responsive"><table class="table table-hover">
+                    <thead><tr><th>Employee</th><th>Leave</th><th>Dates</th><th class="text-end">Days</th><th>Reason</th><th>Status</th><th></th></tr></thead>
+                    <tbody>@foreach (var r in Model.Items)
+                    {
+                        <tr>
+                            <td><a href="/org/employees/details/@r.EmployeeId" class="fw-semibold">@r.EmployeeName</a><div class="small text-muted">@r.EmployeeCode · applied @r.AppliedAtUtc.ToLocalTime().ToString("dd MMM")</div></td>
+                            <td><span class="badge" style="background:@r.Color">@r.LeaveType</span></td>
+                            <td class="small text-nowrap">@Range(r)</td>
+                            <td class="text-end">@r.Days.ToString("0.#")</td>
+                            <td class="small" style="max-width:260px">@r.Reason @if (!string.IsNullOrEmpty(r.DecisionNotes)) { <div class="text-muted fst-italic">@r.DecidedBy: @r.DecisionNotes</div> }</td>
+                            <td><partial name="_LeaveStatus" model="r.Status" /></td>
+                            <td class="text-end text-nowrap">
+                                @if (r.Status == LeaveStatus.Pending)
+                                {
+                                    <form method="post" action="/org/leave/approve/@r.Id" asp-antiforgery="true" class="d-inline"><button class="btn btn-sm btn-soft" type="submit">Approve</button></form>
+                                    <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal" data-set-action="/org/leave/reject/@r.Id" data-set-who="@r.EmployeeName">Reject</button>
+                                }
+                                @if (r.Status is LeaveStatus.Pending or LeaveStatus.Approved)
+                                {
+                                    <form method="post" action="/org/leave/cancel/@r.Id" asp-antiforgery="true" class="d-inline" data-confirm="Cancel this leave for @r.EmployeeName? Any used balance is restored." data-confirm-danger="1"><button class="btn btn-sm btn-light border" type="submit" title="Cancel"><i class="bi bi-x-lg"></i></button></form>
+                                }
+                            </td>
+                        </tr>
+                    }</tbody>
+                </table></div>
+            }
+            <partial name="_Pager" model="Model.ToPager()" />
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="balances">
+        <div class="card">
+            <div class="card-header">
+                <form method="get" class="d-flex flex-wrap gap-2 w-100" action="/org/leave#balances">
+                    <select name="year" class="form-select" style="max-width:120px" data-autosubmit aria-label="Year">
+                        @for (var y = DateTime.Today.Year + 1; y >= DateTime.Today.Year - 3; y--) { <option value="@y" selected="@(y == year)">@y</option> }
+                    </select>
+                    <input type="search" name="search" value="@ViewBag.Search" class="form-control" style="max-width:300px" placeholder="Employee" aria-label="Employee" />
+                    <button class="btn btn-light border" type="submit">Filter</button>
+                </form>
+            </div>
+            @if (balances.Items.Count == 0) { <div class="empty-state"><i class="bi bi-wallet2"></i>No employees.</div> }
+            else
+            {
+                <div class="table-responsive"><table class="table table-hover">
+                    <thead><tr><th>Employee</th>@foreach (var t in activeTypes) { <th class="text-end" title="@t.Name">@t.Code</th> }<th></th></tr></thead>
+                    <tbody>@foreach (var b in balances.Items)
+                    {
+                        <tr>
+                            <td><div class="fw-semibold">@b.Name</div><div class="small text-muted">@b.Code · @b.Department</div></td>
+                            @foreach (var t in activeTypes) { <td class="text-end">@(b.AvailableByType.TryGetValue(t.Id, out var v) ? v.ToString("0.#") : "—")</td> }
+                            <td class="text-end text-nowrap">
+                                <button class="btn btn-sm btn-soft" data-bs-toggle="modal" data-bs-target="#adjustModal" data-set-employee="@b.EmployeeId" data-set-who="@b.Name">Adjust</button>
+                                <button class="btn btn-sm btn-light border" data-bs-toggle="modal" data-bs-target="#encashModal" data-set-employee="@b.EmployeeId" data-set-who="@b.Name">Encash</button>
+                            </td>
+                        </tr>
+                    }</tbody>
+                </table></div>
+            }
+            <div class="small text-muted px-3 py-2 border-top">Available days = carried forward + accrued + adjustments − used − encashed. Accruals update automatically.</div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="types">
+        <div class="card">
+            <div class="card-header">Leave types &amp; policy <a class="btn btn-sm btn-accent" href="/org/leave/type"><i class="bi bi-plus-lg me-1"></i>Add leave type</a></div>
+            <div class="table-responsive"><table class="table table-hover">
+                <thead><tr><th>Leave type</th><th class="text-end">Days / year</th><th>Accrual</th><th class="text-end">Carry forward</th><th class="text-end">Encashable</th><th>Rules</th><th>Status</th><th></th></tr></thead>
+                <tbody>@foreach (var t in types)
+                {
+                    <tr>
+                        <td><span class="badge me-1" style="background:@t.Color">@t.Code</span> @t.Name @if (!t.IsPaid) { <span class="badge text-bg-light border">unpaid</span> }</td>
+                        <td class="text-end">@(t.AnnualQuota == 0 && !t.IsPaid ? "Unlimited" : t.AnnualQuota.ToString("0.#"))</td>
+                        <td class="small">@(t.Accrual == AccrualMethod.Monthly ? "Monthly" : "Start of year")</td>
+                        <td class="text-end">@(t.CarryForwardLimit == 0 ? "—" : t.CarryForwardLimit.ToString("0.#"))</td>
+                        <td class="text-end">@(t.MaxEncashable == 0 ? "—" : t.MaxEncashable.ToString("0.#"))</td>
+                        <td class="small text-muted">@(t.AllowHalfDay ? "Half-day" : "Full days") · @(t.MinNoticeDays == 0 ? "no notice" : $"{t.MinNoticeDays}d notice")@(t.Gender is null ? "" : $" · {t.Gender} only")</td>
+                        <td><span class="badge-status st-@t.IsActive.ToString().ToLowerInvariant()">@(t.IsActive ? "Active" : "Inactive")</span></td>
+                        <td class="text-end"><a class="btn btn-sm btn-soft" href="/org/leave/type/@t.Id">Edit</a></td>
+                    </tr>
+                }</tbody>
+            </table></div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="holidays">
+        <div class="row g-3">
+            <div class="col-lg-8"><div class="card">
+                <div class="card-header">Holiday calendar
+                    <form method="get" action="/org/leave#holidays"><select name="year" class="form-select form-select-sm" data-autosubmit aria-label="Year">
+                        @for (var y = DateTime.Today.Year + 1; y >= DateTime.Today.Year - 3; y--) { <option value="@y" selected="@(y == year)">@y</option> }</select></form></div>
+                @if (holidays.Count == 0) { <div class="empty-state"><i class="bi bi-calendar-event"></i>No holidays for @year.</div> }
+                else
+                {
+                    <ul class="list-group list-group-flush">@foreach (var h in holidays)
+                    {
+                        <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center">
+                            <div><strong>@h.Date.ToString("ddd, dd MMM")</strong> · @h.Name
+                                @if (h.IsOptional) { <span class="badge text-bg-light border ms-1">Optional</span> }
+                                <span class="small text-muted ms-1">@(h.Branch?.Name ?? "All branches")</span></div>
+                            <form method="post" action="/org/leave/deleteholiday/@h.Id?year=@year" asp-antiforgery="true" data-confirm="Delete @h.Name?" data-confirm-danger="1"><button class="btn btn-sm btn-link text-danger" type="submit" title="Delete"><i class="bi bi-trash"></i></button></form>
+                        </li>
+                    }</ul>
+                }
+            </div></div>
+            <div class="col-lg-4"><div class="card"><div class="card-header">Add holiday</div><div class="card-body">
+                <form method="post" action="/org/leave/saveholiday" asp-antiforgery="true" class="row g-2" novalidate>
+                    <div class="col-12"><label asp-for="@holiday.Date" class="form-label"></label><input asp-for="@holiday.Date" type="date" class="form-control" /></div>
+                    <div class="col-12"><label asp-for="@holiday.Name" class="form-label"></label><input asp-for="@holiday.Name" class="form-control" placeholder="e.g. Diwali" /><span asp-validation-for="@holiday.Name"></span></div>
+                    <div class="col-12"><label asp-for="@holiday.BranchId" class="form-label"></label>
+                        <select asp-for="@holiday.BranchId" class="form-select"><option value="">All branches</option>@foreach (var b in branches) { <option value="@b.Id">@b.Name</option> }</select></div>
+                    <div class="col-12"><div class="form-check form-switch"><input asp-for="@holiday.IsOptional" class="form-check-input" /><label asp-for="@holiday.IsOptional" class="form-check-label"></label></div></div>
+                    <div class="col-12"><button class="btn btn-accent w-100" type="submit">Add holiday</button></div>
+                </form>
+            </div></div></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="rejectModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" method="post" asp-antiforgery="true" data-bind-action>
+    <div class="modal-header"><h5 class="modal-title">Reject leave: <span data-bind="who"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><label class="form-label" for="rn">Reason</label><input id="rn" name="notes" class="form-control" required maxlength="500" /></div>
+    <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger" type="submit">Reject</button></div>
+</form></div></div>
+
+<div class="modal fade" id="applyModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" method="post" action="/org/leave/applyfor" asp-antiforgery="true" novalidate>
+    <div class="modal-header"><h5 class="modal-title">Record leave for an employee</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body row g-3">
+        <div class="col-12"><label class="form-label" for="emp">Employee</label><select id="emp" name="employeeId" class="form-select" required><option value="">Select…</option>@foreach (var e in employees) { <option value="@e.Id">@e.Name</option> }</select></div>
+        <partial name="_LeaveApplyFields" for="@application" view-data="ViewData" />
+        <div class="col-12 small text-muted">Leave recorded by HR is approved immediately and deducted from the balance.</div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Record leave</button></div>
+</form></div></div>
+
+<div class="modal fade" id="adjustModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" method="post" action="/org/leave/adjust" asp-antiforgery="true">
+    <div class="modal-header"><h5 class="modal-title">Adjust balance: <span data-bind="who"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body row g-3">
+        <input type="hidden" name="employeeId" data-bind="employee" /><input type="hidden" name="year" value="@year" />
+        <div class="col-7"><label class="form-label" for="adt">Leave type</label><select id="adt" name="leaveTypeId" class="form-select">@foreach (var t in activeTypes) { <option value="@t.Id">@t.Name</option> }</select></div>
+        <div class="col-5"><label class="form-label" for="add">Days (+/−)</label><input id="add" name="days" type="number" step="0.5" class="form-control" required /></div>
+        <div class="col-12"><label class="form-label" for="adr">Reason</label><input id="adr" name="reason" class="form-control" required maxlength="300" /></div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Adjust</button></div>
+</form></div></div>
+
+<div class="modal fade" id="encashModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" method="post" action="/org/leave/encash" asp-antiforgery="true">
+    <div class="modal-header"><h5 class="modal-title">Encash leave: <span data-bind="who"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body row g-3">
+        <input type="hidden" name="employeeId" data-bind="employee" /><input type="hidden" name="year" value="@year" />
+        <div class="col-7"><label class="form-label" for="ent">Leave type</label><select id="ent" name="leaveTypeId" class="form-select">@foreach (var t in activeTypes.Where(t => t.MaxEncashable > 0)) { <option value="@t.Id">@t.Name (max @t.MaxEncashable.ToString("0.#")/yr)</option> }</select></div>
+        <div class="col-5"><label class="form-label" for="end">Days</label><input id="end" name="days" type="number" step="0.5" min="0.5" class="form-control" required /></div>
+        <div class="col-12 small text-muted">The amount is paid through payroll.</div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Encash</button></div>
+</form></div></div>

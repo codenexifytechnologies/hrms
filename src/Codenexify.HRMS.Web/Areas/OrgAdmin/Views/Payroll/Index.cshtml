@@ -1,0 +1,45 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Payroll.PayrollRunRow>
+@using Codenexify.HRMS.Domain.Payroll
+@{
+    ViewData["Title"] = "Payroll";
+    var today = (DateOnly)ViewBag.Today;
+    var missing = (int)ViewBag.Missing;
+    var manage = User.HasPermission(TenantPermissions.PayrollManage);
+    var next = Model.Count == 0 ? new DateOnly(today.Year, today.Month, 1).AddMonths(-1) : new DateOnly(Model[0].Year, Model[0].Month, 1).AddMonths(1);
+    if (next > today) next = new DateOnly(today.Year, today.Month, 1);
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    string M(decimal v) => "₹" + v.ToString("N0", inr);
+    string St(PayrollRunStatus s) => s switch { PayrollRunStatus.Draft => "Inactive", PayrollRunStatus.Processed => "PendingVerification", PayrollRunStatus.Finalized => "Trial", _ => "Active" };
+}
+<div class="page-head">
+    <div><h1>Payroll</h1><div class="text-muted small">Process monthly payroll from salaries, attendance, leave, overtime and loans</div></div>
+    @if (manage)
+    {
+        <form method="post" action="/org/payroll/create" asp-antiforgery="true" class="d-flex gap-2">
+            <select name="month" class="form-select" aria-label="Month">@for (var m = 1; m <= 12; m++) { <option value="@m" selected="@(m == next.Month)">@(new DateOnly(2000, m, 1).ToString("MMMM"))</option> }</select>
+            <select name="year" class="form-select" aria-label="Year">@for (var y = today.Year; y >= today.Year - 2; y--) { <option value="@y" selected="@(y == next.Year)">@y</option> }</select>
+            <button class="btn btn-accent text-nowrap" type="submit"><i class="bi bi-play-fill me-1"></i>Run payroll</button>
+        </form>
+    }
+</div>
+<partial name="_PayrollNav" />
+@if (missing > 0)
+{
+    <div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1"></i>@missing current employee(s) have no salary and will be skipped. <a href="/org/payroll/salaries?missing=true">Assign salaries</a></div>
+}
+<div class="card">
+    @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-cash-coin"></i>No payroll runs yet. Choose a month and click <strong>Run payroll</strong>.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover">
+            <thead><tr><th>Month</th><th>Status</th><th class="text-end">Employees</th><th class="text-end">Gross</th><th class="text-end">Deductions</th><th class="text-end">Net pay</th><th class="text-end">Cost to company</th></tr></thead>
+            <tbody>@foreach (var r in Model)
+            {
+                <tr><td><a class="fw-semibold" href="/org/payroll/run/@r.Id">@(new DateOnly(r.Year, r.Month, 1).ToString("MMMM yyyy"))</a></td>
+                    <td><span class="badge-status st-@St(r.Status)">@r.Status</span>@if (r.PaidOn is { } p) { <span class="small text-muted ms-1">on @p.ToString("dd MMM")</span> }</td>
+                    <td class="text-end">@r.Employees</td><td class="text-end">@M(r.Gross)</td><td class="text-end">@M(r.Deductions)</td>
+                    <td class="text-end fw-semibold">@M(r.Net)</td><td class="text-end">@M(r.EmployerCost)</td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>

@@ -1,0 +1,51 @@
+@model Codenexify.HRMS.Application.Support.TicketView
+@using Codenexify.HRMS.Domain.Support
+@{
+    var t = Model.Ticket;
+    ViewData["Title"] = $"#{t.Id} {t.Subject}";
+    var closed = t.Status is TicketStatus.Closed or TicketStatus.Resolved;
+}
+<div class="page-head">
+    <div><h1 class="h3">#@t.Id · @t.Subject <span class="badge-status st-@t.Status align-middle">@(t.Status == TicketStatus.WaitingOnCustomer ? "Awaiting your reply" : t.Status.ToString())</span></h1>
+        <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/support">Support</a></li><li class="breadcrumb-item active">#@t.Id</li></ol></nav></div>
+    <div class="d-flex gap-2">
+        @if (closed)
+        {
+            <form method="post" action="/org/support/tickets/@t.Id/reopen" asp-antiforgery="true"><button class="btn btn-light border" type="submit">Reopen</button></form>
+        }
+        else
+        {
+            <form method="post" action="/org/support/tickets/@t.Id/close" asp-antiforgery="true" data-confirm="Close this ticket? You can reopen it later."><button class="btn btn-light border" type="submit"><i class="bi bi-check2-circle me-1"></i>Close ticket</button></form>
+        }
+    </div>
+</div>
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card mb-3"><div class="card-body"><partial name="_TicketThread" model="Model" /></div></div>
+        @if (t.Status != TicketStatus.Closed)
+        {
+            <div class="card"><div class="card-body">
+                <form method="post" action="/org/support/tickets/@t.Id/reply" asp-antiforgery="true">
+                    <label class="form-label" for="rb">Your reply</label>
+                    <textarea id="rb" name="body" rows="4" maxlength="4000" class="form-control mb-2" required></textarea>
+                    <div class="d-flex justify-content-end"><button class="btn btn-accent" type="submit"><i class="bi bi-send me-1"></i>Send</button></div>
+                </form>
+            </div></div>
+        }
+    </div>
+    <div class="col-lg-4">
+        <div class="card"><div class="card-body small">
+            <dl class="row mb-0">
+                <dt class="col-5">Category</dt><dd class="col-7">@t.Category</dd>
+                <dt class="col-5">Priority</dt><dd class="col-7">@t.Priority</dd>
+                <dt class="col-5">Raised by</dt><dd class="col-7">@t.RaisedByName</dd>
+                <dt class="col-5">Opened</dt><dd class="col-7">@t.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</dd>
+                @if (t.AssignedToName is not null) { <dt class="col-5">Handled by</dt><dd class="col-7">@t.AssignedToName</dd> }
+            </dl>
+            @if (User.HasPermission(TenantPermissions.SupportAccessGrant))
+            {
+                <div class="border-top mt-2 pt-2 text-muted">Need us to look at your setup? <a href="/org/support#access">Grant read-only access</a>.</div>
+            }
+        </div></div>
+    </div>
+</div>

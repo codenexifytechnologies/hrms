@@ -1,0 +1,29 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Planning.HeadcountPlanRow>
+@using Codenexify.HRMS.Web
+@{ ViewData["Title"] = "Headcount planning"; }
+<div class="page-head">
+    <div><h1>Headcount planning</h1><div class="text-muted small">Plan the roles each department will add, what they cost, and track hires against them</div></div>
+    <a class="btn btn-accent" href="/org/headcount/new"><i class="bi bi-plus-lg me-1"></i>New plan</a>
+</div>
+<div class="card">
+    @if (Model.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-diagram-3"></i>No headcount plans yet. Start one for the coming financial year.
+            <div class="mt-2"><a class="btn btn-sm btn-accent" href="/org/headcount/new">Create the first</a></div></div>
+    }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover align-middle mb-0">
+            <thead><tr><th>Plan</th><th>Period</th><th class="text-end">Positions</th><th class="text-end">Openings</th><th class="text-end">Filled</th><th class="text-end">Budget (annual)</th><th>Status</th></tr></thead>
+            <tbody>@foreach (var p in Model)
+            {
+                <tr><td><a class="fw-semibold" href="/org/headcount/@p.Id">@p.Name</a></td>
+                    <td class="small">@p.StartsOn.ToString("dd MMM yyyy") – @p.EndsOn.ToString("dd MMM yyyy")</td>
+                    <td class="text-end">@p.Positions</td><td class="text-end">@p.Openings</td>
+                    <td class="text-end">@p.Filled@if (p.Openings > 0) { <span class="text-muted small"> (@((100 * p.Filled / p.Openings))%)</span> }</td>
+                    <td class="text-end">₹@p.Budget.ToString("N0")</td>
+                    <td><span class="badge @PlanningUi.Css(p.Status)">@p.Status</span></td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>

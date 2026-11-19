@@ -1,0 +1,86 @@
+@model HeadcountSummary
+@{
+    ViewData["Title"] = "HR reports";
+    var from = (DateOnly)ViewBag.From;
+    var to = (DateOnly)ViewBag.To;
+    var joiners = (IReadOnlyList<EmployeeRow>)ViewBag.Joiners;
+    var exits = (IReadOnlyList<(EmployeeRow Employee, DateOnly? ExitDate, ExitType? Type)>)ViewBag.Exits;
+    object Rows(IEnumerable<Codenexify.HRMS.Application.Platform.LabelValue> r) => r.Select(x => new { label = x.Label, value = x.Value });
+    var filter = (ReportFilter)ViewBag.Filter;
+    var advanced = ViewBag.Advanced is true;
+    var range = $"from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}&departmentId={filter.DepartmentId}&branchId={filter.BranchId}&type={filter.EmploymentType}";
+}
+<div class="page-head">
+    <div><h1>HR reports</h1><div class="text-muted small">Headcount, joiners and exits</div></div>
+    <div class="d-flex gap-2">
+        @if (advanced) { <a href="/org/reports/schedules" class="btn btn-light border"><i class="bi bi-calendar2-week me-1"></i>Scheduled reports</a> }
+        <a href="/org/employees/export" class="btn btn-light border"><i class="bi bi-file-earmark-excel me-1"></i>Employee master (Excel)</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-xl-2"><div class="card"><div class="card-body kpi"><div class="kpi-icon"><i class="bi bi-people"></i></div><div><div class="kpi-label">Headcount</div><div class="kpi-value">@Model.Current</div></div></div></div></div>
+    <div class="col-6 col-xl-2"><div class="card tone-blue"><div class="card-body kpi"><div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div><div><div class="kpi-label">On probation</div><div class="kpi-value">@Model.OnProbation</div></div></div></div></div>
+    <div class="col-6 col-xl-2"><div class="card tone-green"><div class="card-body kpi"><div class="kpi-icon"><i class="bi bi-person-plus"></i></div><div><div class="kpi-label">Joined this month</div><div class="kpi-value">@Model.JoinedThisMonth</div></div></div></div></div>
+    <div class="col-6 col-xl-2"><div class="card tone-red"><div class="card-body kpi"><div class="kpi-icon"><i class="bi bi-person-dash"></i></div><div><div class="kpi-label">Exited this month</div><div class="kpi-value">@Model.ExitedThisMonth</div></div></div></div></div>
+    <div class="col-6 col-xl-2"><div class="card tone-amber"><div class="card-body kpi"><div class="kpi-icon"><i class="bi bi-door-open"></i></div><div><div class="kpi-label">Notice / pending exits</div><div class="kpi-value">@Model.OnNotice / @Model.PendingExits</div></div></div></div></div>
+    <div class="col-6 col-xl-2"><div class="card tone-violet"><div class="card-body kpi"><div class="kpi-icon"><i class="bi bi-file-earmark-x"></i></div><div><div class="kpi-label">Docs expiring (30d)</div><div class="kpi-value">@Model.DocumentsExpiring30Days</div></div></div></div></div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-6"><div class="card h-100"><div class="card-header">Joiners by month</div><div class="card-body" style="height:260px"><canvas data-chart="bar" data-source="joinData" data-label="Joiners"></canvas></div></div></div>
+    <div class="col-lg-3"><div class="card h-100"><div class="card-header">By department</div><div class="card-body" style="height:260px">
+        @if (Model.ByDepartment.Count == 0) { <div class="empty-state py-4"><i class="bi bi-pie-chart"></i>No data</div> } else { <canvas data-chart="doughnut" data-source="deptData"></canvas> }</div></div></div>
+    <div class="col-lg-3"><div class="card h-100"><div class="card-header">By employment type</div><div class="card-body" style="height:260px">
+        @if (Model.ByType.Count == 0) { <div class="empty-state py-4"><i class="bi bi-pie-chart"></i>No data</div> } else { <canvas data-chart="doughnut" data-source="typeData"></canvas> }</div></div></div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header">
+        <form method="get" class="row g-2 align-items-end w-100">
+            <div class="col-auto"><label class="form-label small mb-0" for="from">From</label><input id="from" type="date" name="from" value="@from.ToString("yyyy-MM-dd")" class="form-control" /></div>
+            <div class="col-auto"><label class="form-label small mb-0" for="to">To</label><input id="to" type="date" name="to" value="@to.ToString("yyyy-MM-dd")" class="form-control" /></div>
+            @if (advanced)
+            {
+                var departments = (IReadOnlyList<LookupItem>)ViewBag.Departments;
+                var branches = (IReadOnlyList<LookupItem>)ViewBag.Branches;
+                <div class="col-auto"><label class="form-label small mb-0" for="rd">Department</label>
+                    <select id="rd" name="departmentId" class="form-select"><option value="">All</option>@foreach (var d in departments) { <option value="@d.Id" selected="@(filter.DepartmentId == d.Id)">@d.Name</option> }</select></div>
+                <div class="col-auto"><label class="form-label small mb-0" for="rb">Branch</label>
+                    <select id="rb" name="branchId" class="form-select"><option value="">All</option>@foreach (var b in branches) { <option value="@b.Id" selected="@(filter.BranchId == b.Id)">@b.Name</option> }</select></div>
+                <div class="col-auto"><label class="form-label small mb-0" for="rt">Type</label>
+                    <select id="rt" name="type" class="form-select"><option value="">All</option>@foreach (var et in Enum.GetValues<EmploymentType>()) { <option value="@et" selected="@(filter.EmploymentType == et)">@et</option> }</select></div>
+            }
+            <div class="col-auto"><button class="btn btn-light border" type="submit">Apply</button></div>
+        </form>
+    </div>
+    <div class="row g-0">
+        <div class="col-lg-6 border-end">
+            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom"><strong>Joiners (@joiners.Count)</strong><a class="btn btn-sm btn-soft" href="/org/reports/exportjoiners?@range"><i class="bi bi-download me-1"></i>Excel</a></div>
+            @if (joiners.Count == 0) { <div class="empty-state py-4">No joiners in this period.</div> }
+            else
+            {
+                <div class="table-responsive"><table class="table table-sm small"><thead><tr><th>Employee</th><th>Department</th><th>Joined</th></tr></thead><tbody>
+                    @foreach (var j in joiners) { <tr><td><a href="/org/employees/details/@j.Id">@j.Name</a> <span class="text-muted">@j.Code</span></td><td>@j.Department</td><td>@j.DateOfJoining.ToString("dd MMM yyyy")</td></tr> }
+                </tbody></table></div>
+            }
+        </div>
+        <div class="col-lg-6">
+            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom"><strong>Exits (@exits.Count)</strong><a class="btn btn-sm btn-soft" href="/org/reports/exportexits?@range"><i class="bi bi-download me-1"></i>Excel</a></div>
+            @if (exits.Count == 0) { <div class="empty-state py-4">No exits in this period.</div> }
+            else
+            {
+                <div class="table-responsive"><table class="table table-sm small"><thead><tr><th>Employee</th><th>Type</th><th>Exit date</th></tr></thead><tbody>
+                    @foreach (var x in exits) { <tr><td><a href="/org/employees/details/@x.Employee.Id">@x.Employee.Name</a> <span class="text-muted">@x.Employee.Code</span></td><td>@(x.Type?.ToString() ?? "—")</td><td>@x.ExitDate?.ToString("dd MMM yyyy")</td></tr> }
+                </tbody></table></div>
+            }
+        </div>
+    </div>
+</div>
+<script type="application/json" id="joinData">@Json.Serialize(Rows(Model.JoinersByMonth))</script>
+<script type="application/json" id="deptData">@Json.Serialize(Rows(Model.ByDepartment))</script>
+<script type="application/json" id="typeData">@Json.Serialize(Rows(Model.ByType))</script>
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="~/js/charts.js" asp-append-version="true"></script>
+}

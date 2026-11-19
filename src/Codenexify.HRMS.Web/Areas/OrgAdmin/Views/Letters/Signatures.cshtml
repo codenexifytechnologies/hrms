@@ -1,0 +1,36 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Strength.SignatureRow>
+@using Codenexify.HRMS.Domain.Strength
+@{
+    ViewData["Title"] = "E-signatures";
+    var status = ViewBag.Status as SignatureStatus?;
+    string Css(SignatureStatus s) => s switch { SignatureStatus.Signed => "Active", SignatureStatus.Pending => "PendingVerification", SignatureStatus.Declined => "Expired", _ => "Inactive" };
+}
+<div class="page-head"><div><h1>E-signatures</h1><div class="text-muted small">Letters sent to employees for electronic acceptance</div></div></div>
+<partial name="_LettersNav" />
+<div class="card">
+    <div class="card-body border-bottom d-flex flex-wrap gap-1">
+        <a class="btn btn-sm @(status is null ? "btn-soft" : "btn-light border")" href="/org/letters/signatures">All</a>
+        @foreach (var s in Enum.GetValues<SignatureStatus>()) { <a class="btn btn-sm @(status == s ? "btn-soft" : "btn-light border")" href="/org/letters/signatures?status=@s">@s</a> }
+    </div>
+    @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-pen"></i>No signature requests. Use <strong>Request signature</strong> on an issued letter.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+            <thead><tr><th>Letter</th><th>Employee</th><th>Requested</th><th>Status</th><th></th></tr></thead>
+            <tbody>@foreach (var r in Model)
+            {
+                <tr><td>@r.Subject<div class="small text-muted"><code>@r.LetterNumber</code></div></td>
+                    <td><a href="/org/employees/details/@r.EmployeeId">@r.EmployeeName</a></td>
+                    <td class="small">@r.RequestedAtUtc.ToLocalTime().ToString("dd MMM yyyy")<div class="text-muted">by @r.RequestedBy</div></td>
+                    <td><span class="badge-status st-@Css(r.Status)">@r.Status</span>@if (r.SignedAtUtc is { } at) { <div class="small text-muted">@at.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</div> }</td>
+                    <td class="text-end text-nowrap">
+                        @if (r.SignedDocumentId is int d) { <a class="btn btn-sm btn-soft" href="/org/letters/signed/@d"><i class="bi bi-file-earmark-pdf me-1"></i>Signed PDF</a> }
+                        @if (r.Status == SignatureStatus.Pending)
+                        {
+                            <form method="post" action="/org/letters/signatures/@r.Id/cancel" asp-antiforgery="true" class="d-inline"><button class="btn btn-sm btn-link text-danger" type="submit" data-confirm="Cancel this signature request?">Cancel</button></form>
+                        }
+                    </td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>

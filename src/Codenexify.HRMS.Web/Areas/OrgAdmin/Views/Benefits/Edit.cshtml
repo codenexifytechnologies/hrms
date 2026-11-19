@@ -1,0 +1,83 @@
+@model Codenexify.HRMS.Application.Benefits.BenefitPlanInput
+@using Codenexify.HRMS.Application.CoreHr
+@using Codenexify.HRMS.Domain.Benefits
+@using Codenexify.HRMS.Domain.CoreHr
+@using Codenexify.HRMS.Web
+@{
+    var id = ViewBag.Id as int?;
+    ViewData["Title"] = id is null ? "New benefit plan" : "Edit " + Model.Name;
+    var branches = (IReadOnlyList<LookupItem>)ViewBag.Branches;
+    var departments = (IReadOnlyList<LookupItem>)ViewBag.Departments;
+    var action = id is null ? "/org/benefits/new" : $"/org/benefits/{id}/edit";
+}
+<div class="page-head">
+    <div><h1>@ViewData["Title"]</h1><div class="text-muted small"><a href="/org/benefits">Perks &amp; benefits</a>@(id is null ? "" : " / " + Model.Name)</div></div>
+</div>
+
+<form method="post" action="@action" asp-antiforgery="true" novalidate style="max-width: 960px">
+    <div asp-validation-summary="All" class="alert alert-danger py-2 small"></div>
+
+    <div class="card mb-3"><div class="card-header">The benefit</div><div class="card-body row g-3">
+        <div class="col-md-7"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" placeholder="e.g. Group health insurance" /></div>
+        <div class="col-md-5"><label asp-for="Category" class="form-label"></label>
+            <select asp-for="Category" class="form-select">
+                @foreach (var c in Enum.GetValues<BenefitCategory>()) { <option value="@c" selected="@(Model.Category == c)">@BenefitUi.Label(c)</option> }
+            </select></div>
+        <div class="col-12"><label asp-for="Description" class="form-label">What employees get</label><textarea asp-for="Description" rows="3" class="form-control" placeholder="Cashless hospitalisation up to the sum insured at network hospitals; pre-existing diseases covered from day one…"></textarea></div>
+        <div class="col-md-4"><label asp-for="Provider" class="form-label"></label><input asp-for="Provider" class="form-control" /></div>
+        <div class="col-md-4"><label asp-for="PolicyNumber" class="form-label"></label><input asp-for="PolicyNumber" class="form-control" /></div>
+        <div class="col-md-4"><label asp-for="PolicyRenewsOn" class="form-label"></label><input asp-for="PolicyRenewsOn" type="date" class="form-control" /></div>
+        <div class="col-md-4"><label asp-for="CoverageAmount" class="form-label"></label><input asp-for="CoverageAmount" class="form-control" inputmode="decimal" /></div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header">Money (per month)</div><div class="card-body row g-3">
+        <div class="col-md-4"><label asp-for="EmployerCostPerMonth" class="form-label"></label><input asp-for="EmployerCostPerMonth" class="form-control" inputmode="decimal" />
+            <div class="form-text">The company's premium share. Shown in cost totals, not on payslips.</div></div>
+        <div class="col-md-4"><label asp-for="EmployeeContributionPerMonth" class="form-label"></label><input asp-for="EmployeeContributionPerMonth" class="form-control" inputmode="decimal" />
+            <div class="form-text">Deducted from salary.</div></div>
+        <div class="col-md-4"><label asp-for="AllowancePerMonth" class="form-label"></label><input asp-for="AllowancePerMonth" class="form-control" inputmode="decimal" />
+            <div class="form-text">Paid with salary (meal, transport, wellness…).</div></div>
+        <div class="col-12"><div class="form-check"><input asp-for="AllowanceTaxable" class="form-check-input" /><label asp-for="AllowanceTaxable" class="form-check-label"></label></div>
+            <div class="form-text">Untick only where the law exempts it; check with your tax advisor. Allowances are never counted as PF/ESI wages.</div></div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header">Family cover</div><div class="card-body row g-3">
+        <div class="col-md-4 d-flex align-items-end"><div class="form-check form-switch"><input asp-for="CoversDependents" class="form-check-input" /><label asp-for="CoversDependents" class="form-check-label"></label></div></div>
+        <div class="col-md-4"><label asp-for="MaxDependents" class="form-label"></label><input asp-for="MaxDependents" class="form-control" inputmode="numeric" /></div>
+        <div class="col-md-4"><label asp-for="DependentContributionPerMonth" class="form-label"></label><input asp-for="DependentContributionPerMonth" class="form-control" inputmode="decimal" /></div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header">Who gets it</div><div class="card-body row g-3">
+        <div class="col-md-6"><label asp-for="EnrollmentMode" class="form-label"></label>
+            <select asp-for="EnrollmentMode" class="form-select">
+                <option value="@BenefitEnrollmentMode.Automatic" selected="@(Model.EnrollmentMode == BenefitEnrollmentMode.Automatic)">Automatic: every eligible employee is enrolled</option>
+                <option value="@BenefitEnrollmentMode.OptIn" selected="@(Model.EnrollmentMode == BenefitEnrollmentMode.OptIn)">Opt-in: eligible employees choose to join</option>
+            </select></div>
+        <div class="col-md-3"><label asp-for="EnrollmentOpensOn" class="form-label"></label><input asp-for="EnrollmentOpensOn" type="date" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="EnrollmentClosesOn" class="form-label"></label><input asp-for="EnrollmentClosesOn" type="date" class="form-control" /></div>
+        <div class="col-12 form-text mt-0">The enrolment window is for opt-in plans; leave blank to allow joining any time.</div>
+
+        <div class="col-12"><label class="form-label">@Html.DisplayNameFor(m => m.EligibleEmploymentTypes)</label>
+            <div class="d-flex flex-wrap gap-3">
+                @foreach (var t in Enum.GetValues<EmploymentType>())
+                {
+                    <div class="form-check"><input class="form-check-input" type="checkbox" name="EligibleEmploymentTypes" value="@t" id="et-@t" checked="@Model.EligibleEmploymentTypes.Contains(t)" />
+                        <label class="form-check-label" for="et-@t">@BenefitUi.Label(t)</label></div>
+                }
+            </div></div>
+        <div class="col-md-3"><label asp-for="MinServiceDays" class="form-label"></label><input asp-for="MinServiceDays" class="form-control" inputmode="numeric" /></div>
+        <div class="col-md-3"><label asp-for="BranchId" class="form-label"></label>
+            <select asp-for="BranchId" class="form-select"><option value="">All branches</option>
+                @foreach (var b in branches) { <option value="@b.Id" selected="@(Model.BranchId == b.Id)">@b.Name</option> }</select></div>
+        <div class="col-md-3"><label asp-for="DepartmentId" class="form-label"></label>
+            <select asp-for="DepartmentId" class="form-select"><option value="">All departments</option>
+                @foreach (var d in departments) { <option value="@d.Id" selected="@(Model.DepartmentId == d.Id)">@d.Name</option> }</select></div>
+        <div class="col-md-3 d-flex align-items-end"><div class="form-check"><input asp-for="ExcludeProbation" class="form-check-input" /><label asp-for="ExcludeProbation" class="form-check-label"></label></div></div>
+    </div></div>
+
+    <div class="d-flex justify-content-between align-items-center">
+        <div class="form-check form-switch"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label>
+            @if (id is not null) { <div class="form-text">Switching off ends every membership today; deductions stop from next month.</div> }</div>
+        <div><a class="btn btn-light border me-2" href="@(id is null ? "/org/benefits" : $"/org/benefits/{id}")">Cancel</a><button class="btn btn-accent" type="submit">Save plan</button></div>
+    </div>
+</form>

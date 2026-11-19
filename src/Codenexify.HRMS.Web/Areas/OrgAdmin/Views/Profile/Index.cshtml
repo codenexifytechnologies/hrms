@@ -1,0 +1,22 @@
+@model OrganizationEditInput
+@{
+    ViewData["Title"] = "Company profile";
+    var canEdit = (bool)ViewBag.CanEdit;
+}
+<div class="page-head">
+    <div><h1>Company profile</h1><div class="text-muted small">Company code <code>@ViewBag.Code</code> — your employees use it to sign in.</div></div>
+</div>
+<div class="card" style="max-width: 960px">
+    <div class="card-body">
+        <form method="post" action="/org/profile" asp-antiforgery="true" novalidate>
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+            <fieldset disabled="@(!canEdit)">
+                <partial name="_OrganizationFields" model="Model" />
+            </fieldset>
+            @if (canEdit)
+            {
+                <div class="d-flex justify-content-end mt-4"><button type="submit" class="btn btn-accent">Save profile</button></div>
+            }
+        </form>
+    </div>
+</div>

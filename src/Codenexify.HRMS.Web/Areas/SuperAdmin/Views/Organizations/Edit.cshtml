@@ -1,0 +1,21 @@
+@model OrganizationEditInput
+@{
+    ViewData["Title"] = "Edit organization";
+    var id = (int)ViewBag.Id;
+}
+<div class="page-head">
+    <div><h1>Edit @Model.Name</h1>
+        <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/superadmin/organizations">Organizations</a></li><li class="breadcrumb-item"><a href="/superadmin/organizations/details/@id">@Model.Name</a></li><li class="breadcrumb-item active">Edit</li></ol></nav></div>
+</div>
+<div class="card" style="max-width: 960px">
+    <div class="card-body">
+        <form asp-antiforgery="true" method="post" action="/superadmin/organizations/edit/@id" novalidate>
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+            <partial name="_OrganizationFields" model="Model" />
+            <div class="d-flex gap-2 justify-content-end mt-4">
+                <a href="/superadmin/organizations/details/@id" class="btn btn-light border">Cancel</a>
+                <button type="submit" class="btn btn-accent">Save changes</button>
+            </div>
+        </form>
+    </div>
+</div>

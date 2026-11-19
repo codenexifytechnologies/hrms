@@ -1,0 +1,57 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Performance.CoreValueRow>
+@using Codenexify.HRMS.Application.Performance
+@{
+    ViewData["Title"] = "Core values";
+    var icons = (IReadOnlyList<string>)ViewBag.Icons;
+    var editId = ViewBag.EditId as int?;
+    var form = (CoreValueInput)ViewBag.Form;
+}
+<div class="page-head">
+    <div><h1>Core values</h1><div class="text-muted small">Up to @CoreValueService.MaxActiveValues values employees recognise each other for. <a href="/me/values">See the values wall</a></div></div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card">
+            @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-gem"></i>No values yet. Add the first one on the right.</div> }
+            else
+            {
+                <ul class="list-group list-group-flush">
+                    @foreach (var v in Model)
+                    {
+                        <li class="list-group-item d-flex gap-3 align-items-start @(v.IsActive ? "" : "text-muted")">
+                            <span class="fs-4"><i class="bi bi-@v.Icon"></i></span>
+                            <div class="flex-grow-1"><div class="fw-semibold">@v.Name @if (!v.IsActive) { <span class="badge text-bg-secondary">Inactive</span> }</div>
+                                @if (v.Description is not null) { <div class="small">@v.Description</div> }
+                                <div class="small text-muted">@v.RecentShoutouts shout-out(s) in 90 days · order @v.SortOrder</div></div>
+                            <a class="btn btn-sm btn-light border" href="/org/values?edit=@v.Id">Edit</a>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card"><div class="card-header">@(editId is null ? "Add a value" : "Edit value")</div><div class="card-body">
+            <form method="post" action="/org/values" asp-antiforgery="true" class="row g-3">
+                @if (editId is int id) { <input type="hidden" name="id" value="@id" /> }
+                <div class="col-12"><label class="form-label" for="v-name">Name</label><input class="form-control" id="v-name" name="value.Name" value="@form.Name" maxlength="80" required placeholder="e.g. Customer first" /></div>
+                <div class="col-12"><label class="form-label" for="v-desc">What it means here</label><textarea class="form-control" id="v-desc" name="value.Description" rows="3" maxlength="500">@form.Description</textarea></div>
+                <div class="col-12"><label class="form-label">Icon</label>
+                    <div class="d-flex flex-wrap gap-2" role="radiogroup" aria-label="Icon">
+                        @foreach (var icon in icons)
+                        {
+                            <input type="radio" class="btn-check" name="value.Icon" id="ic-@icon" value="@icon" checked="@(form.Icon == icon)" />
+                            <label class="btn btn-outline-secondary btn-sm" for="ic-@icon" title="@icon"><i class="bi bi-@icon"></i><span class="visually-hidden">@icon</span></label>
+                        }
+                    </div></div>
+                <div class="col-6"><label class="form-label" for="v-order">Order</label><input class="form-control" id="v-order" type="number" name="value.SortOrder" value="@form.SortOrder" min="0" max="999" /></div>
+                <div class="col-6 d-flex align-items-end"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="v-active" name="value.IsActive" value="true" checked="@form.IsActive" /><label class="form-check-label" for="v-active">Active</label>
+                    <input type="hidden" name="value.IsActive" value="false" /></div></div>
+                <div class="col-12 d-flex justify-content-end gap-2">
+                    @if (editId is not null) { <a class="btn btn-light border" href="/org/values">Cancel</a> }
+                    <button class="btn btn-accent" type="submit">Save</button></div>
+            </form>
+        </div></div>
+    </div>
+</div>

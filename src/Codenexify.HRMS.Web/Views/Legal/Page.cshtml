@@ -1,0 +1,30 @@
+@model Codenexify.HRMS.Application.Support.LegalPageView
+@inject Codenexify.HRMS.Application.Support.ILegalPageService Legal
+@{
+    ViewData["Title"] = Model.Title;
+    ViewData["Description"] = Model.Summary;
+    Layout = "_PublicLayout";
+    var links = await Legal.LinksAsync();
+}
+@section Styles { <link rel="stylesheet" href="~/css/legal.css" asp-append-version="true" /> }
+<div class="container legal-wrap">
+    <div class="row g-4 g-lg-5">
+        <aside class="col-lg-3">
+            <nav class="legal-nav" aria-label="Policies">
+                @foreach (var l in links)
+                {
+                    <a href="/@l.Slug" class="@(l.Slug == Model.Slug ? "active" : null)" aria-current="@(l.Slug == Model.Slug ? "page" : null)">@l.Title</a>
+                }
+            </nav>
+        </aside>
+        <article class="col-lg-9 legal-doc">
+            <header class="legal-head">
+                <h1>@Model.Title</h1>
+                @if (!string.IsNullOrEmpty(Model.Summary)) { <p class="lead">@Model.Summary</p> }
+                <div class="small text-muted"><i class="bi bi-calendar3 me-1"></i>Effective from @Model.EffectiveOn.ToString("d MMMM yyyy") · Version @Model.Version</div>
+            </header>
+            @* Safe by construction: LegalMarkup HTML-encodes all text and only emits h2/h3/p/ul/li/strong and vetted links. *@
+            @Html.Raw(Model.Html)
+        </article>
+    </div>
+</div>

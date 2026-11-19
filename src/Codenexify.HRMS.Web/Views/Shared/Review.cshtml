@@ -1,0 +1,194 @@
+@model Codenexify.HRMS.Application.Performance.ReviewView
+@using Codenexify.HRMS.Domain.Performance
+@using Codenexify.HRMS.Web
+@{
+    Layout = "_OrgLayout";
+    var r = Model.Review;
+    var c = Model.Cycle;
+    ViewData["Title"] = $"{Model.EmployeeName}: {c.Name}";
+    var baseUrl = (string)ViewData["ReviewBase"]!;
+    var labels = Model.Labels;
+    var fromHr = baseUrl.StartsWith("/org/");
+    string RatingText(int? v) => v is int x and >= 1 and <= 5 ? $"{x} · {labels[x - 1]}" : "—";
+    bool For(ReviewQuestion q, ReviewRole role) => q.Audience == ReviewAudience.Both || q.Audience == (role == ReviewRole.Self ? ReviewAudience.SelfOnly : ReviewAudience.ManagerOnly);
+    ReviewAnswer? Ans(IReadOnlyList<ReviewAnswer> list, ReviewQuestion q) => list.FirstOrDefault(a => a.ReviewQuestionId == q.Id);
+}
+<div class="page-head">
+    <div><h1>@Model.EmployeeName</h1>
+        <div class="text-muted small"><a href="@(fromHr ? $"/org/reviews/{c.Id}" : "/me/reviews")">@(fromHr ? c.Name : "Reviews")</a>
+            · period @c.PeriodStart.ToString("dd MMM yyyy") – @c.PeriodEnd.ToString("dd MMM yyyy") · reviewer @(Model.ReviewerName ?? "HR")</div></div>
+    <span class="badge @GoalUi.Css(r.Status) fs-6">@GoalUi.Label(r.Status)</span>
+</div>
+
+@if (Model.CanEditSelf) { <div class="alert alert-info small"><i class="bi bi-pencil-square me-1"></i>Your self-review is due by <strong>@c.SelfReviewDue.ToString("dd MMM yyyy")</strong>. Save a draft any time; once submitted it goes to your manager and can't be changed.</div> }
+@if (Model.IsReviewer && r.ManagerSubmittedAtUtc is null && !Model.CanEditManager && r.SelfSubmittedAtUtc is null)
+{
+    <div class="alert alert-secondary small"><i class="bi bi-hourglass-split me-1"></i>Waiting for @Model.EmployeeName's self-review (due @c.SelfReviewDue.ToString("dd MMM yyyy")). You can write your review after it's submitted or after the due date.</div>
+}
+@if (Model.IsEmployee && !Model.ShowManager && r.ManagerSubmittedAtUtc is not null) { <div class="alert alert-secondary small">Your manager has completed the review. HR will share the results soon.</div> }
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        @* ---------------------------------------------------------------- self-review *@
+        @if (!c.SkipSelfReview && Model.ShowSelf)
+        {
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between"><span>Self-review</span>
+                    <span class="small text-muted">@(r.SelfSubmittedAtUtc is { } s ? $"Submitted {s.ToLocalTime():dd MMM yyyy}" : "Not submitted")</span></div>
+                <div class="card-body">
+                    @if (Model.CanEditSelf)
+                    {
+                        <form method="post" action="@baseUrl/self" asp-antiforgery="true">
+                            @{ var i = 0; }
+                            @foreach (var q in Model.Questions.Where(q => For(q, ReviewRole.Self)))
+                            {
+                                var a = Ans(Model.SelfAnswers, q);
+                                <partial name="_ReviewQuestion" model="@(new ReviewQuestionModel(q, a, i++, labels))" />
+                            }
+                            <div class="d-flex justify-content-end gap-2">
+                                <button class="btn btn-light border" type="submit" name="submit" value="false">Save draft</button>
+                                <button class="btn btn-accent" type="submit" name="submit" value="true">Submit to manager</button>
+                            </div>
+                        </form>
+                    }
+                    else
+                    {
+                        @foreach (var q in Model.Questions.Where(q => For(q, ReviewRole.Self)))
+                        {
+                            var a = Ans(Model.SelfAnswers, q);
+                            <div class="mb-3"><div class="fw-semibold small">@q.Text</div>
+                                <div>@(q.Type == ReviewQuestionType.Rating ? RatingText(a?.Rating) : a?.Text ?? "—")</div></div>
+                        }
+                    }
+                </div>
+            </div>
+        }
+
+        @* ---------------------------------------------------------------- manager review *@
+        @if (Model.ShowManager)
+        {
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between"><span>Manager review</span>
+                    <span class="small text-muted">@(r.ManagerSubmittedAtUtc is { } m ? $"By {r.ReviewedByName} on {m.ToLocalTime():dd MMM yyyy}" : $"Due {c.ManagerReviewDue:dd MMM yyyy}")</span></div>
+                <div class="card-body">
+                    @if (Model.CanEditManager)
+                    {
+                        <form method="post" action="@baseUrl/manager" asp-antiforgery="true">
+                            @{ var j = 0; }
+                            @foreach (var q in Model.Questions.Where(q => For(q, ReviewRole.Manager)))
+                            {
+                                var a = Ans(Model.ManagerAnswers, q);
+                                <partial name="_ReviewQuestion" model="@(new ReviewQuestionModel(q, a, j++, labels))" />
+                            }
+                            <div class="mb-3"><label class="form-label fw-semibold" for="overallRating">Overall rating</label>
+                                <select class="form-select" id="overallRating" name="overallRating"><option value="">Choose…</option>
+                                    @for (var v = 1; v <= 5; v++) { <option value="@v" selected="@(r.OverallRating == v)">@RatingText(v)</option> }
+                                </select></div>
+                            <div class="d-flex justify-content-end gap-2">
+                                <button class="btn btn-light border" type="submit" name="submit" value="false">Save draft</button>
+                                <button class="btn btn-accent" type="submit" name="submit" value="true">Submit review</button>
+                            </div>
+                        </form>
+                    }
+                    else if (r.ManagerSubmittedAtUtc is null && !Model.IsReviewer)
+                    {
+                        <div class="small text-muted">Not written yet.</div>
+                    }
+                    else
+                    {
+                        @foreach (var q in Model.Questions.Where(q => For(q, ReviewRole.Manager)))
+                        {
+                            var a = Ans(Model.ManagerAnswers, q);
+                            if (a is null && !q.Required) { continue; }
+                            <div class="mb-3"><div class="fw-semibold small">@q.Text</div>
+                                <div style="white-space: pre-line">@(q.Type == ReviewQuestionType.Rating ? RatingText(a?.Rating) : a?.Text ?? "—")</div></div>
+                        }
+                        <div class="border-top pt-3">
+                            <div class="small text-muted">Overall rating</div>
+                            <div class="fs-5 fw-semibold">@RatingText(Model.EffectiveRating)</div>
+                            @if (r.FinalRating is not null && !Model.IsEmployee) { <div class="small text-muted">Manager's rating @RatingText(r.OverallRating), adjusted by HR: @r.AdjustmentNote</div> }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        @* ---------------------------------------------------------------- acknowledgement *@
+        @if (Model.CanAcknowledge)
+        {
+            <div class="card mb-3 border-primary"><div class="card-body">
+                <form method="post" action="@baseUrl/acknowledge" asp-antiforgery="true">
+                    <label class="form-label fw-semibold" for="comment">Your comments (optional)</label>
+                    <textarea class="form-control mb-2" id="comment" name="comment" rows="3" maxlength="2000" placeholder="Anything you'd like to add for your manager and HR"></textarea>
+                    <button class="btn btn-accent" type="submit"><i class="bi bi-check2-circle me-1"></i>I have read my review</button>
+                </form>
+            </div></div>
+        }
+        @if (r.AcknowledgedAtUtc is { } ack)
+        {
+            <div class="card mb-3"><div class="card-body small"><i class="bi bi-check2-circle text-success me-1"></i>Acknowledged on @ack.ToLocalTime().ToString("dd MMM yyyy")
+                @if (r.EmployeeComment is not null) { <div class="mt-2" style="white-space: pre-line">“@r.EmployeeComment”</div> }</div></div>
+        }
+
+        @if (Model.CanAdjust)
+        {
+            <div class="card mb-3"><div class="card-header">Calibrate (HR)</div><div class="card-body">
+                <form method="post" action="@baseUrl/adjust" asp-antiforgery="true" class="row g-2 align-items-end">
+                    <div class="col-md-4"><label class="form-label small" for="finalRating">Final rating</label>
+                        <select class="form-select form-select-sm" id="finalRating" name="finalRating">
+                            @for (var v = 1; v <= 5; v++) { <option value="@v" selected="@(Model.EffectiveRating == v)">@RatingText(v)</option> }
+                        </select></div>
+                    <div class="col-md-6"><label class="form-label small" for="note">Reason (needed when it changes)</label><input class="form-control form-control-sm" id="note" name="note" maxlength="500" value="@r.AdjustmentNote" /></div>
+                    <div class="col-md-2"><button class="btn btn-sm btn-accent w-100" type="submit">Save</button></div>
+                </form>
+            </div></div>
+        }
+    </div>
+
+    <div class="col-lg-4">
+        @if (c.IncludeGoals)
+        {
+            <div class="card"><div class="card-header">Goals in this period</div>
+                @if (Model.Goals.Count == 0) { <div class="card-body small text-muted">No individual goals in this period.</div> }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var g in Model.Goals)
+                        {
+                            <li class="list-group-item small">
+                                <div class="d-flex justify-content-between gap-2"><span class="fw-semibold">@g.Title</span><span>@g.Progress.ToString("0.#")%</span></div>
+                                <span class="badge @GoalUi.StatusCss(g.Status) mt-1">@GoalUi.Label(g.Status)</span>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        }
+        @if (Model.Values.Count > 0)
+        {
+            <div class="card mt-3"><div class="card-header">Recognised for (this period)</div>
+                <ul class="list-group list-group-flush small">
+                    @foreach (var v in Model.Values) { <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-@v.Icon me-1"></i>@v.Value</span><span class="badge rounded-pill text-bg-primary">@v.Count</span></li> }
+                </ul></div>
+        }
+        @if (Model.Feedback.Count > 0)
+        {
+            <div class="card mt-3"><div class="card-header">Feedback in this period (@Model.Feedback.Count)</div>
+                <ul class="list-group list-group-flush small">
+                    @foreach (var f in Model.Feedback.Take(20))
+                    {
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between gap-2"><span class="fw-semibold">@f.AuthorName</span>
+                                <span class="badge @(f.Tone == FeedbackTone.Appreciation ? "text-bg-success" : "text-bg-info")">@(f.Tone == FeedbackTone.Appreciation ? "Appreciation" : "Suggestion")</span></div>
+                            <div class="mt-1" style="white-space: pre-line">@f.Body</div>
+                            <div class="text-muted mt-1">@f.AtUtc.ToLocalTime().ToString("dd MMM yyyy")@(f.Visibility == FeedbackVisibility.ManagersOnly ? " · managers only" : "")</div>
+                        </li>
+                    }
+                </ul></div>
+        }
+        <div class="card mt-3"><div class="card-body small">
+            <div class="fw-semibold mb-1">Rating scale</div>
+            <ol class="mb-0 ps-3">@foreach (var l in labels) { <li>@l</li> }</ol>
+        </div></div>
+    </div>
+</div>

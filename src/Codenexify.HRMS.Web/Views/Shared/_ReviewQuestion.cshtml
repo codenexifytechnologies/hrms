@@ -1,0 +1,26 @@
+@model Codenexify.HRMS.Web.ReviewQuestionModel
+@using Codenexify.HRMS.Domain.Performance
+@{
+    var q = Model.Question;
+    var a = Model.Answer;
+    var i = Model.Index;
+}
+<div class="mb-3">
+    <input type="hidden" name="answers[@i].QuestionId" value="@q.Id" />
+    <label class="form-label fw-semibold" for="q-@q.Id">@q.Text@(q.Required ? "" : " (optional)")</label>
+    @if (q.Type == ReviewQuestionType.Rating)
+    {
+        <div class="d-flex flex-wrap gap-2" role="radiogroup" aria-label="@q.Text">
+            @for (var v = 1; v <= 5; v++)
+            {
+                <input type="radio" class="btn-check" name="answers[@i].Rating" id="q-@q.Id-@v" value="@v" checked="@(a?.Rating == v)" autocomplete="off" />
+                <label class="btn btn-sm btn-outline-primary" for="q-@q.Id-@v" title="@Model.Labels[v - 1]">@v · @Model.Labels[v - 1]</label>
+            }
+        </div>
+        <textarea class="form-control form-control-sm mt-2" name="answers[@i].Text" rows="2" maxlength="4000" placeholder="Example or comment (optional)" aria-label="Comment for @q.Text">@a?.Text</textarea>
+    }
+    else
+    {
+        <textarea class="form-control" id="q-@q.Id" name="answers[@i].Text" rows="4" maxlength="4000">@a?.Text</textarea>
+    }
+</div>

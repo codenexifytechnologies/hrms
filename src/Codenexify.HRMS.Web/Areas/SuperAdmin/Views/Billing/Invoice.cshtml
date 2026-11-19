@@ -1,0 +1,155 @@
+@model Codenexify.HRMS.Domain.Billing.Invoice
+@using Codenexify.HRMS.Domain.Billing
+@{
+    ViewData["Title"] = $"Invoice {Model.Number}";
+    var credits = (IReadOnlyList<CreditNote>)ViewBag.CreditNotes;
+    var today = (DateOnly)ViewBag.Today;
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    string Money(decimal v) => "₹" + v.ToString("N2", inr);
+    var open = Model.Status is InvoiceStatus.Issued or InvoiceStatus.PartiallyPaid;
+    var overdue = open && Model.DueDate < today && Model.Balance > 0;
+    var refundable = Model.Payments.Where(p => p.Status is PaymentStatus.Captured or PaymentStatus.PartiallyRefunded && p.Amount > p.RefundedAmount).ToList();
+}
+<div class="page-head">
+    <div><h1>Invoice @Model.Number <span class="badge-status st-@(overdue ? "Overdue" : Model.Status.ToString()) align-middle">@(overdue ? "Overdue" : Model.Status.ToString())</span></h1>
+        <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/superadmin/billing/invoices">Invoices</a></li><li class="breadcrumb-item active">@Model.Number</li></ol></nav></div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-light border" href="/superadmin/billing/invoices/@Model.Id/pdf"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
+        <a class="btn btn-light border" href="/superadmin/billing/invoices/@Model.Id/print"><i class="bi bi-printer me-1"></i>Print</a>
+        @if (open) { <button class="btn btn-accent" type="button" data-bs-toggle="modal" data-bs-target="#payModal"><i class="bi bi-cash me-1"></i>Record payment</button> }
+        @if (Model.Status != InvoiceStatus.Cancelled && Model.Total > Model.AmountCredited) { <button class="btn btn-soft" type="button" data-bs-toggle="modal" data-bs-target="#creditModal"><i class="bi bi-arrow-counterclockwise me-1"></i>Credit note</button> }
+        @if (open && Model.AmountPaid == 0 && Model.AmountCredited == 0) { <button class="btn btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#cancelModal">Cancel</button> }
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-8">
+        <div class="card h-100"><div class="card-header">Details</div>
+            <div class="card-body row g-3 small">
+                <div class="col-sm-6"><div class="text-muted">Customer</div><div class="fw-semibold"><a href="/superadmin/organizations/details/@Model.OrganizationId">@Model.BillToName</a></div>
+                    <div>GSTIN: @(Model.BillToGstin ?? "Unregistered")</div><div>Place of supply: @Model.PlaceOfSupply</div></div>
+                <div class="col-sm-3"><div class="text-muted">Invoice date</div><div class="fw-semibold">@Model.InvoiceDate.ToString("dd MMM yyyy")</div></div>
+                <div class="col-sm-3"><div class="text-muted">Due date</div><div class="fw-semibold @(overdue ? "text-danger" : "")">@Model.DueDate.ToString("dd MMM yyyy")</div></div>
+                <div class="col-sm-6"><div class="text-muted">Type</div><div class="fw-semibold">@Model.Purpose @(Model.BillingCycle is { } cycle ? $"· {cycle}" : "")</div>
+                    @if (Model.PeriodStart is { } ps && Model.PeriodEnd is { } pe) { <div>Service @ps.ToString("dd MMM yyyy") – @pe.ToString("dd MMM yyyy")</div> }</div>
+                <div class="col-sm-6"><div class="text-muted">Subscription effect</div><div class="fw-semibold">
+                    @if (Model.Purpose == InvoicePurpose.Manual) { <span>None (one-off charge)</span> }
+                    else if (Model.Fulfilled) { <span class="text-success"><i class="bi bi-check2-circle me-1"></i>Applied</span> }
+                    else if (Model.Status == InvoiceStatus.Paid) { <span class="text-danger">Paid but not applied — check the audit trail</span> }
+                    else { <span>Applied automatically when fully paid</span> }</div></div>
+                @if (Model.CancelReason is not null) { <div class="col-12 text-danger">Cancelled: @Model.CancelReason</div> }
+            </div>
+            <div class="table-responsive"><table class="table small mb-0">
+                <thead><tr><th>Description</th><th>SAC</th><th class="text-end">Qty</th><th class="text-end">Rate</th><th class="text-end">Amount</th></tr></thead>
+                <tbody>@foreach (var l in Model.Lines) { <tr><td>@l.Description</td><td>@l.SacCode</td><td class="text-end">@l.Quantity.ToString("0.##")</td><td class="text-end">@Money(l.UnitPrice)</td><td class="text-end">@Money(l.Amount)</td></tr> }</tbody>
+            </table></div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card h-100"><div class="card-header">Amounts</div>
+            <div class="card-body small">
+                <div class="d-flex justify-content-between"><span>Taxable value</span><span>@Money(Model.Subtotal)</span></div>
+                @if (Model.IgstRate == 0)
+                {
+                    <div class="d-flex justify-content-between"><span>CGST @Model.CgstRate.ToString("0.##")%</span><span>@Money(Model.CgstAmount)</span></div>
+                    <div class="d-flex justify-content-between"><span>SGST @Model.SgstRate.ToString("0.##")%</span><span>@Money(Model.SgstAmount)</span></div>
+                }
+                else { <div class="d-flex justify-content-between"><span>IGST @Model.IgstRate.ToString("0.##")%</span><span>@Money(Model.IgstAmount)</span></div> }
+                <div class="d-flex justify-content-between fw-semibold border-top mt-2 pt-2"><span>Total</span><span>@Money(Model.Total)</span></div>
+                <div class="d-flex justify-content-between"><span>Received</span><span>@Money(Model.AmountPaid)</span></div>
+                <div class="d-flex justify-content-between"><span>Credited</span><span>@Money(Model.AmountCredited)</span></div>
+                <div class="d-flex justify-content-between fs-5 fw-bold border-top mt-2 pt-2"><span>Balance</span><span>@Money(Model.Balance)</span></div>
+                @if (Model.LastReminderAtUtc is { } r) { <div class="text-muted mt-2">Last reminder @r.ToLocalTime().ToString("dd MMM yyyy HH:mm")</div> }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3"><div class="card-header">Payments</div>
+    @if (Model.Payments.Count == 0) { <div class="empty-state py-4"><i class="bi bi-cash-stack"></i>No payments yet.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table small mb-0">
+            <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th class="text-end">Amount</th><th class="text-end">Refunded</th><th>Status</th></tr></thead>
+            <tbody>@foreach (var p in Model.Payments.OrderByDescending(p => p.Id))
+            {
+                <tr><td>@(p.PaidAtUtc?.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "—")</td><td>@p.Method</td>
+                    <td>@(p.Reference ?? p.GatewayPaymentId ?? p.GatewayOrderId)@if (p.FailureReason is not null) { <div class="text-danger">@p.FailureReason</div> }</td>
+                    <td class="text-end">@Money(p.Amount)</td><td class="text-end">@(p.RefundedAmount > 0 ? Money(p.RefundedAmount) : "—")</td>
+                    <td><span class="badge-status st-@p.Status">@p.Status</span></td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>
+
+@if (credits.Count > 0)
+{
+    <div class="card"><div class="card-header">Credit notes</div>
+        <div class="table-responsive"><table class="table small mb-0">
+            <thead><tr><th>Number</th><th>Date</th><th>Reason</th><th class="text-end">Taxable</th><th class="text-end">GST</th><th class="text-end">Total</th><th>Refund</th></tr></thead>
+            <tbody>@foreach (var c in credits)
+            {
+                <tr><td class="fw-semibold">@c.Number</td><td>@c.Date.ToString("dd MMM yyyy")</td><td>@c.Reason</td><td class="text-end">@Money(c.TaxableAmount)</td>
+                    <td class="text-end">@Money(c.CgstAmount + c.SgstAmount + c.IgstAmount)</td><td class="text-end">@Money(c.Total)</td>
+                    <td>@(c.RefundAmount > 0 ? $"{Money(c.RefundAmount)}{(c.GatewayRefundId is null ? " (offline)" : $" · {c.GatewayRefundId}")}" : "—")</td></tr>
+            }</tbody>
+        </table></div>
+    </div>
+}
+
+@if (open)
+{
+    <div class="modal fade" id="payModal" tabindex="-1" aria-labelledby="payTitle" aria-hidden="true">
+        <div class="modal-dialog"><div class="modal-content">
+            <form method="post" action="/superadmin/billing/invoices/@Model.Id/payment" asp-antiforgery="true">
+                <div class="modal-header"><h5 class="modal-title" id="payTitle">Record offline payment</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                <div class="modal-body row g-3">
+                    <div class="col-6"><label class="form-label" for="pa">Amount (₹)</label><input id="pa" name="payment.Amount" type="number" min="0.01" max="@Model.Balance.ToString(System.Globalization.CultureInfo.InvariantCulture)" step="0.01" value="@Model.Balance.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="form-control" required /></div>
+                    <div class="col-6"><label class="form-label" for="pm">Method</label>
+                        <select id="pm" name="payment.Method" class="form-select">
+                            @foreach (var m in Enum.GetValues<PaymentMethod>().Where(m => m != PaymentMethod.Razorpay)) { <option value="@m">@m</option> }
+                        </select></div>
+                    <div class="col-6"><label class="form-label" for="pr">Reference (UTR / cheque no.)</label><input id="pr" name="payment.Reference" maxlength="100" class="form-control" required /></div>
+                    <div class="col-6"><label class="form-label" for="pd">Received on</label><input id="pd" name="payment.ReceivedOn" type="date" value="@today.ToString("yyyy-MM-dd")" max="@today.ToString("yyyy-MM-dd")" class="form-control" required /></div>
+                    <div class="col-12"><label class="form-label" for="pn">Notes</label><input id="pn" name="payment.Notes" maxlength="500" class="form-control" /></div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-light border" data-bs-dismiss="modal">Close</button><button class="btn btn-accent" type="submit">Record payment</button></div>
+            </form>
+        </div></div>
+    </div>
+    <div class="modal fade" id="cancelModal" tabindex="-1" aria-labelledby="cancelTitle" aria-hidden="true">
+        <div class="modal-dialog"><div class="modal-content">
+            <form method="post" action="/superadmin/billing/invoices/@Model.Id/cancel" asp-antiforgery="true">
+                <div class="modal-header"><h5 class="modal-title" id="cancelTitle">Cancel invoice</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                <div class="modal-body"><label class="form-label" for="cr">Reason</label><input id="cr" name="reason" maxlength="500" class="form-control" required />
+                    <div class="small text-muted mt-2">The number stays used (GST numbering has no gaps); the invoice is marked cancelled.</div></div>
+                <div class="modal-footer"><button type="button" class="btn btn-light border" data-bs-dismiss="modal">Close</button><button class="btn btn-danger" type="submit">Cancel invoice</button></div>
+            </form>
+        </div></div>
+    </div>
+}
+@if (Model.Status != InvoiceStatus.Cancelled && Model.Total > Model.AmountCredited)
+{
+    <div class="modal fade" id="creditModal" tabindex="-1" aria-labelledby="creditTitle" aria-hidden="true">
+        <div class="modal-dialog"><div class="modal-content">
+            <form method="post" action="/superadmin/billing/invoices/@Model.Id/credit-note" asp-antiforgery="true">
+                <div class="modal-header"><h5 class="modal-title" id="creditTitle">Issue credit note</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                <div class="modal-body row g-3">
+                    <div class="col-6"><label class="form-label" for="ca">Amount incl. GST (₹)</label><input id="ca" name="credit.Amount" type="number" min="0.01" step="0.01" max="@((Model.Total - Model.AmountCredited).ToString(System.Globalization.CultureInfo.InvariantCulture))" class="form-control" required /></div>
+                    <div class="col-12"><label class="form-label" for="cre">Reason</label><input id="cre" name="credit.Reason" maxlength="500" class="form-control" required /></div>
+                    @if (refundable.Count > 0)
+                    {
+                        <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" id="crf" name="credit.Refund" value="true" /><label class="form-check-label" for="crf">Refund this amount to the customer</label></div></div>
+                        <div class="col-12"><label class="form-label" for="crp">Refund against payment</label>
+                            <select id="crp" name="credit.PaymentId" class="form-select">
+                                @foreach (var p in refundable) { <option value="@p.Id">@p.Method · @(p.Reference ?? p.GatewayPaymentId) · refundable @Money(p.Amount - p.RefundedAmount)</option> }
+                            </select>
+                            <div class="form-text">Razorpay payments are refunded through the gateway; other methods are recorded as refunded offline.</div></div>
+                    }
+                    else { <div class="col-12 small text-muted">No payment to refund: the credit reduces the unpaid balance.</div> }
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-light border" data-bs-dismiss="modal">Close</button><button class="btn btn-accent" type="submit">Issue credit note</button></div>
+            </form>
+        </div></div>
+    </div>
+}

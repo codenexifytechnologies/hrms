@@ -1,0 +1,71 @@
+@model PlanInput
+@{
+    var id = ViewBag.Id as int?;
+    var isNew = id is null;
+    ViewData["Title"] = isNew ? "New plan" : "Edit plan";
+    var features = (IReadOnlyList<Codenexify.HRMS.Domain.Platform.Feature>)ViewBag.Features;
+    var parents = (List<PlanSummary>)ViewBag.Parents;
+}
+<div class="page-head">
+    <div><h1>@ViewData["Title"]</h1>
+        <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/superadmin/plans">Plans</a></li><li class="breadcrumb-item active">@(isNew ? "New" : Model.Name)</li></ol></nav></div>
+</div>
+<form asp-antiforgery="true" method="post" action="@(isNew ? "/superadmin/plans/create" : $"/superadmin/plans/edit/{id}")" novalidate>
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+    <div class="row g-3">
+        <div class="col-xl-5">
+            <div class="card"><div class="card-header">Plan details</div><div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-5"><label asp-for="Code" class="form-label"></label>
+                        @if (isNew) { <input asp-for="Code" class="form-control text-uppercase" /> }
+                        else { <input class="form-control" value="@Model.Code" disabled /><input type="hidden" asp-for="Code" /> }
+                        <span asp-validation-for="Code"></span></div>
+                    <div class="col-md-7"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name"></span></div>
+                    <div class="col-12"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="2"></textarea></div>
+                    <div class="col-12"><label asp-for="ParentPlanId" class="form-label"></label>
+                        <select asp-for="ParentPlanId" class="form-select"><option value="">None (base plan)</option>
+                            @foreach (var p in parents) { <option value="@p.Id" selected="@(p.Id == Model.ParentPlanId)">@p.Name</option> }</select>
+                        <div class="form-text">The plan automatically includes every feature of the parent (and its parents).</div></div>
+                    <div class="col-6"><label asp-for="MonthlyPrice" class="form-label"></label><input asp-for="MonthlyPrice" class="form-control" step="0.01" /><span asp-validation-for="MonthlyPrice"></span></div>
+                    <div class="col-6"><label asp-for="YearlyPrice" class="form-label"></label><input asp-for="YearlyPrice" class="form-control" step="0.01" /><span asp-validation-for="YearlyPrice"></span></div>
+                    <div class="col-12"><div class="form-check form-switch"><input asp-for="IsPerEmployeePricing" class="form-check-input" /><label asp-for="IsPerEmployeePricing" class="form-check-label"></label></div></div>
+                    <div class="col-6"><label asp-for="TrialDays" class="form-label"></label><input asp-for="TrialDays" class="form-control" /><span asp-validation-for="TrialDays"></span></div>
+                    <div class="col-6"><label asp-for="SortOrder" class="form-label"></label><input asp-for="SortOrder" class="form-control" /></div>
+                    <div class="col-4"><label asp-for="MaxEmployees" class="form-label"></label><input asp-for="MaxEmployees" class="form-control" /><span asp-validation-for="MaxEmployees"></span></div>
+                    <div class="col-4"><label asp-for="MaxBranches" class="form-label"></label><input asp-for="MaxBranches" class="form-control" /><span asp-validation-for="MaxBranches"></span></div>
+                    <div class="col-4"><label asp-for="StorageLimitGb" class="form-label"></label><input asp-for="StorageLimitGb" class="form-control" /><span asp-validation-for="StorageLimitGb"></span></div>
+                    <div class="col-12 d-flex flex-wrap gap-4">
+                        <div class="form-check form-switch"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div>
+                        <div class="form-check form-switch"><input asp-for="IsPublic" class="form-check-input" /><label asp-for="IsPublic" class="form-check-label"></label></div>
+                        <div class="form-check form-switch"><input asp-for="IsCustom" class="form-check-input" /><label asp-for="IsCustom" class="form-check-label"></label></div>
+                    </div>
+                </div>
+            </div></div>
+        </div>
+        <div class="col-xl-7">
+            <div class="card"><div class="card-header">Features added by this plan <span class="small text-muted fw-normal">Inherited features come from the parent plan</span></div>
+                <div class="card-body">
+                    @foreach (var group in features.GroupBy(f => f.Tier))
+                    {
+                        <div class="feature-group-title">@group.Key</div>
+                        <div class="row g-2">
+                            @foreach (var f in group)
+                            {
+                                <div class="col-md-6">
+                                    <label class="feature-pill">
+                                        <span class="small">@f.Name<br /><span class="text-muted">@f.ModuleGroup</span></span>
+                                        <input type="checkbox" class="form-check-input m-0" name="FeatureIds" value="@f.Id" checked="@Model.FeatureIds.Contains(f.Id)" />
+                                    </label>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="d-flex gap-2 justify-content-end mt-3">
+        <a href="/superadmin/plans" class="btn btn-light border">Cancel</a>
+        <button type="submit" class="btn btn-accent">@(isNew ? "Create plan" : "Save plan")</button>
+    </div>
+</form>

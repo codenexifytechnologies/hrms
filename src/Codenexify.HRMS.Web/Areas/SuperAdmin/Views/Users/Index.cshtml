@@ -1,0 +1,44 @@
+@model IReadOnlyList<PlatformUserRow>
+@{
+    ViewData["Title"] = "Platform users";
+    var me = User.GetUserId();
+}
+<div class="page-head">
+    <div><h1>Platform users</h1><div class="text-muted small">Codenexify staff with access to the Control Center</div></div>
+    <a href="/superadmin/users/create" class="btn btn-accent"><i class="bi bi-person-plus me-1"></i>Add user</a>
+</div>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead><tr><th>Name</th><th>Role</th><th>2FA</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var u in Model)
+            {
+                var locked = u.LockoutEndUtc > DateTime.UtcNow;
+                <tr>
+                    <td><div class="fw-semibold">@u.FullName @if (u.Id == me) { <span class="badge text-bg-light border">You</span> }</div><div class="small text-muted">@u.Email</div></td>
+                    <td>@u.Role</td>
+                    <td>@(u.TwoFactorEnabled ? Html.Raw("<i class=\"bi bi-shield-check text-success\"></i> On") : Html.Raw("<span class=\"text-muted\">Off</span>"))</td>
+                    <td>
+                        <span class="badge-status st-@u.IsActive.ToString().ToLowerInvariant()">@(u.IsActive ? "Active" : "Disabled")</span>
+                        @if (locked) { <span class="badge-status st-PastDue ms-1">Locked</span> }
+                    </td>
+                    <td class="small text-muted">@(u.LastLoginAtUtc?.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "Never")</td>
+                    <td class="text-end text-nowrap">
+                        <a href="/superadmin/users/edit/@u.Id" class="btn btn-sm btn-soft">Edit</a>
+                        @if (locked)
+                        {
+                            <form asp-antiforgery="true" method="post" action="/superadmin/users/unlock/@u.Id" class="d-inline"><button class="btn btn-sm btn-light border" type="submit">Unlock</button></form>
+                        }
+                        @if (u.TwoFactorEnabled && u.Id != me)
+                        {
+                            <form asp-antiforgery="true" method="post" action="/superadmin/users/resettwofactor/@u.Id" class="d-inline" data-confirm="Reset two-factor authentication for @u.FullName?" data-confirm-danger="1">
+                                <button class="btn btn-sm btn-light border" type="submit">Reset 2FA</button></form>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

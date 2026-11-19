@@ -1,0 +1,140 @@
+@model PlatformDashboard
+@{
+    ViewData["Title"] = "Dashboard";
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    string Money(decimal v) => "₹" + v.ToString("N0", inr);
+    object Rows(IEnumerable<LabelValue> rows) => rows.Select(r => new { label = r.Label, value = r.Value });
+    var statusRows = Model.ByStatus.Select(kv => new LabelValue(kv.Key.ToString(), kv.Value)).Where(r => r.Value > 0).ToList();
+}
+<div class="page-head">
+    <div>
+        <h1>Platform overview</h1>
+        <div class="text-muted small">Live figures across all client organizations · @DateTime.Now.ToString("dddd, dd MMM yyyy")</div>
+    </div>
+    @if (User.HasPermission(PlatformPermissions.OrganizationsManage))
+    {
+        <a href="/superadmin/organizations/create" class="btn btn-accent"><i class="bi bi-plus-lg me-1"></i>New organization</a>
+    }
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-sm-6 col-xl-3"><div class="card"><div class="card-body kpi">
+        <div class="kpi-icon"><i class="bi bi-buildings"></i></div>
+        <div><div class="kpi-label">Registered organizations</div><div class="kpi-value">@Model.TotalOrganizations.ToString("N0")</div>
+            <div class="kpi-sub">+@Model.NewOrganizationsThisMonth this month</div></div>
+    </div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card tone-green"><div class="card-body kpi">
+        <div class="kpi-icon"><i class="bi bi-currency-rupee"></i></div>
+        <div><div class="kpi-label">Monthly recurring revenue</div><div class="kpi-value">@Money(Model.Mrr)</div>
+            <div class="kpi-sub">ARR @Money(Model.Arr)</div></div>
+    </div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card tone-blue"><div class="card-body kpi">
+        <div class="kpi-icon"><i class="bi bi-people"></i></div>
+        <div><div class="kpi-label">Registered employees</div><div class="kpi-value">@Model.TotalEmployees.ToString("N0")</div>
+            <div class="kpi-sub">@Model.ActiveEmployees.ToString("N0") current · @Model.ActiveUsers.ToString("N0") active logins</div></div>
+    </div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card tone-violet"><div class="card-body kpi">
+        <div class="kpi-icon"><i class="bi bi-receipt"></i></div>
+        <div><div class="kpi-label">Subscriptions</div><div class="kpi-value">@Model.PaidSubscriptions paid · @Model.TrialSubscriptions trial</div>
+            <div class="kpi-sub">@Model.PastDueSubscriptions past due</div></div>
+    </div></div></div>
+</div>
+
+<div class="row g-3 mb-3">
+    @foreach (var (status, icon, tone) in new[] {
+        (OrganizationStatus.Active, "bi-check2-circle", "tone-green"), (OrganizationStatus.Trial, "bi-hourglass-split", "tone-blue"),
+        (OrganizationStatus.Expired, "bi-calendar-x", "tone-red"), (OrganizationStatus.Suspended, "bi-pause-circle", "tone-amber"),
+        (OrganizationStatus.Inactive, "bi-slash-circle", ""), (OrganizationStatus.PendingVerification, "bi-patch-question", "tone-amber") })
+    {
+        <div class="col-6 col-md-4 col-xl-2">
+            <a class="card text-decoration-none text-reset @tone" href="/superadmin/organizations?status=@status">
+                <div class="card-body kpi py-3">
+                    <div class="kpi-icon"><i class="bi @icon"></i></div>
+                    <div><div class="kpi-label">@status</div><div class="kpi-value fs-4">@Model.ByStatus.GetValueOrDefault(status)</div></div>
+                </div>
+            </a>
+        </div>
+    }
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-header">New organization registrations <span class="small text-muted fw-normal">last 12 months</span></div>
+            <div class="card-body" style="height: 300px"><canvas data-chart="bar" data-source="regData" data-label="Registrations"></canvas></div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header">Customers by plan</div>
+            <div class="card-body" style="height: 300px">
+                @if (Model.OrganizationsByPlan.Sum(p => p.Value) == 0)
+                {
+                    <div class="empty-state py-5"><i class="bi bi-pie-chart"></i>No active subscriptions yet.</div>
+                }
+                else
+                {
+                    <canvas data-chart="doughnut" data-source="planData"></canvas>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header">Organizations by status</div>
+            <div class="card-body" style="height: 260px">
+                @if (statusRows.Count == 0) { <div class="empty-state py-5"><i class="bi bi-buildings"></i>No organizations yet.</div> }
+                else { <canvas data-chart="doughnut" data-source="statusData"></canvas> }
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header">Renewals &amp; expiries <span class="small text-muted fw-normal">next 30 days</span></div>
+            <div class="card-body p-0">
+                @if (Model.UpcomingRenewals.Count == 0)
+                {
+                    <div class="empty-state"><i class="bi bi-calendar-check"></i>Nothing due in the next 30 days.</div>
+                }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var r in Model.UpcomingRenewals)
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent">
+                                <div><a href="/superadmin/organizations/details/@r.OrganizationId" class="fw-semibold">@r.OrganizationName</a>
+                                    <div class="small text-muted">@r.PlanName · @(r.AutoRenew ? "auto-renew" : "no auto-renew")</div></div>
+                                <div class="text-end"><span class="badge-status st-@r.Status">@r.Status</span><div class="small text-muted">@r.EndDate.ToString("dd MMM")</div></div>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header">Recent platform activity
+                @if (Model.FailedLogins24h > 0)
+                {
+                    <a href="/superadmin/audit/logins?succeeded=false" class="badge text-bg-danger text-decoration-none">@Model.FailedLogins24h failed logins / 24h</a>
+                }
+            </div>
+            <div class="card-body">
+                @if (Model.RecentActivity.Count == 0) { <div class="empty-state py-4"><i class="bi bi-activity"></i>No activity yet.</div> }
+                @foreach (var a in Model.RecentActivity) { <partial name="_AuditRow" model="a" /> }
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="application/json" id="regData">@Json.Serialize(Rows(Model.RegistrationsByMonth))</script>
+<script type="application/json" id="planData">@Json.Serialize(Rows(Model.OrganizationsByPlan))</script>
+<script type="application/json" id="statusData">@Json.Serialize(Rows(statusRows))</script>
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="~/js/charts.js" asp-append-version="true"></script>
+}

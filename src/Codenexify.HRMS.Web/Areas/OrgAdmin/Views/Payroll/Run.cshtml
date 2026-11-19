@@ -1,0 +1,110 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Payroll.PayrollDetailRow>
+@using Codenexify.HRMS.Domain.Payroll
+@{
+    var run = (PayrollRun)ViewBag.Run;
+    var month = new DateOnly(run.Year, run.Month, 1);
+    ViewData["Title"] = $"Payroll {month:MMMM yyyy}";
+    var manage = User.HasPermission(TenantPermissions.PayrollManage);
+    var editable = manage && run.Status is PayrollRunStatus.Draft or PayrollRunStatus.Processed;
+    var final = run.Status is PayrollRunStatus.Finalized or PayrollRunStatus.Paid;
+    var canBank = User.HasPermission(TenantPermissions.EmployeesSensitive) && manage;
+    var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    string M(decimal v) => "₹" + v.ToString("N0", inr);
+    var held = Model.Count(d => d.OnHold);
+    var warned = Model.Count(d => !string.IsNullOrEmpty(d.Warnings));
+}
+<div class="page-head">
+    <div><h1>Payroll · @month.ToString("MMMM yyyy")</h1>
+        <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/payroll">Payroll</a></li><li class="breadcrumb-item active">@run.Status</li></ol></nav></div>
+    <div class="d-flex flex-wrap gap-2">
+        @if (editable)
+        {
+            <form method="post" action="/org/payroll/run/@run.Id/process" asp-antiforgery="true"><button class="btn btn-light border" type="submit"><i class="bi bi-arrow-repeat me-1"></i>Re-process</button></form>
+            <form method="post" action="/org/payroll/run/@run.Id/finalize" asp-antiforgery="true" data-confirm="Finalize payroll for @month.ToString("MMMM yyyy")? It will be locked, loans recovered and payslips published." data-confirm-danger="1">
+                <button class="btn btn-accent" type="submit" disabled="@(run.Status != PayrollRunStatus.Processed)"><i class="bi bi-lock me-1"></i>Finalize</button></form>
+            <form method="post" action="/org/payroll/run/@run.Id/delete" asp-antiforgery="true" data-confirm="Delete this draft payroll?" data-confirm-danger="1"><button class="btn btn-outline-danger" type="submit" title="Delete draft"><i class="bi bi-trash"></i></button></form>
+        }
+        @if (manage && run.Status == PayrollRunStatus.Finalized)
+        {
+            <form method="post" action="/org/payroll/run/@run.Id/paid" asp-antiforgery="true" class="d-flex gap-2">
+                <input type="date" name="paidOn" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" required aria-label="Payment date" />
+                <button class="btn btn-accent text-nowrap" type="submit">Mark paid</button></form>
+        }
+        <div class="dropdown">
+            <button class="btn btn-light border dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-download me-1"></i>Reports</button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="/org/payroll/run/@run.Id/export/register">Salary register</a></li>
+                <li><a class="dropdown-item" href="/org/payroll/run/@run.Id/export/pf">PF statement</a></li>
+                <li><a class="dropdown-item @(final ? "" : "disabled")" href="/org/payroll/run/@run.Id/export/ecr">EPFO ECR file (.txt) @(final ? "" : "(after finalizing)")</a></li>
+                <li><a class="dropdown-item" href="/org/payroll/run/@run.Id/export/esi">ESI statement</a></li>
+                <li><a class="dropdown-item" href="/org/payroll/run/@run.Id/export/journal">Accounting journal</a></li>
+                @if (canBank) { <li><a class="dropdown-item @(final ? "" : "disabled")" href="/org/payroll/run/@run.Id/export/bank">Bank transfer file @(final ? "" : "(after finalizing)")</a></li> }
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    @foreach (var (label, value, tone) in new[] { ("Employees", run.EmployeeCount.ToString(), ""), ("Gross", M(run.TotalGross), "tone-blue"), ("Deductions", M(run.TotalDeductions), "tone-amber"), ("Net pay", M(run.TotalNet), "tone-green"), ("Cost to company", M(run.TotalEmployerCost), "tone-violet") })
+    {
+        <div class="col-6 col-xl"><div class="card @tone"><div class="card-body py-3"><div class="kpi-label">@label</div><div class="kpi-value fs-4">@value</div></div></div></div>
+    }
+</div>
+@if (held > 0 || warned > 0)
+{
+    <div class="alert alert-light border small">@if (held > 0) { <span><i class="bi bi-pause-circle text-warning me-1"></i>@held salary(ies) on hold (excluded from the bank file). </span> }@if (warned > 0) { <span><i class="bi bi-exclamation-triangle text-warning me-1"></i>@warned row(s) have warnings — hover the icon.</span> }</div>
+}
+@if (run.Status == PayrollRunStatus.Draft && editable) { <div class="alert alert-info small">Changes are pending. Re-process before finalizing.</div> }
+
+<div class="card">
+    @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-people"></i>Nobody to pay — assign salaries first.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover align-middle">
+            <thead><tr><th>Employee</th><th class="text-end">Paid days</th><th class="text-end">LOP</th><th class="text-end">Gross</th><th class="text-end">Deductions</th><th class="text-end">TDS</th><th class="text-end">Net pay</th><th></th></tr></thead>
+            <tbody>@foreach (var d in Model)
+            {
+                <tr class="@(d.OnHold ? "table-warning" : "")">
+                    <td><a class="fw-semibold" href="/org/payroll/payslip/@d.Id">@d.Name</a> @if (!string.IsNullOrEmpty(d.Warnings)) { <i class="bi bi-exclamation-triangle text-warning" data-bs-toggle="tooltip" title="@d.Warnings"></i> }
+                        <div class="small text-muted">@d.Code · @d.Department @if (d.OnHold) { <span class="badge text-bg-warning">On hold: @d.HoldReason</span> }</div></td>
+                    <td class="text-end">@d.PaidDays.ToString("0.#")</td>
+                    <td class="text-end">@d.LopDays.ToString("0.#")@if (d.LopOverride is not null) { <i class="bi bi-pencil-fill small text-muted ms-1" title="Overridden"></i> }</td>
+                    <td class="text-end">@M(d.Gross)</td><td class="text-end">@M(d.Deductions)</td><td class="text-end">@M(d.Tds)</td>
+                    <td class="text-end fw-semibold">@M(d.Net)</td>
+                    <td class="text-end text-nowrap">
+                        @if (editable)
+                        {
+                            <button class="btn btn-sm btn-soft" data-bs-toggle="modal" data-bs-target="#lopModal" data-set-detail="@d.Id" data-set-who="@d.Name" data-set-lop="@(d.LopOverride?.ToString("0.#") ?? d.LopDays.ToString("0.#"))">LOP</button>
+                            @if (d.OnHold)
+                            {
+                                <form method="post" action="/org/payroll/run/@run.Id/hold?detailId=@d.Id&hold=false" asp-antiforgery="true" class="d-inline"><button class="btn btn-sm btn-light border" type="submit">Release</button></form>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-light border" data-bs-toggle="modal" data-bs-target="#holdModal" data-set-detail="@d.Id" data-set-who="@d.Name">Hold</button>
+                            }
+                        }
+                    </td>
+                </tr>
+            }</tbody>
+        </table></div>
+    }
+</div>
+
+@if (editable)
+{
+    <div class="modal fade" id="lopModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" method="post" action="/org/payroll/run/@run.Id/lop" asp-antiforgery="true">
+        <div class="modal-header"><h5 class="modal-title">Loss of pay: <span data-bind="who"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body"><input type="hidden" name="detailId" data-bind="detail" />
+            <label class="form-label" for="lop">LOP days (blank = calculate from attendance and unpaid leave)</label>
+            <input id="lop" name="lopDays" type="number" step="0.5" min="0" max="31" class="form-control" data-bind="lop" />
+            <div class="form-text">The payroll is re-processed after saving.</div></div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-accent" type="submit">Save &amp; re-process</button></div>
+    </form></div></div>
+    <div class="modal fade" id="holdModal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" method="post" action="/org/payroll/run/@run.Id/hold?hold=true" asp-antiforgery="true">
+        <div class="modal-header"><h5 class="modal-title">Hold salary: <span data-bind="who"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body"><input type="hidden" name="detailId" data-bind="detail" />
+            <label class="form-label" for="hr">Reason</label><input id="hr" name="reason" class="form-control" required maxlength="300" /></div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-warning" type="submit">Hold</button></div>
+    </form></div></div>
+}

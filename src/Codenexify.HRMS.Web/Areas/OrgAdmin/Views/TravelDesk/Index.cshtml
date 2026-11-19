@@ -1,0 +1,29 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Strength.TravelRow>
+@using Codenexify.HRMS.Domain.Strength
+@{
+    ViewData["Title"] = "Travel desk";
+    var status = ViewBag.Status as TravelStatus?;
+}
+<div class="page-head"><div><h1>Travel desk</h1><div class="text-muted small">Book approved trips, track advances and close trips</div></div></div>
+<div class="card">
+    <div class="card-body border-bottom d-flex flex-wrap gap-1">
+        <a class="btn btn-sm @(status is null ? "btn-soft" : "btn-light border")" href="/org/travel">Open</a>
+        @foreach (var s in Enum.GetValues<TravelStatus>())
+        { <a class="btn btn-sm @(status == s ? "btn-soft" : "btn-light border")" href="/org/travel?status=@s">@s</a> }
+    </div>
+    @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-airplane"></i>No trips here.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+            <thead><tr><th>Trip</th><th>Traveller</th><th>Dates</th><th>Advance</th><th>Status</th></tr></thead>
+            <tbody>@foreach (var t in Model)
+            {
+                <tr><td><a class="fw-semibold" href="/org/travel/@t.Id">@t.FromCity → @t.ToCity</a><div class="small text-muted text-truncate" style="max-width:22rem">@t.Mode · @t.Purpose</div></td>
+                    <td class="small">@t.EmployeeName</td>
+                    <td class="small">@t.DepartOn.ToString("dd MMM")@(t.ReturnOn is { } r ? $" – {r:dd MMM}" : "")</td>
+                    <td class="small">@(t.AdvanceRequested is { } a ? $"₹{a:N0}" : "—")@(t.AdvancePaid is not null ? " · paid" : "")</td>
+                    <td><span class="badge-status st-@Codenexify.HRMS.Web.TravelCss.Of(t.Status)">@t.Status</span>@if (t.HasTicket) { <i class="bi bi-ticket-perforated ms-1 text-muted" title="Ticket attached"></i> }</td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>

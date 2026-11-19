@@ -1,0 +1,28 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Documents.LetterTemplateRow>
+@{
+    ViewData["Title"] = "Letter templates";
+}
+<div class="page-head"><div><h1>Letter templates</h1><div class="text-muted small">Reusable wording with placeholders filled from employee data</div></div>
+    <a class="btn btn-accent" href="/org/letters/templates/edit"><i class="bi bi-plus-lg me-1"></i>New template</a></div>
+<partial name="_LettersNav" />
+<div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1"></i>The starting templates use general wording. Review them with your legal or HR advisor so they match your policies and applicable law before issuing.</div>
+<div class="card">
+    @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-file-earmark-text"></i>No templates yet.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+            <thead><tr><th>Name</th><th>Type</th><th>Subject</th><th>Issued</th><th>Status</th><th></th></tr></thead>
+            <tbody>@foreach (var t in Model)
+            {
+                <tr><td class="fw-semibold">@t.Name</td><td class="small">@t.Kind</td><td class="small text-muted">@t.Subject</td><td class="small">@t.IssuedCount</td>
+                    <td>@if (t.IsActive) { <span class="badge-status st-Active">Active</span> } else { <span class="badge-status st-Inactive">Inactive</span> }</td>
+                    <td class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-soft" href="/org/letters/templates/edit/@t.Id">Edit</a>
+                        <form class="d-inline" method="post" action="/org/letters/templates/@t.Id/delete" asp-antiforgery="true" data-confirm="Delete the template “@t.Name”? Letters already issued are kept." data-confirm-danger="1">
+                            <button class="btn btn-sm btn-link text-danger" type="submit" aria-label="Delete @t.Name"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>

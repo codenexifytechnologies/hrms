@@ -1,0 +1,15 @@
+@model DepartmentInput
+@{
+    ViewData["Title"] = "Edit department";
+    var id = ViewBag.Id ?? Context.GetRouteValue("id");
+    var department = Model;
+}
+<div class="page-head"><div><h1>Edit department</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/org/structure#departments">Organization structure</a></li><li class="breadcrumb-item active">@Model.Name</li></ol></nav></div></div>
+<div class="card" style="max-width: 680px"><div class="card-body">
+    <form method="post" action="/org/structure/savedepartment/@id" asp-antiforgery="true" novalidate>
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+        <partial name="_DepartmentFields" for="@department" />
+        <div class="d-flex justify-content-end gap-2 mt-4"><a href="/org/structure#departments" class="btn btn-light border">Cancel</a><button class="btn btn-accent" type="submit">Save department</button></div>
+    </form>
+</div></div>

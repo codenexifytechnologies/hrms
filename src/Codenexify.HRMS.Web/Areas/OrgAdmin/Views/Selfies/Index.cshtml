@@ -1,0 +1,43 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Strength.SelfiePunchRow>
+@using Codenexify.HRMS.Domain.Time
+@{
+    ViewData["Title"] = "Clock-in photos";
+    var date = (DateOnly)ViewBag.Date;
+    var settings = (Codenexify.HRMS.Application.Strength.SelfieSettings)ViewBag.Settings;
+    var canManage = (bool)ViewBag.CanManage;
+}
+<div class="page-head"><div><h1>Clock-in photos</h1><div class="text-muted small">Selfie clock-in: a camera photo with each self-service punch, for HR spot checks</div></div>
+    <form method="get" action="/org/attendance/selfies"><label class="visually-hidden" for="sd">Date</label><input id="sd" type="date" name="date" value="@date.ToString("yyyy-MM-dd")" class="form-control" data-autosubmit /></form></div>
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card"><div class="card-header">Settings</div><div class="card-body">
+            <form method="post" action="/org/attendance/selfies/settings" asp-antiforgery="true">
+                <fieldset disabled="@(!canManage)">
+                    <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" id="sr" name="required" value="true" checked="@settings.Required" /><input type="hidden" name="required" value="false" />
+                        <label class="form-check-label" for="sr">Require a photo to clock in/out</label></div>
+                    <label class="form-label small" for="srd">Delete photos after (days)</label>
+                    <input id="srd" name="retentionDays" type="number" min="7" max="365" value="@settings.RetentionDays" class="form-control mb-2" />
+                    @if (canManage) { <button class="btn btn-accent btn-sm" type="submit">Save</button> }
+                </fieldset>
+            </form>
+            <p class="small text-muted mt-3 mb-0">Photos are compared by people, not by face recognition. They're private to HR users who can view attendance, and deleted automatically after the period above. Tell employees why photos are taken before switching this on.</p>
+        </div></div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card"><div class="card-header">@date.ToString("dddd, dd MMM yyyy") · @Model.Count photo(s)</div>
+            @if (Model.Count == 0) { <div class="empty-state"><i class="bi bi-camera"></i>No clock-in photos on this day.</div> }
+            else
+            {
+                <div class="card-body"><div class="row g-3">
+                    @foreach (var p in Model)
+                    {
+                        <div class="col-6 col-md-4 col-xl-3">
+                            <a href="/org/attendance/selfies/@p.PunchId" target="_blank" rel="noopener"><img src="/org/attendance/selfies/@p.PunchId" alt="Photo of @p.EmployeeName at @p.LocalTime.ToString("HH:mm")" class="img-fluid rounded border" loading="lazy" /></a>
+                            <div class="small mt-1"><span class="fw-semibold">@p.EmployeeName</span><div class="text-muted">@(p.Direction == PunchDirection.In ? "In" : "Out") @p.LocalTime.ToString("HH:mm") · @p.EmployeeCode</div></div>
+                        </div>
+                    }
+                </div></div>
+            }
+        </div>
+    </div>
+</div>

@@ -1,0 +1,48 @@
+@model TwoFactorSetupViewModel
+@{
+    ViewData["Title"] = "Security";
+}
+<div class="page-head"><div><h1>Security &amp; two-factor authentication</h1><div class="text-muted small">@ViewBag.Email</div></div>
+    <a href="/superadmin/account/changepassword" class="btn btn-light border"><i class="bi bi-key me-1"></i>Change password</a>
+</div>
+<div class="card" style="max-width: 720px">
+    <div class="card-header">Authenticator app (TOTP)
+        <span class="badge-status st-@Model.Enabled.ToString().ToLowerInvariant()">@(Model.Enabled ? "Enabled" : "Not enabled")</span>
+    </div>
+    <div class="card-body">
+        @if (Model.Enabled)
+        {
+            <p>Two-factor authentication protects your account. You will be asked for a code at every sign-in.</p>
+            <form method="post" action="/superadmin/account/disabletwofactor" asp-antiforgery="true" class="row g-2 align-items-end" data-confirm="Disable two-factor authentication for your account?" data-confirm-danger>
+                <div class="col-sm-7">
+                    <label class="form-label" for="pw">Confirm with your password</label>
+                    <input id="pw" name="password" type="password" class="form-control" required autocomplete="current-password" />
+                </div>
+                <div class="col-sm-5"><button class="btn btn-outline-danger w-100" type="submit">Disable 2FA</button></div>
+            </form>
+        }
+        else
+        {
+            <ol class="small mb-3">
+                <li>Open Google Authenticator, Microsoft Authenticator or any TOTP app.</li>
+                <li>Add an account using the setup key below (time-based, 6 digits).</li>
+                <li>Enter the code the app shows to finish.</li>
+            </ol>
+            <div class="mb-3">
+                <label class="form-label">Setup key</label>
+                <div class="input-group">
+                    <input class="form-control font-monospace" value="@Model.Secret" readonly id="secretKey" />
+                </div>
+                <div class="form-text text-break">Or use this URI in apps that accept it: <code>@Model.ProvisioningUri</code></div>
+            </div>
+            <form method="post" action="/superadmin/account/enabletwofactor" asp-antiforgery="true" class="row g-2 align-items-end">
+                <input type="hidden" name="secret" value="@Model.Secret" />
+                <div class="col-sm-7">
+                    <label class="form-label" for="code">Code from your app</label>
+                    <input id="code" name="code" class="form-control" inputmode="numeric" maxlength="7" required autocomplete="one-time-code" />
+                </div>
+                <div class="col-sm-5"><button class="btn btn-accent w-100" type="submit">Enable 2FA</button></div>
+            </form>
+        }
+    </div>
+</div>

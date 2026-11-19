@@ -1,0 +1,39 @@
+@model IReadOnlyList<Codenexify.HRMS.Application.Performance.SavedReportRow>
+@using Codenexify.HRMS.Domain.Performance
+@using Codenexify.HRMS.Web
+@{
+    ViewData["Title"] = "Report builder";
+    var payrollAllowed = User.HasPermission(Codenexify.HRMS.Application.Catalog.TenantPermissions.PayrollView);
+}
+<div class="page-head">
+    <div><h1>Report builder</h1><div class="text-muted small">Build your own reports from employee, leave, attendance and payroll data; save them, share them, export to Excel</div></div>
+    <a class="btn btn-accent" href="/org/report-builder/build"><i class="bi bi-plus-lg me-1"></i>New report</a>
+</div>
+<div class="row g-3 mb-3">
+    @foreach (var s in Enum.GetValues<ReportSource>())
+    {
+        if (s == ReportSource.Payroll && !payrollAllowed) { continue; }
+        <div class="col-sm-6 col-lg-3"><a class="card h-100 text-decoration-none" href="/org/report-builder/build?source=@s"><div class="card-body">
+            <div class="fw-semibold">@WorkflowUi.Label(s)</div><div class="small text-muted">Start a new report</div></div></a></div>
+    }
+</div>
+<div class="card">
+    <div class="card-header">Saved reports</div>
+    @if (Model.Count == 0)
+    {
+        <div class="empty-state"><i class="bi bi-table"></i>No saved reports yet. Build one, give it a name and save it to run it again later.</div>
+    }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover align-middle mb-0">
+            <thead><tr><th>Report</th><th>Data</th><th>Owner</th><th>Last run</th></tr></thead>
+            <tbody>@foreach (var r in Model)
+            {
+                <tr><td><a class="fw-semibold" href="/org/report-builder/build?id=@r.Id">@r.Name</a>@if (r.IsShared) { <span class="badge text-bg-light border ms-2">Shared</span> }</td>
+                    <td class="small">@WorkflowUi.Label(r.Source)</td>
+                    <td class="small">@(r.IsMine ? "You" : r.OwnerName)</td>
+                    <td class="small text-muted">@(r.LastRunAtUtc?.ToLocalTime().ToString("dd MMM yyyy, HH:mm") ?? "Never")</td></tr>
+            }</tbody>
+        </table></div>
+    }
+</div>

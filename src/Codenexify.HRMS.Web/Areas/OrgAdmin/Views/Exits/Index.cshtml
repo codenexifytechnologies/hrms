@@ -1,0 +1,33 @@
+@model PagedResult<ExitRow>
+@{
+    ViewData["Title"] = "Exits";
+    var status = ViewBag.Status as ExitStatus?;
+}
+<div class="page-head">
+    <div><h1>Exits &amp; resignations</h1><div class="text-muted small">Initiate an exit from an employee's profile; employees can resign from their home page.</div></div>
+</div>
+<div class="filter-chips mb-3">
+    <a class="chip @(status is null ? "active" : "")" href="/org/exits">All</a>
+    @foreach (var s in Enum.GetValues<ExitStatus>()) { <a class="chip @(status == s ? "active" : "")" href="/org/exits?status=@s">@s</a> }
+</div>
+<div class="card">
+    @if (Model.Items.Count == 0) { <div class="empty-state"><i class="bi bi-door-open"></i>No exit requests.</div> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover">
+            <thead><tr><th>Employee</th><th>Type</th><th>Requested</th><th>Last working day</th><th>Checklist</th><th>Status</th></tr></thead>
+            <tbody>@foreach (var x in Model.Items)
+            {
+                <tr>
+                    <td><a href="/org/exits/details/@x.Id" class="fw-semibold">@x.EmployeeName</a><div class="small text-muted">@x.EmployeeCode · @(x.Department ?? "—")</div></td>
+                    <td class="small">@x.Type@(x.ByEmployee ? " (self)" : "")</td>
+                    <td class="small">@x.RequestedOn.ToString("dd MMM yyyy")</td>
+                    <td class="small">@x.LastWorkingDay.ToString("dd MMM yyyy")</td>
+                    <td class="small">@(x.ChecklistTotal == 0 ? "—" : $"{x.ChecklistDone}/{x.ChecklistTotal}")</td>
+                    <td><span class="badge-status st-@(x.Status switch { ExitStatus.Pending => "PendingVerification", ExitStatus.Approved => "Trial", ExitStatus.Completed => "Inactive", _ => "Cancelled" })">@x.Status</span></td>
+                </tr>
+            }</tbody>
+        </table></div>
+    }
+    <partial name="_Pager" model="Model.ToPager()" />
+</div>

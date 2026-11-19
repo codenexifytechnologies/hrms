@@ -1,0 +1,125 @@
+@model Codenexify.HRMS.Application.Engagement.PostView
+@using Codenexify.HRMS.Domain.Engagement
+@{
+    var p = Model;
+    var returnUrl = ViewData["ReturnUrl"] as string ?? "";
+    string Initials(string n) => string.Concat(n.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(s => s[0]));
+    string Ago(DateTime utc)
+    {
+        var d = DateTime.UtcNow - utc;
+        return d.TotalMinutes < 1 ? "just now" : d.TotalHours < 1 ? $"{(int)d.TotalMinutes} min ago" : d.TotalDays < 1 ? $"{(int)d.TotalHours} h ago" : utc.ToLocalTime().ToString("dd MMM yyyy");
+    }
+    var (kindLabel, kindIcon) = p.Kind switch
+    {
+        PostKind.Announcement => ("Announcement", "bi-megaphone"),
+        PostKind.Praise => ("Praise", "bi-award"),
+        PostKind.Poll => ("Poll", "bi-bar-chart"),
+        _ => ("", "")
+    };
+}
+<article class="card mb-3 wall-post @(p.Kind == PostKind.Announcement ? "is-announcement" : "") @(p.Kind == PostKind.Praise ? "is-praise" : "")" id="post-@p.Id">
+    <div class="card-body">
+        <div class="d-flex align-items-start gap-2 mb-2">
+            <span class="avatar">@Initials(p.AuthorName)</span>
+            <div class="flex-grow-1 lh-sm">
+                <div class="fw-semibold">@p.AuthorName
+                    @if (kindLabel.Length > 0) { <span class="chip ms-1"><i class="bi @kindIcon"></i>@kindLabel</span> }
+                    @if (p.IsPinned) { <span class="chip ms-1"><i class="bi bi-pin-angle-fill text-danger"></i>Pinned</span> }
+                </div>
+                <a class="small text-muted text-decoration-none" href="/me/wall/post/@p.Id">@Ago(p.CreatedAtUtc)</a>
+            </div>
+            @if (p.CanDelete || p.CanPin)
+            {
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-link text-muted" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Post options"><i class="bi bi-three-dots"></i></button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        @if (p.CanPin)
+                        {
+                            <li><form method="post" action="/me/wall/@p.Id/pin?pinned=@(!p.IsPinned)" asp-antiforgery="true"><button class="dropdown-item" type="submit"><i class="bi bi-pin-angle me-2"></i>@(p.IsPinned ? "Unpin" : "Pin to top")</button></form></li>
+                        }
+                        @if (p.CanDelete)
+                        {
+                            <li><form method="post" action="/me/wall/@p.Id/delete" asp-antiforgery="true" data-confirm="Remove this post?" data-confirm-danger="1"><button class="dropdown-item text-danger" type="submit"><i class="bi bi-trash me-2"></i>Remove</button></form></li>
+                        }
+                    </ul>
+                </div>
+            }
+        </div>
+
+        @if (p.Kind == PostKind.Praise)
+        {
+            <div class="praise-banner mb-2"><i class="bi bi-award-fill me-1"></i><strong>@p.Badge</strong> · @string.Join(", ", p.Recipients.Select(r => r.Name))</div>
+        }
+        @if (p.Title is not null) { <h2 class="h5 mb-1">@p.Title</h2> }
+        <div class="wall-body">@p.Body</div>
+
+        @if (p.Poll is { } poll)
+        {
+            <div class="mt-3">
+                @if (poll.MyOptionId is null && !poll.Closed)
+                {
+                    <form method="post" action="/me/wall/@p.Id/vote" asp-antiforgery="true">
+                        <input type="hidden" name="returnUrl" value="@returnUrl" />
+                        @foreach (var o in poll.Options)
+                        {
+                            <div class="form-check"><input class="form-check-input" type="radio" name="optionId" id="o-@o.Id" value="@o.Id" required /><label class="form-check-label" for="o-@o.Id">@o.Text</label></div>
+                        }
+                        <button class="btn btn-sm btn-accent mt-2" type="submit">Vote</button>
+                        <span class="small text-muted ms-2">Results appear after you vote · closes @poll.ClosesAtUtc?.ToLocalTime().ToString("dd MMM, HH:mm")</span>
+                    </form>
+                }
+                else
+                {
+                    @foreach (var o in poll.Options)
+                    {
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between small"><span>@o.Text @if (o.Id == poll.MyOptionId) { <i class="bi bi-check-circle-fill text-success" title="Your vote"></i> }</span><span class="text-muted">@(poll.ResultsVisible ? $"{o.Percent}% · {o.Votes}" : "")</span></div>
+                            <div class="progress" style="height:8px"><div class="progress-bar" style="width:@(o.Percent)%"></div></div>
+                        </div>
+                    }
+                    <div class="small text-muted">@poll.TotalVotes vote(s) · @(poll.Closed ? "closed" : $"closes {poll.ClosesAtUtc?.ToLocalTime():dd MMM, HH:mm}") · votes are anonymous</div>
+                }
+            </div>
+        }
+
+        <div class="d-flex align-items-center gap-3 mt-3 pt-2 border-top small">
+            <form method="post" action="/me/wall/@p.Id/like" asp-antiforgery="true">
+                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                <button class="btn btn-sm @(p.LikedByMe ? "btn-accent" : "btn-light border")" type="submit" aria-pressed="@(p.LikedByMe ? "true" : "false")">
+                    <i class="bi @(p.LikedByMe ? "bi-hand-thumbs-up-fill" : "bi-hand-thumbs-up")"></i> @(p.LikeCount > 0 ? p.LikeCount.ToString() : "Like")
+                </button>
+            </form>
+            <a class="text-muted text-decoration-none" href="/me/wall/post/@p.Id"><i class="bi bi-chat"></i> @p.CommentCount comment(s)</a>
+        </div>
+
+        @if (p.Comments.Count > 0)
+        {
+            <div class="mt-2">
+                @if (p.CommentCount > p.Comments.Count) { <a class="small" href="/me/wall/post/@p.Id">View all @p.CommentCount comments</a> }
+                @foreach (var c in p.Comments)
+                {
+                    <div class="wall-comment d-flex gap-2 mt-2">
+                        <span class="avatar avatar-sm">@Initials(c.AuthorName)</span>
+                        <div class="flex-grow-1"><span class="fw-semibold small">@c.AuthorName</span> <span class="text-muted small">@Ago(c.CreatedAtUtc)</span><div class="wall-body small">@c.Body</div></div>
+                        @if (c.CanDelete)
+                        {
+                            <form method="post" action="/me/wall/comment/@c.Id/delete?postId=@p.Id" asp-antiforgery="true" data-confirm="Delete this comment?">
+                                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                                <button class="btn btn-sm btn-link text-muted p-0" type="submit" aria-label="Delete comment"><i class="bi bi-x-lg"></i></button>
+                            </form>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        @if (p.CommentsEnabled)
+        {
+            <form method="post" action="/me/wall/@p.Id/comment" asp-antiforgery="true" class="d-flex gap-2 mt-2">
+                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                <label class="visually-hidden" for="c-@p.Id">Write a comment</label>
+                <input id="c-@p.Id" name="body" maxlength="1000" class="form-control form-control-sm" placeholder="Write a comment…" required />
+                <button class="btn btn-sm btn-soft" type="submit">Reply</button>
+            </form>
+        }
+    </div>
+</article>

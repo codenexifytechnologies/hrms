@@ -1,0 +1,59 @@
+@model Codenexify.HRMS.Application.Common.PagedResult<Codenexify.HRMS.Application.Engagement.DirectoryRow>
+@using Codenexify.HRMS.Application.Engagement
+@{
+    ViewData["Title"] = "People";
+    var departments = (IReadOnlyList<Codenexify.HRMS.Application.CoreHr.LookupItem>)ViewBag.Departments;
+    var celebrations = (IReadOnlyList<Celebration>)ViewBag.Celebrations;
+    var deptId = ViewBag.DepartmentId as int?;
+    string Initials(string n) => string.Concat(n.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(s => s[0]));
+}
+<div class="page-head"><div><h1>People</h1><div class="text-muted small">Find colleagues and celebrate their milestones</div></div></div>
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body border-bottom">
+                <form method="get" action="/me/people" class="row g-2 align-items-end">
+                    <div class="col-md-6"><label class="form-label small" for="ps">Search</label><input id="ps" name="search" value="@ViewBag.Search" class="form-control" placeholder="Name, email, designation or department" /></div>
+                    <div class="col-md-4"><label class="form-label small" for="pd">Department</label>
+                        <select id="pd" name="departmentId" class="form-select"><option value="">All</option>@foreach (var d in departments) { <option value="@d.Id" selected="@(d.Id == deptId)">@d.Name</option> }</select></div>
+                    <div class="col-md-2"><button class="btn btn-soft w-100" type="submit">Search</button></div>
+                </form>
+            </div>
+            @if (Model.Items.Count == 0) { <div class="empty-state"><i class="bi bi-people"></i>No one matches.</div> }
+            else
+            {
+                <ul class="list-group list-group-flush">
+                    @foreach (var p in Model.Items)
+                    {
+                        <li class="list-group-item bg-transparent d-flex align-items-center gap-3">
+                            <span class="avatar">@Initials(p.Name)</span>
+                            <div class="flex-grow-1 lh-sm">
+                                <div class="fw-semibold">@p.Name</div>
+                                <div class="small text-muted">@(p.Designation ?? "—")@(p.Department is null ? "" : $" · {p.Department}")@(p.Branch is null ? "" : $" · {p.Branch}")</div>
+                                @if (p.Manager is not null) { <div class="small text-muted">Reports to @p.Manager</div> }
+                            </div>
+                            <a class="small text-nowrap" href="mailto:@p.WorkEmail"><i class="bi bi-envelope me-1"></i>@p.WorkEmail</a>
+                        </li>
+                    }
+                </ul>
+            }
+            <partial name="_Pager" model="Model.ToPager()" />
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card"><div class="card-header">Celebrations <span class="small text-muted fw-normal">next 30 days</span></div>
+            <div class="card-body py-2">
+                @if (celebrations.Count == 0) { <div class="text-muted small py-2">No birthdays or work anniversaries coming up.</div> }
+                @foreach (var c in celebrations)
+                {
+                    <div class="celebration">
+                        <i class="bi @(c.Kind == CelebrationKind.Birthday ? "bi-cake2 text-danger" : "bi-stars text-warning")"></i>
+                        <div class="lh-sm flex-grow-1"><div class="fw-semibold small">@c.Name</div>
+                            <div class="small text-muted">@(c.Kind == CelebrationKind.Birthday ? "Birthday" : $"{c.Years} year{(c.Years == 1 ? "" : "s")} with us")</div></div>
+                        <span class="small @(c.IsToday ? "badge text-bg-success" : "text-muted")">@(c.IsToday ? "Today" : c.Date.ToString("dd MMM"))</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

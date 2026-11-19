@@ -1,0 +1,84 @@
+@model Codenexify.HRMS.Application.Organizations.OrganizationEditInput
+<div class="form-section-title mt-0">Company</div>
+<div class="row g-3">
+    <div class="col-md-6">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name"></span>
+    </div>
+    <div class="col-md-6">
+        <label asp-for="LegalName" class="form-label"></label>
+        <input asp-for="LegalName" class="form-control" />
+        <span asp-validation-for="LegalName"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Email" class="form-label"></label>
+        <input asp-for="Email" class="form-control" />
+        <span asp-validation-for="Email"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Phone" class="form-label"></label>
+        <input asp-for="Phone" class="form-control" />
+        <span asp-validation-for="Phone"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Website" class="form-label"></label>
+        <input asp-for="Website" class="form-control" placeholder="https://" />
+        <span asp-validation-for="Website"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Gstin" class="form-label"></label>
+        <input asp-for="Gstin" class="form-control text-uppercase" />
+        <span asp-validation-for="Gstin"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Pan" class="form-label"></label>
+        <input asp-for="Pan" class="form-control text-uppercase" />
+        <span asp-validation-for="Pan"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Industry" class="form-label"></label>
+        <input asp-for="Industry" class="form-control" />
+    </div>
+</div>
+<div class="form-section-title">Address</div>
+<div class="row g-3">
+    <div class="col-12">
+        <label asp-for="AddressLine" class="form-label"></label>
+        <input asp-for="AddressLine" class="form-control" />
+    </div>
+    <div class="col-md-3">
+        <label asp-for="City" class="form-label"></label>
+        <input asp-for="City" class="form-control" />
+    </div>
+    <div class="col-md-3">
+        <label asp-for="State" class="form-label"></label>
+        <input asp-for="State" class="form-control" />
+    </div>
+    <div class="col-md-3">
+        <label asp-for="Country" class="form-label"></label>
+        <input asp-for="Country" class="form-control" />
+        <span asp-validation-for="Country"></span>
+    </div>
+    <div class="col-md-3">
+        <label asp-for="PostalCode" class="form-label"></label>
+        <input asp-for="PostalCode" class="form-control" />
+    </div>
+</div>
+<div class="form-section-title">Preferences &amp; branding</div>
+<div class="row g-3">
+    <div class="col-md-6">
+        <label asp-for="TimeZone" class="form-label"></label>
+        <select asp-for="TimeZone" class="form-select">
+            @foreach (var tz in TimeZoneInfo.GetSystemTimeZones())
+            {
+                <option value="@tz.Id" selected="@(tz.Id == Model.TimeZone)">@tz.DisplayName</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-3">
+        <label asp-for="BrandColor" class="form-label"></label>
+        <input asp-for="BrandColor" type="color" class="form-control form-control-color w-100" />
+        <span asp-validation-for="BrandColor"></span>
+    </div>
+</div>

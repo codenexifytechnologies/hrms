@@ -1,0 +1,107 @@
+@model IReadOnlyList<Codenexify.HRMS.Domain.Payroll.StatutoryRateSet>
+@using Codenexify.HRMS.Domain.Payroll
+@{
+    ViewData["Title"] = "Statutory rules";
+    var pt = (IReadOnlyList<ProfessionalTaxSlab>)ViewBag.Pt;
+    var lwf = (IReadOnlyList<LabourWelfareFundRule>)ViewBag.Lwf;
+    var tax = (IReadOnlyList<IncomeTaxRule>)ViewBag.Tax;
+    var unverified = Model.Any(r => !r.IsVerified) || tax.Any(t => !t.IsVerified);
+}
+<div class="page-head">
+    <div><h1>Statutory rules</h1><div class="text-muted small">PF, ESI, gratuity, professional tax, LWF and income tax — used by every organization's payroll</div></div>
+</div>
+@if (unverified)
+{
+    <div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1"></i>Some rules are <strong>not verified</strong>. They are starting values; check them against the current notifications and Finance Act, then mark them verified. Payroll shows a warning while they are unverified.</div>
+}
+<ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#rates" type="button">PF / ESI / Gratuity</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pt" type="button">Professional tax</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#lwf" type="button">Labour welfare fund</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tax" type="button">Income tax</button></li>
+</ul>
+<div class="tab-content">
+    <div class="tab-pane fade show active" id="rates">
+        <div class="card"><div class="card-header">Rate sets (latest effective date wins) <a class="btn btn-sm btn-accent" href="/superadmin/statutory/rates"><i class="bi bi-plus-lg me-1"></i>New rate set</a></div>
+            <div class="table-responsive"><table class="table table-hover small">
+                <thead><tr><th>Effective from</th><th>PF EE/ER/EPS</th><th>PF ceiling</th><th>EDLI / admin</th><th>ESI EE/ER</th><th>ESI limit</th><th>Gratuity</th><th>Status</th><th></th></tr></thead>
+                <tbody>@foreach (var r in Model)
+                {
+                    <tr><td class="fw-semibold">@r.EffectiveFrom.ToString("dd MMM yyyy")</td>
+                        <td>@r.PfEmployeeRate.ToString("0.##")% / @r.PfEmployerRate.ToString("0.##")% / @r.EpsRate.ToString("0.##")%</td>
+                        <td>₹@r.PfWageCeiling.ToString("N0")</td><td>@r.EdliRate.ToString("0.##")% / @r.PfAdminChargesRate.ToString("0.##")%</td>
+                        <td>@r.EsiEmployeeRate.ToString("0.##")% / @r.EsiEmployerRate.ToString("0.##")%</td><td>₹@r.EsiWageLimit.ToString("N0")</td>
+                        <td>@r.GratuityMinServiceYears.ToString("0.#")y min · @r.GratuityDaysPerYear.ToString("0.#")/@r.GratuityWageDivisor.ToString("0.#") · cap ₹@r.GratuityCeiling.ToString("N0")</td>
+                        <td>@if (r.IsVerified) { <span class="badge-status st-Active">Verified</span> } else { <span class="badge-status st-PastDue">Unverified</span> }</td>
+                        <td class="text-end"><a class="btn btn-sm btn-soft" href="/superadmin/statutory/rates/@r.Id">Edit</a></td></tr>
+                }</tbody>
+            </table></div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="pt">
+        <div class="card mb-3"><div class="card-header">Professional tax slabs (monthly gross)</div>
+            <div class="table-responsive"><table class="table table-sm small">
+                <thead><tr><th>State</th><th>From</th><th>Gender</th><th>Gross from</th><th>Gross to</th><th>Monthly</th><th>Special month</th><th></th></tr></thead>
+                <tbody>@foreach (var s in pt)
+                {
+                    <tr><td>@s.State</td><td>@s.EffectiveFrom.ToString("dd MMM yyyy")</td><td>@(s.Gender?.ToString() ?? "All")</td><td>₹@s.MinMonthlyGross.ToString("N2")</td><td>@(s.MaxMonthlyGross is { } m ? "₹" + m.ToString("N2") : "and above")</td>
+                        <td>₹@s.MonthlyAmount.ToString("N0")</td><td>@(s.SpecialMonth is { } sm ? $"Month {sm}: ₹{s.SpecialMonthAmount:N0}" : "—")</td>
+                        <td class="text-end"><form method="post" action="/superadmin/statutory/delete?kind=pt&id=@s.Id" asp-antiforgery="true" data-confirm="Delete this slab?" data-confirm-danger="1"><button class="btn btn-sm btn-link text-danger" type="submit" title="Delete"><i class="bi bi-trash"></i></button></form></td></tr>
+                }</tbody>
+            </table></div>
+        </div>
+        <div class="card"><div class="card-header">Add slab</div><div class="card-body">
+            <form method="post" action="/superadmin/statutory/addpt" asp-antiforgery="true" class="row g-2 align-items-end">
+                <div class="col-md-2"><label class="form-label" for="ps">State</label><input id="ps" name="State" class="form-control" required /></div>
+                <div class="col-md-2"><label class="form-label" for="pe">Effective from</label><input id="pe" name="EffectiveFrom" type="date" class="form-control" required /></div>
+                <div class="col-md-1"><label class="form-label" for="pg">Gender</label><select id="pg" name="Gender" class="form-select"><option value="">All</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+                <div class="col-md-1"><label class="form-label" for="pmin">From ₹</label><input id="pmin" name="MinMonthlyGross" type="number" step="0.01" class="form-control" required /></div>
+                <div class="col-md-1"><label class="form-label" for="pmax">To ₹</label><input id="pmax" name="MaxMonthlyGross" type="number" step="0.01" class="form-control" /></div>
+                <div class="col-md-1"><label class="form-label" for="pa">Amount</label><input id="pa" name="MonthlyAmount" type="number" step="1" class="form-control" required /></div>
+                <div class="col-md-1"><label class="form-label" for="psm">Spl. month</label><input id="psm" name="SpecialMonth" type="number" min="1" max="12" class="form-control" /></div>
+                <div class="col-md-1"><label class="form-label" for="psa">Spl. amount</label><input id="psa" name="SpecialMonthAmount" type="number" class="form-control" /></div>
+                <div class="col-md-2"><button class="btn btn-accent w-100" type="submit">Add slab</button></div>
+            </form>
+        </div></div>
+    </div>
+
+    <div class="tab-pane fade" id="lwf">
+        <div class="card mb-3"><div class="card-header">Labour welfare fund</div>
+            <div class="table-responsive"><table class="table table-sm small">
+                <thead><tr><th>State</th><th>From</th><th>Employee</th><th>Employer</th><th>Months</th><th></th></tr></thead>
+                <tbody>@foreach (var r in lwf)
+                {
+                    <tr><td>@r.State</td><td>@r.EffectiveFrom.ToString("dd MMM yyyy")</td><td>₹@r.EmployeeAmount.ToString("N0")</td><td>₹@r.EmployerAmount.ToString("N0")</td><td>@r.Months</td>
+                        <td class="text-end"><form method="post" action="/superadmin/statutory/delete?kind=lwf&id=@r.Id" asp-antiforgery="true" data-confirm="Delete this rule?" data-confirm-danger="1"><button class="btn btn-sm btn-link text-danger" type="submit" title="Delete"><i class="bi bi-trash"></i></button></form></td></tr>
+                }</tbody>
+            </table></div>
+        </div>
+        <div class="card"><div class="card-header">Add rule</div><div class="card-body">
+            <form method="post" action="/superadmin/statutory/addlwf" asp-antiforgery="true" class="row g-2 align-items-end">
+                <div class="col-md-3"><label class="form-label" for="ls">State</label><input id="ls" name="State" class="form-control" required /></div>
+                <div class="col-md-2"><label class="form-label" for="le">Effective from</label><input id="le" name="EffectiveFrom" type="date" class="form-control" required /></div>
+                <div class="col-md-2"><label class="form-label" for="lee">Employee ₹</label><input id="lee" name="EmployeeAmount" type="number" class="form-control" required /></div>
+                <div class="col-md-2"><label class="form-label" for="ler">Employer ₹</label><input id="ler" name="EmployerAmount" type="number" class="form-control" required /></div>
+                <div class="col-md-1"><label class="form-label" for="lm">Months</label><input id="lm" name="Months" class="form-control" value="6,12" required /></div>
+                <div class="col-md-2"><button class="btn btn-accent w-100" type="submit">Add rule</button></div>
+            </form>
+        </div></div>
+    </div>
+
+    <div class="tab-pane fade" id="tax">
+        <div class="card"><div class="card-header">Income-tax rules by financial year and regime <a class="btn btn-sm btn-accent" href="/superadmin/statutory/tax"><i class="bi bi-plus-lg me-1"></i>Add year / regime</a></div>
+            <div class="table-responsive"><table class="table table-hover small">
+                <thead><tr><th>FY</th><th>Regime</th><th>Slabs</th><th>Std. deduction</th><th>87A rebate</th><th>Cess</th><th>Status</th><th></th></tr></thead>
+                <tbody>@foreach (var t in tax)
+                {
+                    <tr><td class="fw-semibold">@t.FinancialYear-@((t.FinancialYear + 1) % 100)</td><td>@t.Regime</td>
+                        <td>@string.Join(" · ", t.Slabs.OrderBy(s => s.FromIncome).Select(s => $"{s.FromIncome / 100000:0.##}L+ {s.Rate:0.##}%"))</td>
+                        <td>₹@t.StandardDeduction.ToString("N0")</td><td>≤ ₹@t.RebateIncomeLimit.ToString("N0") (max ₹@t.RebateMaxAmount.ToString("N0"))</td><td>@t.CessRate.ToString("0.##")%</td>
+                        <td>@if (t.IsVerified) { <span class="badge-status st-Active">Verified</span> } else { <span class="badge-status st-PastDue">Unverified</span> }</td>
+                        <td class="text-end"><a class="btn btn-sm btn-soft" href="/superadmin/statutory/tax/@t.Id">Edit</a></td></tr>
+                }</tbody>
+            </table></div>
+        </div>
+    </div>
+</div>

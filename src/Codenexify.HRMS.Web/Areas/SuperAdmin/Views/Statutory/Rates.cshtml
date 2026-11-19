@@ -1,0 +1,34 @@
+@model RateSetInput
+@using Codenexify.HRMS.Application.Payroll
+@{
+    var id = ViewBag.Id as int?;
+    ViewData["Title"] = id is null ? "New rate set" : "Edit rate set";
+}
+<div class="page-head"><div><h1>@ViewData["Title"]</h1>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/superadmin/statutory">Statutory rules</a></li><li class="breadcrumb-item active">Rate set</li></ol></nav></div></div>
+<div class="card" style="max-width: 900px"><div class="card-body">
+    @if (id is null) { <p class="small text-muted">Pre-filled from the latest rate set. A new effective date keeps history: earlier payroll months keep using the older set.</p> }
+    <form method="post" action="/superadmin/statutory/rates/@id" asp-antiforgery="true" class="row g-3" novalidate>
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small col-12"></div>
+        <div class="col-md-4"><label asp-for="EffectiveFrom" class="form-label"></label><input asp-for="EffectiveFrom" type="date" class="form-control" /></div>
+        <div class="form-section-title col-12 mb-0">Provident Fund</div>
+        <div class="col-md-2"><label asp-for="PfEmployeeRate" class="form-label"></label><input asp-for="PfEmployeeRate" class="form-control" step="0.01" /><span asp-validation-for="PfEmployeeRate"></span></div>
+        <div class="col-md-2"><label asp-for="PfEmployerRate" class="form-label"></label><input asp-for="PfEmployerRate" class="form-control" step="0.01" /></div>
+        <div class="col-md-2"><label asp-for="EpsRate" class="form-label"></label><input asp-for="EpsRate" class="form-control" step="0.01" /></div>
+        <div class="col-md-2"><label asp-for="PfWageCeiling" class="form-label"></label><input asp-for="PfWageCeiling" class="form-control" /></div>
+        <div class="col-md-2"><label asp-for="EdliRate" class="form-label"></label><input asp-for="EdliRate" class="form-control" step="0.01" /></div>
+        <div class="col-md-2"><label asp-for="PfAdminChargesRate" class="form-label"></label><input asp-for="PfAdminChargesRate" class="form-control" step="0.01" /></div>
+        <div class="form-section-title col-12 mb-0">ESI</div>
+        <div class="col-md-3"><label asp-for="EsiEmployeeRate" class="form-label"></label><input asp-for="EsiEmployeeRate" class="form-control" step="0.01" /></div>
+        <div class="col-md-3"><label asp-for="EsiEmployerRate" class="form-label"></label><input asp-for="EsiEmployerRate" class="form-control" step="0.01" /></div>
+        <div class="col-md-3"><label asp-for="EsiWageLimit" class="form-label"></label><input asp-for="EsiWageLimit" class="form-control" /></div>
+        <div class="form-section-title col-12 mb-0">Gratuity</div>
+        <div class="col-md-3"><label asp-for="GratuityMinServiceYears" class="form-label"></label><input asp-for="GratuityMinServiceYears" class="form-control" step="0.1" /></div>
+        <div class="col-md-3"><label asp-for="GratuityDaysPerYear" class="form-label"></label><input asp-for="GratuityDaysPerYear" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="GratuityWageDivisor" class="form-label"></label><input asp-for="GratuityWageDivisor" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="GratuityCeiling" class="form-label"></label><input asp-for="GratuityCeiling" class="form-control" /></div>
+        <div class="col-12"><label asp-for="Notes" class="form-label"></label><textarea asp-for="Notes" class="form-control" rows="2" placeholder="Source notification / circular reference"></textarea></div>
+        <div class="col-12"><div class="form-check form-switch"><input asp-for="IsVerified" class="form-check-input" /><label asp-for="IsVerified" class="form-check-label"></label></div></div>
+        <div class="col-12 d-flex justify-content-end gap-2"><a href="/superadmin/statutory" class="btn btn-light border">Cancel</a><button class="btn btn-accent" type="submit">Save rate set</button></div>
+    </form>
+</div></div>

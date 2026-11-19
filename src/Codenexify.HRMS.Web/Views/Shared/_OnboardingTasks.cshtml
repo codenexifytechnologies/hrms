@@ -1,0 +1,44 @@
+@model Codenexify.HRMS.Application.Strength.OnboardingPlanView
+@using Codenexify.HRMS.Domain.Strength
+@{
+    // ViewData["CompleteUrl"]: action prefix for completing (".../tasks/{id}/complete"); ViewData["Hr"]: show reopen buttons.
+    var basePath = (string)ViewData["BasePath"]!;
+    var hr = ViewData["Hr"] as bool? ?? false;
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    string Who(OnboardingAssignee a) => a switch
+    {
+        OnboardingAssignee.Hr => "HR", OnboardingAssignee.Manager => Model.Manager is null ? "Manager (none set)" : $"Manager · {Model.Manager}",
+        OnboardingAssignee.Buddy => $"Buddy · {Model.Buddy}", _ => $"{Model.EmployeeName}"
+    };
+}
+<ul class="list-group list-group-flush">
+    @foreach (var t in Model.Tasks)
+    {
+        var overdue = t.CompletedAtUtc is null && t.DueOn < today && Model.Status == OnboardingStatus.InProgress;
+        <li class="list-group-item bg-transparent">
+            <div class="d-flex flex-wrap gap-2 justify-content-between align-items-start">
+                <div>
+                    <div class="@(t.CompletedAtUtc is null ? "fw-semibold" : "text-decoration-line-through text-muted")">
+                        @if (t.CompletedAtUtc is not null) { <i class="bi bi-check-circle-fill text-success me-1"></i> } @t.Title</div>
+                    @if (t.Description is not null) { <div class="small text-muted">@t.Description</div> }
+                    <div class="small @(overdue ? "text-danger" : "text-muted")">@Who(t.Assignee) · due @t.DueOn.ToString("dd MMM yyyy")@(overdue ? " · overdue" : "")
+                        @if (t.CompletedAtUtc is { } done) { <span> · done @done.ToLocalTime().ToString("dd MMM") by @t.CompletedBy@(t.Note is null ? "" : $": {t.Note}")</span> }</div>
+                </div>
+                @if (t.CanComplete)
+                {
+                    <form method="post" action="@basePath/tasks/@t.Id/complete" asp-antiforgery="true" class="d-flex gap-1">
+                        <input type="hidden" name="planId" value="@Model.Id" /><input type="hidden" name="returnUrl" value="@Context.Request.Path" />
+                        <label class="visually-hidden" for="n@(t.Id)">Note</label>
+                        <input id="n@(t.Id)" name="note" maxlength="500" class="form-control form-control-sm" placeholder="Note (optional)" />
+                        <button class="btn btn-sm btn-accent text-nowrap" type="submit">Mark done</button>
+                    </form>
+                }
+                else if (hr && t.CompletedAtUtc is not null && Model.Status != OnboardingStatus.Cancelled)
+                {
+                    <form method="post" action="@basePath/tasks/@t.Id/reopen" asp-antiforgery="true"><input type="hidden" name="planId" value="@Model.Id" />
+                        <button class="btn btn-sm btn-link" type="submit">Reopen</button></form>
+                }
+            </div>
+        </li>
+    }
+</ul>
